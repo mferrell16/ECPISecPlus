@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Directory Traversal Simulator — Security+ Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #0a0810;
+    --surface:    #0f0c18;
+    --panel:      #141020;
+    --border:     #241a38;
+    --red:        #ff3e3e;
+    --red-dim:    #cc2222;
+    --green:      #00d68f;
+    --green-dim:  #009960;
+    --amber:      #ffaa00;
+    --amber-dim:  #c07800;
+    --blue:       #4da6ff;
+    --cyan:       #00e5ff;
+    --orange:     #ff7b2e;
+    --orange-dim: #c05010;
+    --muted:      #3d2860;
+    --text:       #d0c4e8;
+    --text-dim:   #6a5888;
+    --mono:       'Share Tech Mono', monospace;
+    --ui:         'Rajdhani', sans-serif;
+    --body:       'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .threat-badge {
+    background: var(--orange);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 8px;
+    letter-spacing: 2px;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  }
+
+  header h1 {
+    font-family: var(--ui);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+
+  header h1 span { color: var(--orange); }
+  .course-tag {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+  }
+
+  /* ── PROGRESS ── */
+  .progress-bar { height: 3px; background: var(--border); }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange-dim), var(--orange));
+    transition: width 0.4s ease;
+    width: 25%;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 28px 32px 60px; }
+
+  /* ── PHASE NAV ── */
+  .phase-nav {
+    display: flex; gap: 0; margin-bottom: 32px;
+    border: 1px solid var(--border); overflow: hidden;
+  }
+
+  .phase-btn {
+    flex: 1; background: var(--surface); border: none;
+    border-right: 1px solid var(--border); color: var(--text-dim);
+    font-family: var(--ui); font-size: 13px; font-weight: 600;
+    letter-spacing: 0.5px; padding: 12px 8px; cursor: pointer;
+    transition: all 0.2s; display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+  }
+  .phase-btn:last-child { border-right: none; }
+  .phase-btn .num { font-family: var(--mono); font-size: 18px; color: var(--border); transition: color 0.2s; }
+  .phase-btn:hover { background: var(--panel); color: var(--text); }
+  .phase-btn:hover .num { color: var(--muted); }
+  .phase-btn.active { background: var(--panel); color: var(--orange); border-bottom: 2px solid var(--orange); }
+  .phase-btn.active .num { color: var(--orange); }
+  .phase-btn.done { color: var(--green-dim); }
+  .phase-btn.done .num { color: var(--green-dim); }
+
+  /* ── PHASE PANELS ── */
+  .phase { display: none; }
+  .phase.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .phase.single { display: block; }
+  .full { grid-column: 1 / -1; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 24px; position: relative;
+  }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; }
+  .card.red::before    { background: var(--red); }
+  .card.green::before  { background: var(--green); }
+  .card.amber::before  { background: var(--amber); }
+  .card.blue::before   { background: var(--blue); }
+  .card.orange::before { background: var(--orange); }
+  .card.cyan::before   { background: var(--cyan); }
+
+  .card-title {
+    font-family: var(--ui); font-size: 12px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim);
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .card.red .card-title .dot    { background: var(--red); }
+  .card.green .card-title .dot  { background: var(--green); }
+  .card.amber .card-title .dot  { background: var(--amber); }
+  .card.blue .card-title .dot   { background: var(--blue); }
+  .card.orange .card-title .dot { background: var(--orange); }
+  .card.cyan .card-title .dot   { background: var(--cyan); }
+
+  .concept { font-size: 13px; color: var(--text-dim); line-height: 1.7; margin-bottom: 14px; }
+  .concept strong { color: var(--text); }
+
+  /* ── INPUTS ── */
+  input[type=text], textarea, select {
+    width: 100%; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 10px 14px; outline: none; transition: border-color 0.2s;
+  }
+  input[type=text]:focus, textarea:focus { border-color: var(--orange); }
+  textarea { resize: vertical; min-height: 80px; }
+  label {
+    display: block; font-family: var(--ui); font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase;
+  }
+  .field { margin-bottom: 16px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    font-family: var(--ui); font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    padding: 10px 24px; cursor: pointer; transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: var(--panel); border-color: var(--muted); }
+  .btn.danger  { border-color: var(--red-dim); color: var(--red); }
+  .btn.danger:hover  { background: rgba(255,62,62,0.08); border-color: var(--red); }
+  .btn.primary { border-color: var(--orange-dim); color: var(--orange); }
+  .btn.primary:hover { background: rgba(255,123,46,0.08); border-color: var(--orange); }
+  .btn.safe-btn { border-color: var(--green-dim); color: var(--green); }
+  .btn.safe-btn:hover { background: rgba(0,214,143,0.08); }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+  /* ── FILESYSTEM TREE ── */
+  .fs-tree {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.9;
+    background: #000;
+    border: 1px solid var(--border);
+    padding: 16px;
+  }
+  .fs-dir    { color: var(--blue); }
+  .fs-file   { color: var(--text-dim); }
+  .fs-secret { color: var(--red); font-weight: bold; }
+  .fs-webroot { color: var(--orange); }
+  .fs-locked { color: var(--muted); }
+  .fs-arrow  { color: var(--orange); }
+
+  /* ── URL BAR ── */
+  .url-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    word-break: break-all;
+  }
+  .url-base   { color: var(--text-dim); }
+  .url-param  { color: var(--amber); }
+  .url-inject { color: var(--red); font-weight: bold; }
+  .url-file   { color: var(--orange); }
+
+  /* ── FILE VIEWER ── */
+  .file-viewer {
+    background: #000;
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.9;
+    padding: 14px;
+    min-height: 100px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .fv-line-num { color: #333; user-select: none; margin-right: 14px; }
+  .fv-content  { color: #aaa; }
+  .fv-secret   { color: var(--red); }
+  .fv-comment  { color: #555; }
+  .fv-key      { color: var(--amber); }
+  .fv-val      { color: var(--orange); }
+  .fv-wait     { color: var(--muted); }
+
+  /* ── PAYLOAD GRID ── */
+  .payload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .payload-item {
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 3px solid var(--orange-dim); padding: 10px 12px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .payload-item:hover { border-left-color: var(--orange); background: rgba(255,123,46,0.05); }
+  .payload-item.safe  { border-left-color: var(--green-dim); }
+  .payload-item.safe:hover { border-left-color: var(--green); background: rgba(0,214,143,0.05); }
+  .payload-item .pl-name { font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--orange); margin-bottom: 4px; }
+  .payload-item.safe .pl-name { color: var(--green); }
+  .payload-item .pl-code { font-family: var(--mono); font-size: 10px; color: var(--text-dim); word-break: break-all; }
+
+  /* ── LOG ── */
+  .log {
+    background: #000; border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; padding: 14px;
+    max-height: 200px; overflow-y: auto; line-height: 1.8;
+  }
+  .log .entry { display: flex; gap: 10px; }
+  .log .ts  { color: var(--muted); white-space: nowrap; }
+  .log .ok  { color: var(--green); }
+  .log .warn{ color: var(--amber); }
+  .log .err { color: var(--red); }
+  .log .info{ color: var(--orange); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex; align-items: center; gap: 14px;
+    margin: 24px 0 18px; color: var(--muted);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--amber); padding: 10px 14px;
+    background: rgba(255,170,0,0.06); font-size: 12px;
+    color: var(--text-dim); margin: 12px 0; line-height: 1.6;
+  }
+  .callout.info   { border-color: var(--blue);   background: rgba(77,166,255,0.06); }
+  .callout.danger { border-color: var(--red);     background: rgba(255,62,62,0.06); color: var(--text); }
+  .callout.orange { border-color: var(--orange);  background: rgba(255,123,46,0.06); }
+  .callout strong { color: var(--text); }
+
+  /* ── COMPARE ── */
+  .compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .compare-bad, .compare-good {
+    padding: 12px; font-family: var(--mono); font-size: 11px; line-height: 1.7; border: 1px solid;
+  }
+  .compare-bad  { border-color: var(--red-dim);   background: rgba(255,62,62,0.05); }
+  .compare-good { border-color: var(--green-dim);  background: rgba(0,214,143,0.04); }
+  .compare-label {
+    font-family: var(--ui); font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .compare-bad  .compare-label { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  code {
+    background: var(--panel); border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; padding: 1px 5px; color: var(--amber);
+  }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 1px; padding: 2px 7px; border: 1px solid; margin: 2px;
+  }
+  .tag.vuln { border-color: var(--red-dim);    color: var(--red); }
+  .tag.safe { border-color: var(--green-dim);  color: var(--green); }
+  .tag.info { border-color: var(--blue);       color: var(--blue); }
+  .tag.warn { border-color: var(--amber-dim);  color: var(--amber); }
+
+  /* ── FLOW ── */
+  .flow { display: flex; align-items: center; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+  .flow-node {
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 6px 12px; font-family: var(--mono); font-size: 11px; color: var(--text); white-space: nowrap;
+  }
+  .flow-node.red    { border-color: var(--red);    color: var(--red); }
+  .flow-node.orange { border-color: var(--orange); color: var(--orange); }
+  .flow-node.green  { border-color: var(--green);  color: var(--green); }
+  .flow-node.amber  { border-color: var(--amber);  color: var(--amber); }
+  .flow-arrow { color: var(--muted); font-size: 16px; }
+
+  /* ── OS PICKER ── */
+  .os-picker { display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--border); overflow: hidden; width: fit-content; }
+  .os-btn {
+    background: var(--surface); border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); font-family: var(--mono); font-size: 12px;
+    padding: 8px 18px; cursor: pointer; transition: all 0.15s;
+  }
+  .os-btn:last-child { border-right: none; }
+  .os-btn.active { background: var(--panel); color: var(--orange); border-bottom: 2px solid var(--orange); }
+  .os-btn:hover:not(.active) { background: var(--panel); color: var(--text); }
+
+  /* ── PATH VISUALIZER ── */
+  .path-segment {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    margin: 2px;
+    transition: all 0.3s;
+  }
+  .path-segment.normal  { color: var(--text-dim);  background: var(--panel); }
+  .path-segment.webroot { color: var(--orange);    background: rgba(255,123,46,0.1); border-color: var(--orange-dim); }
+  .path-segment.dotdot  { color: var(--red);       background: rgba(255,62,62,0.1);  border-color: var(--red-dim); }
+  .path-segment.resolved{ color: var(--amber);     background: rgba(255,170,0,0.1);  border-color: var(--amber-dim); }
+  .path-segment.danger  { color: var(--red);       background: rgba(255,62,62,0.15); border-color: var(--red); font-weight: bold; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--red);
+    border-top: 3px solid var(--red); padding: 28px 32px;
+    max-width: 540px; width: 90%;
+  }
+  .modal-title { font-family: var(--ui); font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--red); margin-bottom: 16px; text-transform: uppercase; }
+  .modal-body  { font-size: 12px; color: var(--text); line-height: 1.8; margin-bottom: 20px; font-family: var(--mono); }
+
+  /* ── BYPASS STEPS ── */
+  .bypass-step {
+    border: 1px solid var(--border); background: var(--panel);
+    padding: 12px 16px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s;
+  }
+  .bypass-step:hover { border-color: var(--orange-dim); background: rgba(255,123,46,0.04); }
+  .bypass-step.done  { border-color: var(--red-dim); background: rgba(255,62,62,0.05); }
+  .bypass-step-title { font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .bypass-step.done .bypass-step-title { color: var(--red); }
+  .bypass-step-code  { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="threat-badge">OWASP A01</div>
+  <h1>Directory <span>Traversal</span> Simulator</h1>
+  <div class="course-tag">SECURITY+ LAB // CIS108</div>
+</header>
+
+<div class="progress-bar">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="container">
+
+  <nav class="phase-nav">
+    <button class="phase-btn active" onclick="goPhase(1)"><span class="num">01</span>CONCEPT</button>
+    <button class="phase-btn" onclick="goPhase(2)"><span class="num">02</span>BASIC TRAVERSAL</button>
+    <button class="phase-btn" onclick="goPhase(3)"><span class="num">03</span>FILTER BYPASS</button>
+    <button class="phase-btn" onclick="goPhase(4)"><span class="num">04</span>DEFENSES</button>
+  </nav>
+
+  <!-- ══════════════════════════════
+       PHASE 1 — CONCEPT
+  ══════════════════════════════ -->
+  <div class="phase active" id="phase1" style="grid-template-columns:1fr 1fr;">
+
+    <div class="card orange">
+      <div class="card-title"><span class="dot"></span>WHAT IS DIRECTORY TRAVERSAL?</div>
+      <p class="concept">
+        <strong>Directory Traversal</strong> (also called <strong>Path Traversal</strong>) occurs when an application uses user-controlled input to construct a file path and fails to restrict where that path can point. By inserting <strong>../</strong> sequences, an attacker climbs out of the intended directory and accesses arbitrary files anywhere on the server.
+      </p>
+      <p class="concept">
+        The attack does not require authentication or code execution. It is purely a <strong>file-read vulnerability</strong> — but the files it can expose (credentials, private keys, source code, config files) often lead directly to full system compromise.
+      </p>
+      <div class="callout danger">
+        <strong>Also known as:</strong> Path Traversal, "dot-dot-slash" attack, directory climbing. Classified under <strong>OWASP A01 — Broken Access Control</strong>.
+      </div>
+      <div class="flow" style="margin-top:14px;">
+        <div class="flow-node orange">user input: ../../../etc/passwd</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node red">server reads /etc/passwd</div>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>THE VULNERABLE SERVER STRUCTURE</div>
+      <p class="concept" style="margin-bottom:12px;">A web application serves files from <code>/var/www/html/files/</code>. Here's what's on disk:</p>
+      <div class="fs-tree">
+<span class="fs-dir">/</span>  <span style="color:#333">(filesystem root)</span>
+├── <span class="fs-secret">etc/</span>
+│   ├── <span class="fs-secret">passwd</span>          <span class="fs-locked">← all OS users + shells</span>
+│   ├── <span class="fs-secret">shadow</span>          <span class="fs-locked">← hashed passwords (root only)</span>
+│   └── <span class="fs-secret">ssh/</span>
+│       └── <span class="fs-secret">id_rsa</span>       <span class="fs-locked">← private SSH key</span>
+├── <span class="fs-dir">home/</span>
+│   └── <span class="fs-dir">deployer/</span>
+│       └── <span class="fs-secret">.env</span>             <span class="fs-locked">← API keys, DB passwords</span>
+├── <span class="fs-dir">var/</span>
+│   └── <span class="fs-dir">www/</span>
+│       └── <span class="fs-webroot">html/</span>            <span class="fs-arrow">← WEB ROOT (safe zone)</span>
+│           ├── <span class="fs-dir">files/</span>
+│           │   ├── <span class="fs-file">report.pdf</span>
+│           │   └── <span class="fs-file">brochure.pdf</span>
+│           └── <span class="fs-secret">config.php</span>   <span class="fs-locked">← DB credentials in source</span>
+└── <span class="fs-dir">proc/</span>
+    └── <span class="fs-secret">self/environ</span>   <span class="fs-locked">← environment variables</span>
+      </div>
+      <div class="callout orange" style="margin-top:12px;font-size:12px;">
+        The web server is <strong>only supposed to serve files inside <code>/var/www/html/files/</code></strong>. Everything else is out of scope — unless traversal is possible.
+      </div>
+    </div>
+
+    <div class="card amber">
+      <div class="card-title"><span class="dot"></span>HOW ../ TRAVERSAL WORKS</div>
+      <p class="concept" style="margin-bottom:12px;">The application builds a file path like this:</p>
+      <div style="background:#000;border:1px solid var(--border);padding:12px;font-family:var(--mono);font-size:12px;line-height:1.9;margin-bottom:14px;">
+        <span style="color:var(--text-dim);">// PHP — vulnerable file reader</span><br>
+        <span style="color:var(--blue);">$file</span> = <span style="color:var(--amber);">$_GET</span>[<span style="color:var(--orange);">'filename'</span>];<br>
+        <span style="color:var(--blue);">$path</span> = <span style="color:var(--orange);">"/var/www/html/files/"</span> . <span style="color:var(--blue);">$file</span>;<br>
+        <span style="color:var(--red);">readfile</span>(<span style="color:var(--blue);">$path</span>);<br>
+        <span style="color:var(--text-dim);">// No validation! Any path accepted.</span>
+      </div>
+      <div style="font-family:var(--mono);font-size:12px;line-height:2;background:var(--panel);padding:12px;border:1px solid var(--border);">
+        <span style="color:var(--text-dim);">Intended:   </span><span style="color:var(--orange);">/var/www/html/files/</span><span style="color:var(--green);">report.pdf</span><br>
+        <span style="color:var(--text-dim);">Traversal:  </span><span style="color:var(--orange);">/var/www/html/files/</span><span style="color:var(--red);">../../../etc/passwd</span><br>
+        <span style="color:var(--text-dim);">Resolves:   </span><span style="color:var(--red);">/etc/passwd</span>  <span style="color:var(--muted);">← escapes web root!</span>
+      </div>
+      <div class="callout" style="margin-top:12px;">
+        <strong>Each <code>../</code> moves one directory up.</strong> Three of them take you from <code>/var/www/html/files/</code> all the way to the filesystem root <code>/</code>.
+      </div>
+    </div>
+
+    <div class="card blue">
+      <div class="card-title"><span class="dot"></span>HIGH-VALUE TARGET FILES</div>
+      <p class="concept" style="margin-bottom:10px;">What attackers look for once traversal is confirmed:</p>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="border:1px solid var(--border);padding:8px 12px;display:flex;gap:12px;align-items:center;">
+          <span class="tag vuln">LINUX</span>
+          <div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--red);">/etc/passwd &nbsp; /etc/shadow &nbsp; /etc/hosts</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">User accounts, password hashes, network map</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);padding:8px 12px;display:flex;gap:12px;align-items:center;">
+          <span class="tag vuln">KEYS</span>
+          <div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--red);">~/.ssh/id_rsa &nbsp; ~/.ssh/authorized_keys</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">SSH private keys → direct server login</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);padding:8px 12px;display:flex;gap:12px;align-items:center;">
+          <span class="tag warn">CONFIG</span>
+          <div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--amber);">.env &nbsp; config.php &nbsp; web.config &nbsp; settings.py</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">DB passwords, API keys, secret tokens</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);padding:8px 12px;display:flex;gap:12px;align-items:center;">
+          <span class="tag warn">WINDOWS</span>
+          <div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--amber);">C:\Windows\win.ini &nbsp; C:\boot.ini &nbsp; SAM</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">System config, boot info, account database</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);padding:8px 12px;display:flex;gap:12px;align-items:center;">
+          <span class="tag info">PROC</span>
+          <div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--blue);">/proc/self/environ &nbsp; /proc/self/cmdline</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">Server environment variables, process info</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);padding:8px 12px;display:flex;gap:12px;align-items:center;">
+          <span class="tag info">LOGS</span>
+          <div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--blue);">/var/log/apache2/access.log &nbsp; /var/log/auth.log</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">Server logs → can enable log poisoning attacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:flex-end;">
+      <button class="btn primary" onclick="goPhase(2)">NEXT: BASIC TRAVERSAL →</button>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════
+       PHASE 2 — BASIC TRAVERSAL
+  ══════════════════════════════ -->
+  <div class="phase" id="phase2">
+
+    <div class="card orange">
+      <div class="card-title"><span class="dot"></span>FILE DOWNLOAD ENDPOINT — ATTACK LAB</div>
+
+      <div class="os-picker">
+        <button class="os-btn active" onclick="setOS('linux', this)">🐧 Linux</button>
+        <button class="os-btn" onclick="setOS('windows', this)">🪟 Windows</button>
+      </div>
+
+      <div class="callout info" style="margin-bottom:14px;">
+        <strong>Vulnerable endpoint:</strong> <code id="endpointLabel">GET /download?file=report.pdf</code><br>
+        The server maps this to: <code id="basePathLabel">/var/www/html/files/[filename]</code>
+      </div>
+
+      <div class="field">
+        <label>FILENAME PARAMETER</label>
+        <input type="text" id="fileInput" placeholder="e.g.  ../../../etc/passwd" oninput="updateUrlBar()">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label>CONSTRUCTED URL</label>
+        <div class="url-bar" id="urlBar">
+          <span class="url-base" id="urlBase">http://target.local/download?file=</span><span id="urlPayload" class="url-file"></span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label>PATH RESOLUTION VISUALIZER</label>
+        <div id="pathViz" style="padding:10px;background:var(--panel);border:1px solid var(--border);font-size:12px;min-height:36px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
+          <span style="color:var(--text-dim);font-family:var(--mono);">Enter a filename to visualize path resolution...</span>
+        </div>
+      </div>
+
+      <button class="btn danger" onclick="fetchFile()" style="width:100%;justify-content:center;margin-bottom:14px;">⬇ FETCH FILE</button>
+
+      <label>FILE CONTENTS</label>
+      <div class="file-viewer" id="fileViewer">
+        <span class="fv-wait">No file loaded. Enter a filename and click FETCH FILE.</span>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>PAYLOAD LIBRARY</div>
+      <p class="concept" style="margin-bottom:12px;">Click any payload to load it. Try multiple <code>../</code> depths — the number needed depends on how deep the web root is from <code>/</code>.</p>
+
+      <div id="payloadGrid2" class="payload-grid"></div>
+
+      <div class="divider">SERVER ACCESS LOG</div>
+      <div class="log" id="accessLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="ok">Web server started. Listening on :80...</span></div>
+      </div>
+      <div class="btn-row"><button class="btn" onclick="clearLog()">CLEAR LOG</button></div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;">
+      <button class="btn" onclick="goPhase(1)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(3)">NEXT: FILTER BYPASS →</button>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════
+       PHASE 3 — FILTER BYPASS
+  ══════════════════════════════ -->
+  <div class="phase" id="phase3">
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>BYPASSING WEAK DEFENSES</div>
+      <p class="concept">
+        Developers often add <em>naive</em> filters to block traversal — checking for <code>../</code> in input. However, there are many ways to represent the same path that bypass these simple checks. Click each technique to see how it evades the filter and still reaches <code>/etc/passwd</code>.
+      </p>
+      <div class="callout danger" style="margin-bottom:16px;">
+        <strong>Target:</strong> A filter that strips literal <code>../</code> from input — but nothing else.
+      </div>
+
+      <div id="bypass1" class="bypass-step" onclick="runBypass(1)">
+        <div class="bypass-step-title">1. Absolute Path (no traversal needed)</div>
+        <div class="bypass-step-code">Payload: /etc/passwd &nbsp;&nbsp; — skip ../ entirely if filter only checks for it</div>
+      </div>
+
+      <div id="bypass2" class="bypass-step" onclick="runBypass(2)">
+        <div class="bypass-step-title">2. URL Encoding</div>
+        <div class="bypass-step-code">Payload: ..%2F..%2F..%2Fetc%2Fpasswd &nbsp;&nbsp; — %2F = / after URL decode</div>
+      </div>
+
+      <div id="bypass3" class="bypass-step" onclick="runBypass(3)">
+        <div class="bypass-step-title">3. Double URL Encoding</div>
+        <div class="bypass-step-code">Payload: ..%252F..%252F..%252Fetc%252Fpasswd &nbsp;&nbsp; — %25 decodes to %, leaving %2F</div>
+      </div>
+
+      <div id="bypass4" class="bypass-step" onclick="runBypass(4)">
+        <div class="bypass-step-title">4. Non-Standard Separators (Windows)</div>
+        <div class="bypass-step-code">Payload: ..\..\..\Windows\win.ini &nbsp;&nbsp; — backslash works on Windows servers</div>
+      </div>
+
+      <div id="bypass5" class="bypass-step" onclick="runBypass(5)">
+        <div class="bypass-step-title">5. Strip-and-Reconstruct (Nested Traversal)</div>
+        <div class="bypass-step-code">Payload: ....//....//....//etc/passwd &nbsp;&nbsp; — filter removes ../ leaving ../</div>
+      </div>
+
+      <div id="bypass6" class="bypass-step" onclick="runBypass(6)">
+        <div class="bypass-step-title">6. Null Byte Injection (legacy PHP)</div>
+        <div class="bypass-step-code">Payload: ../../../etc/passwd%00.pdf &nbsp;&nbsp; — %00 terminates string, .pdf suffix ignored</div>
+      </div>
+
+    </div>
+
+    <div class="card amber">
+      <div class="card-title"><span class="dot"></span>BYPASS RESULT VIEWER</div>
+      <p class="concept" style="margin-bottom:12px;">Each technique manipulates the path differently. Watch how the server ultimately resolves to the same sensitive file.</p>
+
+      <div style="margin-bottom:14px;">
+        <label>RAW PAYLOAD SENT</label>
+        <div class="url-bar" id="bypassUrlBar" style="min-height:38px;">
+          <span style="color:var(--text-dim);font-family:var(--mono);">Click a bypass technique above...</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label>FILTER PROCESSING</label>
+        <div id="bypassFilter" style="background:#000;border:1px solid var(--border);padding:12px;font-family:var(--mono);font-size:11px;line-height:1.9;min-height:60px;">
+          <span style="color:var(--muted);">Filter output will appear here...</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label>RESOLVED PATH (WHAT SERVER OPENS)</label>
+        <div id="bypassResolved" style="background:rgba(255,62,62,0.06);border:1px solid var(--red-dim);padding:12px;font-family:var(--mono);font-size:13px;color:var(--red);min-height:38px;">
+          —
+        </div>
+      </div>
+
+      <label>FILE CONTENTS RETURNED</label>
+      <div class="file-viewer" id="bypassViewer">
+        <span class="fv-wait">Select a bypass technique to see the result...</span>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;">
+      <button class="btn" onclick="goPhase(2)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(4)">NEXT: DEFENSES →</button>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════
+       PHASE 4 — DEFENSES
+  ══════════════════════════════ -->
+  <div class="phase single" id="phase4">
+    <div class="card green" style="margin-bottom:24px;">
+      <div class="card-title"><span class="dot"></span>HOW TO PREVENT DIRECTORY TRAVERSAL</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">1. Canonicalize &amp; Validate Paths</div>
+          <div class="concept">Resolve the full, canonical (absolute) path of the requested file <em>before</em> opening it. Then verify that the resolved path starts with the allowed base directory. This defeats all encoding tricks — the OS always resolves the real path first.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">2. Allowlist Filenames</div>
+          <div class="concept">Instead of trying to block bad input, only permit a defined list of safe filenames or a strict pattern (e.g. <code>/^[a-z0-9_\-]+\.pdf$/i</code>). Reject anything that doesn't match — no traversal sequence can sneak through a strict allowlist.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">3. Avoid User-Supplied Paths</div>
+          <div class="concept">Redesign the feature to use an indirect reference — e.g., a numeric file ID that maps to a server-side filename. The user never controls any part of the path. No traversal is possible when user input never touches the filesystem call.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">4. Chroot / Containerization</div>
+          <div class="concept">Run the web server process inside a <strong>chroot jail</strong> or container where the filesystem root <em>is</em> the web root. Even if traversal succeeds, the attacker cannot escape the sandbox — there is no <code>/etc/passwd</code> to reach.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">5. Least Privilege on Files</div>
+          <div class="concept">The web server process should only have read access to files it needs to serve. Sensitive files like <code>/etc/shadow</code>, <code>.env</code>, and private keys should have OS-level permissions that prevent the web server user from reading them.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">6. WAF Rules</div>
+          <div class="concept">Web Application Firewalls can detect common traversal signatures (<code>../</code>, URL-encoded variants, null bytes). Not a primary defense — bypass techniques exist — but useful as a detection layer that generates alerts for incident response.</div>
+        </div>
+      </div>
+
+      <div class="divider">VULNERABLE vs SECURE CODE</div>
+
+      <div class="compare-row">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ Vulnerable — No Path Validation</div>
+            <span style="color:var(--text-dim);">// PHP — direct path concatenation</span><br>
+            $file = $_GET['filename'];<br>
+            $path = '/var/www/html/files/' . $file;<br>
+            readfile($path);<br><br>
+            <span style="color:var(--red);">// Input: ../../../etc/passwd</span><br>
+            <span style="color:var(--red);">// Opens: /etc/passwd — full read!</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ Secure — Canonicalize &amp; Prefix Check</div>
+            <span style="color:var(--text-dim);">// PHP — resolve and validate</span><br>
+            $base = realpath('/var/www/html/files');<br>
+            $file = $_GET['filename'];<br>
+            $path = realpath($base . '/' . $file);<br><br>
+            if ($path === false ||<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;strpos($path, $base) !== 0) {<br>
+            &nbsp;&nbsp;http_response_code(403);<br>
+            &nbsp;&nbsp;exit('Access denied');<br>
+            }<br>
+            readfile($path);<br>
+            <span style="color:var(--green);">// realpath() resolves ../ before check</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-row" style="margin-top:12px;">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ Vulnerable — Naive Strip Filter</div>
+            <span style="color:var(--text-dim);">// Node.js — strips ../ but bypassable</span><br>
+            const file = req.query.file<br>
+            &nbsp;&nbsp;.replace(/\.\.\//g, '');<br>
+            const path = '/var/www/files/' + file;<br>
+            fs.readFile(path, ...);<br><br>
+            <span style="color:var(--red);">// Input: ....//....//etc/passwd</span><br>
+            <span style="color:var(--red);">// After strip: ../../etc/passwd — still traverses!</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ Secure — Indirect File Reference</div>
+            <span style="color:var(--text-dim);">// Node.js — ID lookup, no path from user</span><br>
+            const FILE_MAP = {<br>
+            &nbsp;&nbsp;'1': 'report.pdf',<br>
+            &nbsp;&nbsp;'2': 'brochure.pdf',<br>
+            };<br>
+            const id = req.query.id;<br>
+            const filename = FILE_MAP[id];<br>
+            if (!filename) return res.status(404);<br>
+            const safe = path.join(BASE, filename);<br>
+            fs.readFile(safe, ...);<br>
+            <span style="color:var(--green);">// User never controls any path component</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider">DETECTION INDICATORS</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <p class="concept" style="margin-bottom:10px;"><strong>What to look for in logs:</strong></p>
+          <div class="callout danger" style="font-family:var(--mono);font-size:11px;line-height:2;">
+            <span style="color:var(--red);">../</span> or <span style="color:var(--red);">..\</span> in URL parameters or headers<br>
+            URL-encoded variants: <span style="color:var(--red);">%2F %2E %252F</span><br>
+            References to sensitive paths: <span style="color:var(--red);">/etc/passwd</span> <span style="color:var(--red);">win.ini</span><br>
+            Repeated 403/404 errors with path-like filenames<br>
+            Requests for files outside the web root directory
+          </div>
+        </div>
+        <div>
+          <p class="concept" style="margin-bottom:10px;"><strong>Security+ exam tips:</strong></p>
+          <div class="callout orange" style="font-family:var(--mono);font-size:11px;line-height:2;">
+            Also called: <span style="color:var(--orange);">Path Traversal</span>, dot-dot-slash<br>
+            OWASP category: <span style="color:var(--orange);">A01 Broken Access Control</span><br>
+            Key fix: <span style="color:var(--orange);">canonicalize paths</span> (realpath)<br>
+            Best design fix: <span style="color:var(--orange);">indirect file references</span><br>
+            Related: <span style="color:var(--orange);">LFI (Local File Inclusion)</span><br>
+            Testing tools: <span style="color:var(--orange);">Burp Suite, DotDotPwn</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div style="display:flex;justify-content:flex-start;">
+      <button class="btn" onclick="goPhase(3)">← BACK</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="attackModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">⚠ DIRECTORY TRAVERSAL — SIMULATED</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="btn primary" onclick="closeModal()">ACKNOWLEDGE</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ───────────────────────────────────────────────────────
+let currentOS = 'linux';
+
+// ── SIMULATED FILE SYSTEM ───────────────────────────────────────
+const FILES = {
+  linux: {
+    '/etc/passwd': {
+      label: '/etc/passwd — System User Database',
+      lines: [
+        ['fv-secret', 'root:x:0:0:root:/root:/bin/bash'],
+        ['fv-content','daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin'],
+        ['fv-content','www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin'],
+        ['fv-secret', 'postgres:x:109:117:PostgreSQL:/var/lib/postgresql:/bin/bash'],
+        ['fv-secret', 'deployer:x:1001:1001::/home/deployer:/bin/bash'],
+        ['fv-content','nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin'],
+      ],
+      sensitive: true,
+      modal: '/etc/passwd exposed!\n\nContains all OS user accounts, their home directories, and login shells. Reveals service accounts (postgres, www-data) and human accounts (deployer) — prime targets for privilege escalation.'
+    },
+    '/etc/shadow': {
+      label: '/etc/shadow — Password Hash Database',
+      lines: [
+        ['fv-secret', 'root:$6$rounds=656000$salt$hash...:19000:0:99999:7:::'],
+        ['fv-secret', 'deployer:$6$rounds=656000$xYz$Ab1...:19234:0:99999:7:::'],
+        ['fv-content','www-data:*:19000:0:99999:7:::'],
+      ],
+      sensitive: true,
+      modal: '/etc/shadow exposed!\n\nContains hashed passwords for all accounts. An attacker can take these hashes offline and run a dictionary or brute-force attack (e.g. with hashcat or john) to recover plaintext passwords.\n\nNormally only readable by root — if the web server can read this, it is running with excessive privileges.'
+    },
+    '/home/deployer/.env': {
+      label: '/home/deployer/.env — Application Secrets',
+      lines: [
+        ['fv-comment','# Application Environment Config'],
+        ['fv-key',    'DB_HOST', '=', 'fv-val', '10.0.1.10'],
+        ['fv-secret', 'DB_PASSWORD=Sup3rS3cretDB!2024'],
+        ['fv-secret', 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE'],
+        ['fv-secret', 'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'],
+        ['fv-secret', 'JWT_SECRET=a8f5f167f44f4964e6c998dee827110c'],
+        ['fv-secret', 'STRIPE_SECRET_KEY=sk_live_4eC39HqLyjWDarjtT1zdp7dc'],
+      ],
+      sensitive: true,
+      modal: '.env file exposed!\n\nContains plaintext database credentials, AWS cloud keys, JWT signing secret, and Stripe payment API key.\n\nWith these secrets an attacker can:\n- Access the production database directly\n- Enumerate/delete cloud resources\n- Forge authentication tokens\n- Make fraudulent payment API calls'
+    },
+    '/var/www/html/config.php': {
+      label: '/var/www/html/config.php — App Source + DB Credentials',
+      lines: [
+        ['fv-comment','<?php'],
+        ['fv-comment','// Database configuration'],
+        ['fv-secret', "$db_host = '10.0.1.10';"],
+        ['fv-secret', "$db_user = 'app_user';"],
+        ['fv-secret', "$db_pass = 'Appl1cation#Pass!';"],
+        ['fv-content', "$db_name = 'bankapp_prod';"],
+        ['fv-secret', "$admin_key = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';"],
+      ],
+      sensitive: true,
+      modal: 'Application source code exposed!\n\nconfig.php contains database credentials and an admin API key in plaintext. Even though it is inside the web root, PHP files are executed — not served — by the web server. Directory traversal bypasses the PHP interpreter and reads the raw source.'
+    },
+    '/proc/self/environ': {
+      label: '/proc/self/environ — Server Process Environment',
+      lines: [
+        ['fv-secret', 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'],
+        ['fv-secret', 'SERVER_SOFTWARE=Apache/2.4.54 (Ubuntu)'],
+        ['fv-secret', 'DB_PASSWORD=Sup3rS3cretDB!2024'],
+        ['fv-secret', 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE'],
+        ['fv-content','HTTP_HOST=target.local'],
+        ['fv-content','REQUEST_URI=/download?file=../../../proc/self/environ'],
+      ],
+      sensitive: true,
+      modal: '/proc/self/environ exposed!\n\nThe Linux /proc virtual filesystem exposes the environment variables of the running web server process. This often includes secrets passed as environment variables — the same values as a .env file.\n\nThis is also the entry point for Log Poisoning attacks, where the User-Agent header is injected with PHP code that later gets executed.'
+    },
+    'report.pdf': {
+      label: '/var/www/html/files/report.pdf',
+      lines: [['fv-content','%PDF-1.4 ... (binary PDF content) ...'],['fv-content','[Normal file — no sensitive data]']],
+      sensitive: false,
+      modal: null
+    }
+  },
+  windows: {
+    'C:\\Windows\\win.ini': {
+      label: 'C:\\Windows\\win.ini — Windows System Config',
+      lines: [
+        ['fv-content', '; for 16-bit app support'],
+        ['fv-content', '[fonts]'],
+        ['fv-content', '[extensions]'],
+        ['fv-secret',  '[mci extensions]'],
+        ['fv-content', '[files]'],
+        ['fv-content', '[Mail]'],
+        ['fv-secret',  'MAPI=1'],
+      ],
+      sensitive: true,
+      modal: 'Windows win.ini exposed!\n\nA classic Windows traversal target. Its presence confirms the server is Windows and that traversal is working. Used to fingerprint OS version and confirm file read access before targeting more sensitive files like SAM or web.config.'
+    },
+    'C:\\inetpub\\wwwroot\\web.config': {
+      label: 'C:\\inetpub\\wwwroot\\web.config — IIS App Config',
+      lines: [
+        ['fv-comment', '<?xml version="1.0" encoding="UTF-8"?>'],
+        ['fv-content', '<configuration>'],
+        ['fv-content', '  <connectionStrings>'],
+        ['fv-secret',  '    <add name="Default" connectionString='],
+        ['fv-secret',  '         "Server=db.internal;Database=BankApp;'],
+        ['fv-secret',  '          User Id=sa;Password=P@ssw0rd2024!" />'],
+        ['fv-content', '  </connectionStrings>'],
+      ],
+      sensitive: true,
+      modal: 'web.config exposed!\n\nContains the SQL Server connection string including the SA (sysadmin) account password. With this, an attacker can connect directly to the production database with full administrative rights — including enabling xp_cmdshell for OS command execution.'
+    },
+    'report.pdf': {
+      label: 'C:\\inetpub\\wwwroot\\files\\report.pdf',
+      lines: [['fv-content','%PDF-1.4 ... (binary PDF content) ...'],['fv-content','[Normal file — no sensitive data]']],
+      sensitive: false,
+      modal: null
+    }
+  }
+};
+
+const PAYLOADS = {
+  linux: [
+    { name:'Legitimate File',        code:'report.pdf',                           safe:true  },
+    { name:'Basic Traversal (3x)',   code:'../../../etc/passwd',                  safe:false },
+    { name:'Deeper Traversal (6x)',  code:'../../../../../../etc/passwd',          safe:false },
+    { name:'Shadow File',            code:'../../../etc/shadow',                  safe:false },
+    { name:'SSH Private Key',        code:'../../../home/deployer/.ssh/id_rsa',   safe:false },
+    { name:'.env Secrets File',      code:'../../../home/deployer/.env',          safe:false },
+    { name:'App Config (DB creds)',  code:'../config.php',                        safe:false },
+    { name:'Proc Environ',           code:'../../../proc/self/environ',           safe:false },
+  ],
+  windows: [
+    { name:'Legitimate File',        code:'report.pdf',                           safe:true  },
+    { name:'win.ini (OS confirm)',   code:'..\\..\\..\\.\\Windows\\win.ini',       safe:false },
+    { name:'web.config (DB creds)',  code:'..\\web.config',                       safe:false },
+    { name:'Hosts File',             code:'..\\..\\..\\Windows\\System32\\drivers\\etc\\hosts', safe:false },
+    { name:'Boot Config',            code:'..\\..\\..\\boot.ini',                 safe:false },
+    { name:'URL-encoded version',    code:'..%5C..%5C..%5CWindows%5Cwin.ini',     safe:false },
+  ]
+};
+
+// ── FILE CONTENT RENDERERS ──────────────────────────────────────
+function renderFileLines(lines) {
+  return lines.map((l, i) => {
+    const num = String(i+1).padStart(3,' ');
+    return `<div><span class="fv-line-num">${num}</span><span class="${l[0]}">${escHtml(l[1])}</span></div>`;
+  }).join('');
+}
+
+function resolveToFileKey(input, os) {
+  const i = input.trim().toLowerCase().replace(/\\/g,'/').replace(/%2f/gi,'/').replace(/%5c/gi,'/').replace(/\.\.\//g,'../');
+
+  if (os === 'linux') {
+    if (i.includes('shadow'))             return '/etc/shadow';
+    if (i.includes('environ'))            return '/proc/self/environ';
+    if (i.includes('config.php'))         return '/var/www/html/config.php';
+    if (i.includes('.env') && !i.includes('environ')) return '/home/deployer/.env';
+    if (i.includes('passwd'))             return '/etc/passwd';
+    if (i.includes('id_rsa'))             return FILES.linux['/etc/passwd']; // approximate
+    if (/^report\.pdf$/i.test(input.trim())) return 'report.pdf';
+    if (input.includes('../'))            return '/etc/passwd'; // default traversal target
+    return null;
+  } else {
+    if (i.includes('web.config'))         return 'C:\\inetpub\\wwwroot\\web.config';
+    if (i.includes('win.ini'))            return 'C:\\Windows\\win.ini';
+    if (/^report\.pdf$/i.test(input.trim())) return 'report.pdf';
+    if (input.includes('..'))             return 'C:\\Windows\\win.ini';
+    return null;
+  }
+}
+
+// ── FETCH FILE (Phase 2) ────────────────────────────────────────
+function fetchFile() {
+  const input = document.getElementById('fileInput').value.trim();
+  const viewer = document.getElementById('fileViewer');
+  const log    = document.getElementById('accessLog');
+  if (!input) return;
+
+  const key  = resolveToFileKey(input, currentOS);
+  const fs   = FILES[currentOS];
+  const file = fs[key];
+
+  addLog(log, 'warn', `GET /download?file=${escHtml(input)}`);
+
+  setTimeout(() => {
+    if (!file) {
+      addLog(log, 'err', `500 — Path resolution error or file not found`);
+      viewer.innerHTML = `<span class="fv-secret">Error: No such file or directory</span>`;
+      return;
+    }
+
+    if (file.sensitive) {
+      addLog(log, 'err', `200 OK — traversal successful — serving: ${file.label}`);
+      viewer.innerHTML = `<div style="color:var(--orange);font-family:var(--mono);font-size:11px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">${escHtml(file.label)}</div>` + renderFileLines(file.lines);
+      showModal('File Read Successful!', `Path: ${input}\nResolved: ${file.label}\n\nThe server returned the contents of a file outside the web root. This data is now in the attacker's browser.\n\n${file.modal}`);
+    } else {
+      addLog(log, 'ok', `200 OK — serving: ${file.label}`);
+      viewer.innerHTML = `<div style="color:var(--green);font-family:var(--mono);font-size:11px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">${escHtml(file.label)}</div>` + renderFileLines(file.lines);
+    }
+  }, 350);
+}
+
+// ── URL BAR + PATH VISUALIZER ──────────────────────────────────
+function updateUrlBar() {
+  const val = document.getElementById('fileInput').value;
+  const base = currentOS === 'linux'
+    ? 'http://target.local/download?file='
+    : 'http://target.local/download?file=';
+  const urlPayload = document.getElementById('urlPayload');
+  const hasTraversal = val.includes('../') || val.includes('..\\') || val.includes('%2e') || val.includes('%252');
+  urlPayload.className = hasTraversal ? 'url-inject' : 'url-file';
+  urlPayload.textContent = val;
+
+  // Path visualizer
+  const viz = document.getElementById('pathViz');
+  if (!val) { viz.innerHTML = '<span style="color:var(--text-dim);font-family:var(--mono);">Enter a filename to visualize path resolution...</span>'; return; }
+
+  const base_path = currentOS === 'linux' ? '/var/www/html/files/' : 'C:\\inetpub\\wwwroot\\files\\';
+  const parts = base_path.split(currentOS === 'linux' ? '/' : '\\').filter(Boolean);
+
+  let html = '';
+  parts.forEach(p => {
+    html += `<span class="path-segment webroot">${escHtml(p)}/</span>`;
+  });
+
+  // Show traversal segments
+  const segs = val.replace(/\\/g,'/').split('/');
+  segs.forEach(s => {
+    if (s === '..') html += `<span class="path-segment dotdot">../</span>`;
+    else if (s) html += `<span class="path-segment danger">${escHtml(s)}</span>`;
+  });
+
+  viz.innerHTML = html;
+}
+
+// ── BYPASS DEMOS (Phase 3) ──────────────────────────────────────
+const BYPASSES = [
+  null,
+  {
+    raw:      '/etc/passwd',
+    filter:   'Filter checks for "../" — input has none → PASSES through\nInput after filter: /etc/passwd',
+    resolved: '/etc/passwd',
+    note:     'Absolute path bypass: no ../ means no filter hit. Works when the app concatenates an absolute path directly.\n\nLesson: never assume the absence of ../ means the path is safe. Absolute path injection is equally dangerous.'
+  },
+  {
+    raw:      '..%2F..%2F..%2Fetc%2Fpasswd',
+    filter:   'Filter checks for literal "../" string\nURL-encoded "../" = "..%2F" → NOT matched by filter → PASSES\nServer decodes %2F to / before file open → becomes ../../../etc/passwd',
+    resolved: '/etc/passwd',
+    note:     'URL encoding bypass: %2F is the URL-encoded forward slash. The filter sees "..%2F" not "../" and passes it. The web server or filesystem library decodes it before opening the file.\n\nLesson: always decode input BEFORE applying filters.'
+  },
+  {
+    raw:      '..%252F..%252F..%252Fetc%252Fpasswd',
+    filter:   'Filter decodes once: %25 → %, leaving %2F\nResult after first decode: "../%2F../etc/passwd" → no literal ../ → PASSES\nServer performs second decode: %2F → / → path becomes ../../../etc/passwd',
+    resolved: '/etc/passwd',
+    note:     'Double encoding: %25 is the URL encoding of the % character. So %252F encodes to %2F after one decode, which encodes to / after a second decode.\n\nThis bypasses filters that only decode once. The fix is to canonicalize the full path after all decoding is complete.'
+  },
+  {
+    raw:      '..\\..\\..\\.\\Windows\\win.ini',
+    filter:   'Filter checks only for "../" (forward slash)\nBackslash traversal "..\\" not in blocklist → PASSES\nWindows path APIs treat \\ same as / → traversal succeeds',
+    resolved: 'C:\\Windows\\win.ini',
+    note:     'Windows backslash bypass: on Windows servers, \\ is the native path separator. Filters that only block ../ (forward slash) miss this variant entirely.\n\nLesson: normalize all separators to a consistent form before filtering.'
+  },
+  {
+    raw:      '....//....//....//etc/passwd',
+    filter:   'Filter removes literal "../" occurrences:\n"..../" → after removing "../" from the middle → "../"\nResult: ../../etc/passwd — still a valid traversal!',
+    resolved: '/etc/passwd',
+    note:     'Nested traversal: when the filter strips "../" non-recursively (only one pass), the sequence "..../" has "../" in the middle. Removing it once leaves ".." + "/" = "../".\n\nLesson: never rely on string replacement. Use realpath() or canonical path comparison instead.'
+  },
+  {
+    raw:      '../../../etc/passwd%00.pdf',
+    filter:   'Filter checks that filename ends with ".pdf" → "%00.pdf" passes\nNull byte %00 terminates the C string before ".pdf"\nFile opened: /etc/passwd — suffix ignored by C-level file APIs',
+    resolved: '/etc/passwd',
+    note:     'Null byte injection (legacy): older versions of PHP and C-based servers used C-style strings where a null byte (0x00) terminates the string. The "%00" causes the filename to be read as ending at the null — discarding the ".pdf" suffix.\n\nFixed in PHP 5.3.4. Modern servers are not vulnerable, but legacy apps still are.'
+  },
+];
+
+function runBypass(n) {
+  const b = BYPASSES[n];
+  document.getElementById(`bypass${n}`).classList.add('done');
+  document.getElementById('bypassUrlBar').innerHTML =
+    `<span class="url-base">http://target.local/download?file=</span><span class="url-inject">${escHtml(b.raw)}</span>`;
+  document.getElementById('bypassFilter').innerHTML =
+    b.filter.split('\n').map(l => `<div><span style="color:var(--amber);">›</span> <span style="color:var(--text-dim);">${escHtml(l)}</span></div>`).join('');
+  document.getElementById('bypassResolved').textContent = b.resolved;
+
+  const fs = b.resolved.includes('win.ini') || b.resolved.includes('Windows') ? FILES.windows : FILES.linux;
+  const key = Object.keys(fs).find(k => b.resolved.toLowerCase().includes(k.toLowerCase().replace(/\\/g,'/')));
+  const file = key ? fs[key] : null;
+
+  const viewer = document.getElementById('bypassViewer');
+  if (file) {
+    viewer.innerHTML = renderFileLines(file.lines);
+    showModal('Filter Bypassed!', `Technique: bypass #${n}\nPayload: ${b.raw}\nResolved to: ${b.resolved}\n\n${b.note}`);
+  } else {
+    viewer.innerHTML = `<span class="fv-content">[File read simulated — contents of ${escHtml(b.resolved)}]</span>`;
+    showModal('Filter Bypassed!', `Technique: bypass #${n}\nPayload: ${b.raw}\nResolved to: ${b.resolved}\n\n${b.note}`);
+  }
+}
+
+// ── OS SWITCH ───────────────────────────────────────────────────
+function setOS(os, btn) {
+  currentOS = os;
+  document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPayloadGrid();
+  if (os === 'linux') {
+    document.getElementById('endpointLabel').textContent = 'GET /download?file=report.pdf';
+    document.getElementById('basePathLabel').textContent = '/var/www/html/files/[filename]';
+    document.getElementById('fileInput').placeholder = 'e.g.  ../../../etc/passwd';
+  } else {
+    document.getElementById('endpointLabel').textContent = 'GET /download?file=report.pdf';
+    document.getElementById('basePathLabel').textContent = 'C:\\inetpub\\wwwroot\\files\\[filename]';
+    document.getElementById('fileInput').placeholder = 'e.g.  ..\\..\\..\\.\\Windows\\win.ini';
+  }
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileViewer').innerHTML = '<span class="fv-wait">No file loaded.</span>';
+  updateUrlBar();
+}
+
+function renderPayloadGrid() {
+  const grid = document.getElementById('payloadGrid2');
+  grid.innerHTML = PAYLOADS[currentOS].map(p => `
+    <div class="payload-item ${p.safe?'safe':''}" onclick="loadPayload2(${JSON.stringify(p.code)})">
+      <div class="pl-name">${p.name}</div>
+      <div class="pl-code">${escHtml(p.code)}</div>
+    </div>`).join('');
+}
+
+function loadPayload2(code) {
+  document.getElementById('fileInput').value = code;
+  updateUrlBar();
+}
+
+// ── NAVIGATION ──────────────────────────────────────────────────
+function goPhase(n) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.phase-btn').forEach((b, i) => {
+    b.classList.remove('active');
+    if (i + 1 < n) b.classList.add('done'); else b.classList.remove('done');
+  });
+  document.getElementById('phase' + n).classList.add('active');
+  document.querySelectorAll('.phase-btn')[n - 1].classList.add('active');
+  document.getElementById('progressFill').style.width = (n * 25) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── HELPERS ─────────────────────────────────────────────────────
+function addLog(logEl, cls, msg) {
+  if (typeof logEl === 'string') logEl = document.getElementById(logEl);
+  const ts = new Date().toTimeString().slice(0,8);
+  logEl.innerHTML += `<div class="entry"><span class="ts">[${ts}]</span><span class="${cls}">${escHtml(msg)}</span></div>`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function clearLog() {
+  const el = document.getElementById('accessLog');
+  el.innerHTML = '<div class="entry"><span class="ts">[SYS]</span><span class="ok">Log cleared.</span></div>';
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showModal(title, msg) {
+  document.getElementById('modalTitle').textContent = '⚠ ' + title;
+  document.getElementById('modalBody').innerHTML = msg.replace(/\n/g,'<br>');
+  document.getElementById('attackModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('attackModal').classList.remove('show');
+}
+
+// ── INIT ────────────────────────────────────────────────────────
+renderPayloadGrid();
+document.getElementById('fileInput').addEventListener('input', updateUrlBar);
+</script>
+</body>
+</html>

