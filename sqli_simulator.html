@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Injection Simulator — Security+ Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #080a0f;
+    --surface:   #0c0f1a;
+    --panel:     #10141f;
+    --border:    #1a2035;
+    --red:       #ff3e3e;
+    --red-dim:   #cc2222;
+    --green:     #00d68f;
+    --green-dim: #009960;
+    --amber:     #ffaa00;
+    --blue:      #4da6ff;
+    --purple:    #b07aff;
+    --purple-dim:#7a4acc;
+    --cyan:      #00e5ff;
+    --muted:     #3a5070;
+    --text:      #c9d4dc;
+    --text-dim:  #6a7f95;
+    --mono:      'Share Tech Mono', monospace;
+    --ui:        'Rajdhani', sans-serif;
+    --body:      'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .threat-badge {
+    background: var(--purple);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 8px;
+    letter-spacing: 2px;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  }
+
+  header h1 {
+    font-family: var(--ui);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+
+  header h1 span { color: var(--purple); }
+
+  .course-tag {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+  }
+
+  /* ── PROGRESS ── */
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--purple-dim), var(--purple));
+    transition: width 0.4s ease;
+    width: 25%;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 28px 32px 60px; }
+
+  /* ── PHASE NAV ── */
+  .phase-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .phase-btn {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .phase-btn:last-child { border-right: none; }
+
+  .phase-btn .num {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--border);
+    transition: color 0.2s;
+  }
+
+  .phase-btn:hover { background: var(--panel); color: var(--text); }
+  .phase-btn:hover .num { color: var(--muted); }
+
+  .phase-btn.active {
+    background: var(--panel);
+    color: var(--purple);
+    border-bottom: 2px solid var(--purple);
+  }
+
+  .phase-btn.active .num { color: var(--purple); }
+  .phase-btn.done { color: var(--green-dim); }
+  .phase-btn.done .num { color: var(--green-dim); }
+
+  /* ── PHASE PANELS ── */
+  .phase { display: none; }
+  .phase.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .phase.single { display: block; }
+  .phase.wide { grid-template-columns: 1fr; }
+  .full { grid-column: 1 / -1; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    position: relative;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+  }
+
+  .card.red::before    { background: var(--red); }
+  .card.green::before  { background: var(--green); }
+  .card.amber::before  { background: var(--amber); }
+  .card.blue::before   { background: var(--blue); }
+  .card.purple::before { background: var(--purple); }
+  .card.cyan::before   { background: var(--cyan); }
+
+  .card-title {
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .card.red .card-title .dot    { background: var(--red); }
+  .card.green .card-title .dot  { background: var(--green); }
+  .card.amber .card-title .dot  { background: var(--amber); }
+  .card.blue .card-title .dot   { background: var(--blue); }
+  .card.purple .card-title .dot { background: var(--purple); }
+  .card.cyan .card-title .dot   { background: var(--cyan); }
+
+  /* ── CONCEPT ── */
+  .concept {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+
+  .concept strong { color: var(--text); }
+  .concept .highlight { color: var(--purple); font-family: var(--mono); font-size: 12px; }
+  .concept .danger { color: var(--red); }
+  .concept .safe { color: var(--green); }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+
+  .flow-node {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .flow-node.red    { border-color: var(--red);    color: var(--red); }
+  .flow-node.green  { border-color: var(--green);  color: var(--green); }
+  .flow-node.amber  { border-color: var(--amber);  color: var(--amber); }
+  .flow-node.purple { border-color: var(--purple); color: var(--purple); }
+  .flow-arrow { color: var(--muted); font-size: 16px; }
+
+  /* ── INPUTS ── */
+  input[type=text], textarea, select {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type=text]:focus, textarea:focus { border-color: var(--purple); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  label {
+    display: block;
+    font-family: var(--ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .field { margin-bottom: 16px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover { background: var(--panel); border-color: var(--muted); }
+
+  .btn.danger { border-color: var(--red-dim); color: var(--red); }
+  .btn.danger:hover { background: rgba(255,62,62,0.08); border-color: var(--red); }
+
+  .btn.primary { border-color: var(--purple-dim); color: var(--purple); }
+  .btn.primary:hover { background: rgba(176,122,255,0.08); border-color: var(--purple); }
+
+  .btn.safe-btn { border-color: var(--green-dim); color: var(--green); }
+  .btn.safe-btn:hover { background: rgba(0,214,143,0.08); }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+  /* ── DB TABLE ── */
+  .db-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .db-table th {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--purple);
+    padding: 7px 12px;
+    text-align: left;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+
+  .db-table td {
+    border: 1px solid var(--border);
+    padding: 7px 12px;
+    color: var(--text-dim);
+    background: var(--surface);
+  }
+
+  .db-table tr.exposed td { background: rgba(255,62,62,0.08); color: var(--text); }
+  .db-table tr.exposed td.sensitive { color: var(--red); }
+
+  /* ── QUERY BOX ── */
+  .query-box {
+    background: #000;
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 14px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .q-keyword { color: var(--blue); }
+  .q-string  { color: var(--amber); }
+  .q-inject  { color: var(--red); font-weight: bold; }
+  .q-comment { color: var(--muted); font-style: italic; }
+  .q-normal  { color: var(--text); }
+
+  /* ── ATTACK LOG ── */
+  .log {
+    background: #000;
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 14px;
+    max-height: 200px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+
+  .log .entry { display: flex; gap: 10px; }
+  .log .ts { color: var(--muted); white-space: nowrap; }
+  .log .msg { color: var(--text); }
+  .log .msg.ok   { color: var(--green); }
+  .log .msg.warn { color: var(--amber); }
+  .log .msg.err  { color: var(--red); }
+  .log .msg.info { color: var(--purple); }
+
+  /* ── PAYLOAD GRID ── */
+  .payload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .payload-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--purple-dim);
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .payload-item:hover {
+    border-left-color: var(--purple);
+    background: rgba(176,122,255,0.05);
+  }
+
+  .payload-item .pl-name {
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--purple);
+    margin-bottom: 4px;
+  }
+
+  .payload-item .pl-code {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    word-break: break-all;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 24px 0 18px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--amber);
+    padding: 10px 14px;
+    background: rgba(255,170,0,0.06);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 12px 0;
+    line-height: 1.6;
+  }
+
+  .callout.info   { border-color: var(--blue);   background: rgba(77,166,255,0.06); }
+  .callout.danger { border-color: var(--red);     background: rgba(255,62,62,0.06); color: var(--text); }
+  .callout.purple { border-color: var(--purple);  background: rgba(176,122,255,0.06); }
+  .callout strong { color: var(--text); }
+
+  /* ── CODE COMPARE ── */
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .compare-bad, .compare-good {
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    border: 1px solid;
+  }
+
+  .compare-bad  { border-color: var(--red-dim);  background: rgba(255,62,62,0.05); }
+  .compare-good { border-color: var(--green-dim); background: rgba(0,214,143,0.05); }
+
+  .compare-label {
+    font-family: var(--ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-bad .compare-label  { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  /* ── DATABASE SCHEMA VISUAL ── */
+  .schema-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px;
+  }
+
+  .schema-header {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--purple);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .schema-col {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 2px 0;
+    display: flex;
+    gap: 12px;
+  }
+
+  .schema-col .col-name { color: var(--text); min-width: 120px; }
+  .schema-col .col-type { color: var(--muted); min-width: 80px; }
+  .schema-col .col-note { color: var(--amber); }
+
+  /* ── LOGIN MOCK ── */
+  .login-mock {
+    background: #12172a;
+    border: 1px solid var(--border);
+    padding: 24px;
+    max-width: 380px;
+  }
+
+  .login-mock h3 {
+    font-family: var(--ui);
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 18px;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  .login-mock .logo-bar {
+    text-align: center;
+    margin-bottom: 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--purple);
+    letter-spacing: 3px;
+  }
+
+  /* ── RESULT PANEL ── */
+  .result-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 16px;
+    min-height: 80px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .result-ok     { color: var(--green); }
+  .result-bypass { color: var(--red); }
+  .result-wait   { color: var(--muted); }
+
+  /* ── BLIND SQLI ── */
+  .blind-meter {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    height: 28px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .blind-meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--purple-dim), var(--purple));
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #fff;
+    width: 0%;
+  }
+
+  .blind-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  /* ── UNION RESULT ── */
+  .union-result {
+    background: #000;
+    border: 1px solid var(--red-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 14px;
+    max-height: 220px;
+    overflow-y: auto;
+    line-height: 1.9;
+  }
+
+  .ur-leaked { color: var(--red); }
+  .ur-label  { color: var(--muted); }
+  .ur-val    { color: var(--amber); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--red);
+    border-top: 3px solid var(--red);
+    padding: 28px 32px;
+    max-width: 520px;
+    width: 90%;
+  }
+
+  .modal-title {
+    font-family: var(--ui);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--red);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .modal-body {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+    margin-bottom: 20px;
+    font-family: var(--mono);
+  }
+
+  /* ── TAB STRIP (for attack types) ── */
+  .tab-strip {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    margin-bottom: -1px;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--purple); border-bottom-color: var(--purple); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  code {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 5px;
+    color: var(--amber);
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 2px 7px;
+    border: 1px solid;
+    margin: 2px;
+  }
+
+  .tag.vuln { border-color: var(--red-dim); color: var(--red); }
+  .tag.safe { border-color: var(--green-dim); color: var(--green); }
+  .tag.info { border-color: var(--blue); color: var(--blue); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="threat-badge">OWASP A03</div>
+  <h1>SQL <span>Injection</span> Simulator</h1>
+  <div class="course-tag">SECURITY+ LAB // CIS108</div>
+</header>
+
+<div class="progress-bar">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="container">
+
+  <!-- PHASE NAV -->
+  <nav class="phase-nav">
+    <button class="phase-btn active" onclick="goPhase(1)">
+      <span class="num">01</span>CONCEPT
+    </button>
+    <button class="phase-btn" onclick="goPhase(2)">
+      <span class="num">02</span>AUTH BYPASS
+    </button>
+    <button class="phase-btn" onclick="goPhase(3)">
+      <span class="num">03</span>DATA EXFIL
+    </button>
+    <button class="phase-btn" onclick="goPhase(4)">
+      <span class="num">04</span>DEFENSES
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 1 — CONCEPT
+  ════════════════════════════════════════════ -->
+  <div class="phase active wide" id="phase1">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+
+      <div class="card purple">
+        <div class="card-title"><span class="dot"></span>WHAT IS SQL INJECTION?</div>
+        <p class="concept">
+          <strong>SQL Injection (SQLi)</strong> occurs when an attacker inserts — or "injects" — malicious SQL code into a query that an application sends to its database. If the application doesn't properly validate or sanitize user input, the database executes the attacker's code alongside the legitimate query.
+        </p>
+        <p class="concept">
+          Because web applications typically build queries by <strong>concatenating strings</strong> with user input, an attacker can break out of the intended string and append arbitrary SQL. The database cannot distinguish the injected code from the developer's original query — it sees valid SQL and obeys it.
+        </p>
+        <div class="callout danger">
+          <strong>Real impact:</strong> Unauthorized login, full database dump, credential theft, data destruction, privilege escalation, and in some cases, operating system command execution.
+        </div>
+      </div>
+
+      <div class="card red">
+        <div class="card-title"><span class="dot"></span>THE VULNERABLE QUERY</div>
+        <p class="concept" style="margin-bottom:12px;">A login form that builds a query by string concatenation:</p>
+
+        <div class="query-box" style="margin-bottom:14px;"><span class="q-keyword">SELECT</span> * <span class="q-keyword">FROM</span> users
+<span class="q-keyword">WHERE</span> username = <span class="q-string">'</span><span class="q-normal">[USERNAME]</span><span class="q-string">'</span>
+  <span class="q-keyword">AND</span> password = <span class="q-string">'</span><span class="q-normal">[PASSWORD]</span><span class="q-string">'</span>;</div>
+
+        <p class="concept" style="margin-bottom:12px;">What the developer <em>intended</em>:</p>
+        <div class="query-box" style="margin-bottom:14px;"><span class="q-keyword">SELECT</span> * <span class="q-keyword">FROM</span> users
+<span class="q-keyword">WHERE</span> username = <span class="q-string">'alice'</span>
+  <span class="q-keyword">AND</span> password = <span class="q-string">'mypassword'</span>;</div>
+
+        <p class="concept" style="margin-bottom:8px;">What an attacker sends instead:</p>
+        <div class="query-box"><span class="q-keyword">SELECT</span> * <span class="q-keyword">FROM</span> users
+<span class="q-keyword">WHERE</span> username = <span class="q-string">'</span><span class="q-inject">admin' OR '1'='1</span><span class="q-string">'</span>
+  <span class="q-keyword">AND</span> password = <span class="q-string">'anything'</span>;
+<span class="q-comment">-- '1'='1' always true → authentication bypassed!</span></div>
+      </div>
+
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-bottom:24px;">
+
+      <div class="card amber">
+        <div class="card-title"><span class="dot"></span>IN-BAND (CLASSIC)</div>
+        <p class="concept">Results are returned <strong>directly</strong> in the application response. Easiest to exploit.</p>
+        <div class="flow" style="flex-direction:column;align-items:flex-start;gap:6px;">
+          <div class="flow-node purple">Attacker injects payload</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-node">DB executes query</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-node red">Data dumped to page</div>
+        </div>
+        <div style="margin-top:10px;">
+          <span class="tag vuln">Error-Based</span>
+          <span class="tag vuln">UNION-Based</span>
+        </div>
+      </div>
+
+      <div class="card blue">
+        <div class="card-title"><span class="dot"></span>INFERENTIAL (BLIND)</div>
+        <p class="concept">No data is returned visibly. Attacker infers results from <strong>true/false behavior</strong> or response timing.</p>
+        <div class="flow" style="flex-direction:column;align-items:flex-start;gap:6px;">
+          <div class="flow-node purple">Send boolean payload</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-node">App behaves differently</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-node amber">Infer data bit-by-bit</div>
+        </div>
+        <div style="margin-top:10px;">
+          <span class="tag info">Boolean-Based</span>
+          <span class="tag info">Time-Based</span>
+        </div>
+      </div>
+
+      <div class="card red">
+        <div class="card-title"><span class="dot"></span>OUT-OF-BAND</div>
+        <p class="concept">Data is sent to an <strong>attacker-controlled server</strong> via DNS or HTTP requests triggered by the database itself.</p>
+        <div class="flow" style="flex-direction:column;align-items:flex-start;gap:6px;">
+          <div class="flow-node purple">Trigger DB network call</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-node">DB makes DNS/HTTP req</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-node red">Data arrives at evil server</div>
+        </div>
+        <div style="margin-top:10px;">
+          <span class="tag vuln">DNS Exfil</span>
+          <span class="tag vuln">HTTP Request</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+
+      <div class="card green">
+        <div class="card-title"><span class="dot"></span>DATABASE SCHEMA BEING TARGETED</div>
+        <p class="concept" style="margin-bottom:14px;">Throughout this lab you'll be attacking a simulated <strong>BankApp</strong> database:</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="schema-box">
+            <div class="schema-header">TABLE: users</div>
+            <div class="schema-col"><span class="col-name">id</span><span class="col-type">INT</span><span class="col-note">PK</span></div>
+            <div class="schema-col"><span class="col-name">username</span><span class="col-type">VARCHAR</span></div>
+            <div class="schema-col"><span class="col-name">password</span><span class="col-type">VARCHAR</span><span class="col-note">plaintext!</span></div>
+            <div class="schema-col"><span class="col-name">email</span><span class="col-type">VARCHAR</span></div>
+            <div class="schema-col"><span class="col-name">role</span><span class="col-type">VARCHAR</span></div>
+            <div class="schema-col"><span class="col-name">balance</span><span class="col-type">DECIMAL</span></div>
+          </div>
+          <div class="schema-box">
+            <div class="schema-header">TABLE: transactions</div>
+            <div class="schema-col"><span class="col-name">id</span><span class="col-type">INT</span><span class="col-note">PK</span></div>
+            <div class="schema-col"><span class="col-name">user_id</span><span class="col-type">INT</span><span class="col-note">FK</span></div>
+            <div class="schema-col"><span class="col-name">amount</span><span class="col-type">DECIMAL</span></div>
+            <div class="schema-col"><span class="col-name">type</span><span class="col-type">VARCHAR</span></div>
+            <div class="schema-col"><span class="col-name">memo</span><span class="col-type">VARCHAR</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card cyan">
+        <div class="card-title"><span class="dot"></span>WHY IT STILL HAPPENS</div>
+        <p class="concept">Despite being known for <strong>over 25 years</strong>, SQLi remains the #3 vulnerability in the OWASP Top 10. Why?</p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="callout purple" style="margin:0;padding:8px 12px;font-size:12px;">
+            <strong>Legacy codebases</strong> built before parameterized queries were standard
+          </div>
+          <div class="callout purple" style="margin:0;padding:8px 12px;font-size:12px;">
+            <strong>Developers skip sanitization</strong> on "trusted" internal fields
+          </div>
+          <div class="callout purple" style="margin:0;padding:8px 12px;font-size:12px;">
+            <strong>ORMs misconfigured</strong> to allow raw query passthrough
+          </div>
+          <div class="callout purple" style="margin:0;padding:8px 12px;font-size:12px;">
+            <strong>Third-party plugins</strong> add vulnerable query logic
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+      <button class="btn primary" onclick="goPhase(2)">NEXT: AUTH BYPASS →</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 2 — AUTHENTICATION BYPASS
+  ════════════════════════════════════════════ -->
+  <div class="phase" id="phase2">
+
+    <div class="card purple">
+      <div class="card-title"><span class="dot"></span>ATTACK LAB — AUTHENTICATION BYPASS</div>
+
+      <div class="tab-strip">
+        <button class="tab-btn active" onclick="switchTab(event,'tab-login')">Login Form</button>
+        <button class="tab-btn" onclick="switchTab(event,'tab-payloads')">Payload Library</button>
+        <button class="tab-btn" onclick="switchTab(event,'tab-query')">Live Query</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-login">
+        <p class="concept" style="margin-bottom:18px;">
+          Enter a payload in the username or password field to bypass authentication. Try injecting SQL that makes the WHERE clause always evaluate to <strong>TRUE</strong>, or comment out the password check entirely.
+        </p>
+        <div class="login-mock">
+          <div class="logo-bar">◈ BANKAPP PORTAL ◈</div>
+          <h3>Secure Login</h3>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="loginUser" placeholder="e.g.  admin' --" oninput="updateLiveQuery()">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="text" id="loginPass" placeholder="e.g.  anything" oninput="updateLiveQuery()">
+          </div>
+          <div class="btn-row" style="margin-top:0;">
+            <button class="btn danger" onclick="attemptLogin()" style="flex:1;justify-content:center;">LOGIN →</button>
+            <button class="btn" onclick="resetLogin()">RESET</button>
+          </div>
+        </div>
+
+        <div style="margin-top:18px;">
+          <label>RESULT</label>
+          <div class="result-panel" id="loginResult">
+            <span class="result-wait">Awaiting login attempt...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-payloads">
+        <p class="concept" style="margin-bottom:14px;">Click any payload to load it into the username field, then switch to the Login Form tab and click LOGIN.</p>
+        <div class="payload-grid">
+          <div class="payload-item" onclick="loadAuthPayload(`admin' --`, 'bypass')">
+            <div class="pl-name">Classic Comment-Out</div>
+            <div class="pl-code">admin' --</div>
+          </div>
+          <div class="payload-item" onclick="loadAuthPayload(`' OR '1'='1`, 'bypass')">
+            <div class="pl-name">Always-True Condition</div>
+            <div class="pl-code">' OR '1'='1</div>
+          </div>
+          <div class="payload-item" onclick="loadAuthPayload(`admin'/*`, 'bypass')">
+            <div class="pl-name">Block Comment Bypass</div>
+            <div class="pl-code">admin'/*</div>
+          </div>
+          <div class="payload-item" onclick="loadAuthPayload(`' OR 1=1 LIMIT 1 --`, 'bypass')">
+            <div class="pl-name">LIMIT 1 (first record)</div>
+            <div class="pl-code">' OR 1=1 LIMIT 1 --</div>
+          </div>
+          <div class="payload-item" onclick="loadAuthPayload(`admin'; DROP TABLE users; --`, 'destruct')">
+            <div class="pl-name">Destructive (DROP TABLE)</div>
+            <div class="pl-code">admin'; DROP TABLE users; --</div>
+          </div>
+          <div class="payload-item" onclick="loadAuthPayload(`alice`, 'normal')">
+            <div class="pl-name">Legitimate Input</div>
+            <div class="pl-code">alice (valid username, test w/ correct PW: alice123)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-query">
+        <p class="concept" style="margin-bottom:12px;">The query below updates live as you type in the login form. Observe how your input affects the SQL sent to the database.</p>
+        <label>CONSTRUCTED QUERY (as seen by the database)</label>
+        <div class="query-box" id="liveQuery"><span class="q-keyword">SELECT</span> * <span class="q-keyword">FROM</span> users
+<span class="q-keyword">WHERE</span> username = <span class="q-string">''</span>
+  <span class="q-keyword">AND</span> password = <span class="q-string">''</span>;</div>
+        <div class="callout danger" style="margin-top:14px;">
+          <strong>Notice:</strong> As you type a single quote <code>'</code> in the username field, the query structure <strong>breaks</strong>. Any SQL you append after it will be interpreted and executed by the database engine.
+        </div>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>SERVER LOG — DATABASE ENGINE</div>
+      <p class="concept" style="margin-bottom:12px;">Simulated database query log. Watch what happens when injection payloads are processed.</p>
+      <div class="log" id="authLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Database connected. Awaiting authentication queries...</span></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="clearLog('authLog')">CLEAR LOG</button>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;margin-top:8px;">
+      <button class="btn" onclick="goPhase(1)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(3)">NEXT: DATA EXFIL →</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 3 — DATA EXFILTRATION
+  ════════════════════════════════════════════ -->
+  <div class="phase" id="phase3">
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>ATTACK LAB — UNION-BASED DATA DUMP</div>
+
+      <p class="concept" style="margin-bottom:14px;">
+        A <strong>UNION-based injection</strong> appends a second SELECT statement to the original query. When the column count matches, the attacker can pull data from any table in the database — including tables the application never intended to expose.
+      </p>
+
+      <div class="callout info" style="margin-bottom:14px;">
+        <strong>Target endpoint:</strong> A product search field — <code>GET /search?q=[INPUT]</code> — that returns matching rows from the <code>products</code> table.
+      </div>
+
+      <div class="field">
+        <label>SEARCH FIELD INPUT</label>
+        <input type="text" id="unionInput" placeholder="e.g.  ' UNION SELECT username,password,email,role,balance FROM users --">
+      </div>
+
+      <div class="payload-grid" style="margin-bottom:14px;">
+        <div class="payload-item" onclick="loadUnionPayload(`laptop`)">
+          <div class="pl-name">Normal Search</div>
+          <div class="pl-code">laptop</div>
+        </div>
+        <div class="payload-item" onclick="loadUnionPayload(`' UNION SELECT username,password,email,role,balance FROM users --`)">
+          <div class="pl-name">Dump Users Table</div>
+          <div class="pl-code">' UNION SELECT username,password,email,role,balance FROM users --</div>
+        </div>
+        <div class="payload-item" onclick="loadUnionPayload(`' UNION SELECT table_name,column_name,data_type,NULL,NULL FROM information_schema.columns --`)">
+          <div class="pl-name">Schema Enumeration</div>
+          <div class="pl-code">' UNION SELECT table_name,column_name... FROM information_schema --</div>
+        </div>
+        <div class="payload-item" onclick="loadUnionPayload(`' UNION SELECT id,amount,type,memo,user_id FROM transactions --`)">
+          <div class="pl-name">Dump Transactions</div>
+          <div class="pl-code">' UNION SELECT id,amount,type,memo,user_id FROM transactions --</div>
+        </div>
+      </div>
+
+      <button class="btn danger" onclick="runUnion()" style="width:100%;justify-content:center;margin-bottom:14px;">⚡ EXECUTE QUERY</button>
+
+      <label>QUERY RESULTS (as rendered by the application)</label>
+      <div class="union-result" id="unionResult">
+        <span style="color:var(--muted)">// Results will appear here...</span>
+      </div>
+    </div>
+
+    <div class="card blue">
+      <div class="card-title"><span class="dot"></span>BLIND SQLi — TIME-BASED</div>
+
+      <p class="concept" style="margin-bottom:14px;">
+        When the application doesn't return query results, attackers use <strong>time-based blind injection</strong>. The payload makes the database <em>sleep</em> for a set number of seconds when a condition is true. By observing response delay, the attacker can extract data one bit at a time.
+      </p>
+
+      <div class="callout purple" style="margin-bottom:14px;">
+        <strong>Technique:</strong> <code>IF(condition, SLEEP(5), 0)</code> — if the database name starts with 'b', wait 5 seconds, else return immediately.
+      </div>
+
+      <div class="field">
+        <label>BOOLEAN PROBE</label>
+        <select id="blindSelect">
+          <option value="dbname_b">Does DB name start with 'b'? → IF(SUBSTR(database(),1,1)='b', SLEEP(3), 0)</option>
+          <option value="admin_exists">Does 'admin' user exist? → IF(EXISTS(SELECT 1 FROM users WHERE username='admin'), SLEEP(3), 0)</option>
+          <option value="version_mysql">Is DB MySQL? → IF(version() LIKE '8%', SLEEP(3), 0)</option>
+          <option value="col_count">Does users table have 6 cols? → IF((SELECT COUNT(column_name) FROM information_schema.columns WHERE table_name='users')=6, SLEEP(3), 0)</option>
+        </select>
+      </div>
+
+      <button class="btn danger" onclick="runBlind()" style="width:100%;justify-content:center;margin-bottom:18px;">⏱ SEND PROBE</button>
+
+      <label>RESPONSE TIMING</label>
+      <div class="blind-label" id="blindStatus">Waiting for probe...</div>
+      <div class="blind-meter"><div class="blind-meter-fill" id="blindFill"></div></div>
+
+      <label style="margin-top:14px;">INFERRED RESULT</label>
+      <div class="result-panel" id="blindResult">
+        <span class="result-wait">Send a probe above to begin inference...</span>
+      </div>
+    </div>
+
+    <div class="full">
+      <div class="card amber">
+        <div class="card-title"><span class="dot"></span>EXECUTION LOG</div>
+        <div class="log" id="exfilLog">
+          <div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Exfiltration lab ready. Awaiting queries...</span></div>
+        </div>
+        <div class="btn-row"><button class="btn" onclick="clearLog('exfilLog')">CLEAR LOG</button></div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;margin-top:8px;">
+      <button class="btn" onclick="goPhase(2)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(4)">NEXT: DEFENSES →</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 4 — DEFENSES
+  ════════════════════════════════════════════ -->
+  <div class="phase single" id="phase4">
+
+    <div class="card green" style="margin-bottom:24px;">
+      <div class="card-title"><span class="dot"></span>HOW TO PREVENT SQL INJECTION</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">1. Parameterized Queries</div>
+          <div class="concept">The <strong>#1 defense.</strong> Separate the query structure from the data. The database driver handles quoting and escaping automatically — user input can never change query logic.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">2. Stored Procedures</div>
+          <div class="concept">Precompiled SQL stored in the database. When parameters are bound correctly, input is always treated as data — not executable code — by the query engine.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">3. Input Validation</div>
+          <div class="concept">Enforce strict allowlists on input type, length, and format. Reject or sanitize characters with special SQL meaning: <code>'</code> <code>--</code> <code>;</code> <code>UNION</code> <code>SELECT</code>. Never rely on this <em>alone</em>.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">4. Least Privilege</div>
+          <div class="concept">The database account used by the application should only have the permissions it needs. A login form should never use an account with DROP, CREATE, or GRANT rights.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">5. Web Application Firewall</div>
+          <div class="concept">A WAF can detect common SQLi signatures and block malicious requests before they reach the application layer. Not a substitute for secure coding — but adds a useful detection layer.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">6. Error Handling</div>
+          <div class="concept">Never expose raw database errors to users. SQL error messages reveal table names, column names, and database version — information attackers use to craft precise payloads.</div>
+        </div>
+
+      </div>
+
+      <div class="divider">VULNERABLE vs SECURE CODE</div>
+
+      <div class="compare-row">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ Vulnerable — String Concatenation</div>
+            <span style="color:var(--muted)">// PHP example — directly embeds user input</span><br>
+            $user = $_POST['username'];<br>
+            $pass = $_POST['password'];<br><br>
+            $query = "SELECT * FROM users<br>
+            &nbsp;WHERE username = '" . $user . "'<br>
+            &nbsp;AND password = '" . $pass . "'";<br><br>
+            <span style="color:var(--red)">// Input: admin' -- → password check skipped!</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ Secure — Parameterized Query</div>
+            <span style="color:var(--muted)">// PHP PDO example — input bound as data</span><br>
+            $stmt = $pdo->prepare(<br>
+            &nbsp;"SELECT * FROM users<br>
+            &nbsp;WHERE username = ?<br>
+            &nbsp;AND password = ?"<br>
+            );<br><br>
+            $stmt->execute([$user, $pass]);<br>
+            <span style="color:var(--green)">// Injection impossible — ? is always literal data</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-row" style="margin-top:12px;">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ Vulnerable — Raw ORM Query</div>
+            <span style="color:var(--muted)">// Node.js — raw SQL with template literals</span><br>
+            const q = `SELECT * FROM users<br>
+            &nbsp;WHERE id = ${req.params.id}`;<br>
+            await db.query(q);<br><br>
+            <span style="color:var(--red)">// Input: 1 UNION SELECT * FROM users -- → dump!</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ Secure — Parameterized ORM</div>
+            <span style="color:var(--muted)">// Node.js — parameterized binding</span><br>
+            const q = "SELECT * FROM users<br>
+            &nbsp;WHERE id = $1";<br>
+            await db.query(q, [req.params.id]);<br><br>
+            <span style="color:var(--green)">// $1 is a placeholder — input treated as value only</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider">DETECTION INDICATORS</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <p class="concept" style="margin-bottom:10px;"><strong>What to look for in logs:</strong></p>
+          <div class="callout danger" style="font-family:var(--mono);font-size:11px;">
+            Unusual characters in parameters: <span style="color:var(--red)">' " -- ; UNION SELECT</span><br>
+            Repeated requests with slight input variations<br>
+            DB error messages in HTTP responses<br>
+            Anomalous query execution times (blind SQLi)<br>
+            Requests to <span style="color:var(--red)">information_schema</span> tables
+          </div>
+        </div>
+        <div>
+          <p class="concept" style="margin-bottom:10px;"><strong>Security+ exam tips:</strong></p>
+          <div class="callout info" style="font-family:var(--mono);font-size:11px;">
+            SQLi = <span style="color:var(--blue)">Injection</span> category (OWASP A03)<br>
+            Best fix = <span style="color:var(--blue)">Parameterized queries</span><br>
+            Also called: <span style="color:var(--blue)">prepared statements</span><br>
+            Affects: Confidentiality, Integrity, Availability<br>
+            Tools used by testers: <span style="color:var(--blue)">sqlmap, Burp Suite</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;justify-content:flex-start;">
+      <button class="btn" onclick="goPhase(3)">← BACK</button>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="attackModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">⚠ SQL INJECTION — SIMULATED RESULT</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="btn primary" onclick="closeModal()">ACKNOWLEDGE</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────
+let currentPhase = 1;
+
+// Simulated database
+const DB = {
+  users: [
+    { id:1, username:'admin',   password:'Adm!n$3cur3',    email:'admin@bankapp.local',  role:'administrator', balance:'$2,410,000.00' },
+    { id:2, username:'alice',   password:'alice123',        email:'alice@gmail.com',      role:'customer',      balance:'$12,430.50' },
+    { id:3, username:'bob',     password:'b0bPassw0rd',     email:'bob@yahoo.com',        role:'customer',      balance:'$5,211.00' },
+    { id:4, username:'charlie', password:'Ch4rl13!',        email:'charlie@corp.net',     role:'teller',        balance:'$89,200.00' },
+    { id:5, username:'sysops',  password:'Sys0ps#2024',     email:'ops@bankapp.local',    role:'sysadmin',      balance:'$0.00' },
+  ],
+  transactions: [
+    { id:101, user_id:2, amount:'$500.00',    type:'DEBIT',  memo:'Rent payment' },
+    { id:102, user_id:2, amount:'$1,200.00',  type:'CREDIT', memo:'Payroll deposit' },
+    { id:103, user_id:3, amount:'$75.00',     type:'DEBIT',  memo:'Grocery store' },
+    { id:104, user_id:4, amount:'$10,000.00', type:'DEBIT',  memo:'Wire transfer — suspicious' },
+  ]
+};
+
+// ── NAVIGATION ──────────────────────────────────────────────────────
+function goPhase(n) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.phase-btn').forEach((b, i) => {
+    b.classList.remove('active');
+    if (i + 1 < n) b.classList.add('done'); else b.classList.remove('done');
+  });
+  document.getElementById('phase' + n).classList.add('active');
+  document.querySelectorAll('.phase-btn')[n - 1].classList.add('active');
+  currentPhase = n;
+  document.getElementById('progressFill').style.width = (n * 25) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── TABS ────────────────────────────────────────────────────────────
+function switchTab(e, id) {
+  e.target.closest('.card').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  e.target.closest('.card').querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// ── LIVE QUERY BUILDER ──────────────────────────────────────────────
+function updateLiveQuery() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  const el = document.getElementById('liveQuery');
+
+  function renderVal(v) {
+    const esc = v.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (v.includes("'") || v.match(/--|;|UNION|SELECT|OR|DROP/i)) {
+      return `<span class="q-string">'</span><span class="q-inject">${esc}</span><span class="q-string">'</span>`;
+    }
+    return `<span class="q-string">'${esc}'</span>`;
+  }
+
+  el.innerHTML =
+    `<span class="q-keyword">SELECT</span> * <span class="q-keyword">FROM</span> users\n` +
+    `<span class="q-keyword">WHERE</span> username = ${renderVal(u)}\n` +
+    `  <span class="q-keyword">AND</span> password = ${renderVal(p)};`;
+}
+
+// ── AUTH BYPASS ──────────────────────────────────────────────────────
+function loadAuthPayload(payload, type) {
+  document.getElementById('loginUser').value = payload;
+  if (type === 'normal') document.getElementById('loginPass').value = 'alice123';
+  else document.getElementById('loginPass').value = 'anything';
+  updateLiveQuery();
+  // Switch to login tab
+  const card = document.querySelector('#phase2 .card.purple');
+  card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  card.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  card.querySelectorAll('.tab-btn')[0].classList.add('active');
+  document.getElementById('tab-login').classList.add('active');
+}
+
+function attemptLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  const result = document.getElementById('loginResult');
+  const log = document.getElementById('authLog');
+  const ts = new Date().toTimeString().slice(0,8);
+
+  addLog(log, 'warn', `[${ts}] AUTH REQUEST — username="${user}" password="${pass}"`);
+
+  setTimeout(() => {
+    // Detect bypass patterns
+    const isBypass = /'\s*(or|OR)\s*['1]/i.test(user) ||
+                     /--/.test(user) ||
+                     /\/\*/.test(user) ||
+                     /'\s*(or|OR)\s*['1]/i.test(pass);
+    const isDrop   = /drop\s+table/i.test(user);
+    const isLegit  = DB.users.find(u => u.username === user && u.password === pass);
+
+    if (isDrop) {
+      addLog(log, 'err', `[${ts}] MALICIOUS QUERY DETECTED: DROP TABLE`);
+      addLog(log, 'err', `[${ts}] SIMULATED: users table destroyed`);
+      result.innerHTML = `<span class="result-bypass">
+⚠ DESTRUCTIVE PAYLOAD EXECUTED<br><br>
+Query: SELECT * FROM users WHERE username = '<span style="color:var(--red)">${escHtml(user)}</span>' AND password = 'anything'<br><br>
+The injected DROP TABLE statement would execute on the database server. If the DB account has DROP privileges, the entire users table is <strong>deleted immediately</strong> — all accounts, all credentials, gone. This is a <strong>data destruction</strong> attack.
+</span>`;
+      showModal("Data Destruction Payload!", `The injected DROP TABLE would permanently delete the users table from the database.\n\nIn production: all user accounts wiped. Application down. No login possible until DB is restored from backup.\n\nThis is why DB accounts must have LEAST PRIVILEGE — the app's account should never have DROP rights.`);
+
+    } else if (isBypass) {
+      addLog(log, 'err', `[${ts}] SQL INJECTION DETECTED in username field`);
+      addLog(log, 'err', `[${ts}] WHERE clause evaluated TRUE — authentication bypassed`);
+      addLog(log, 'info',`[${ts}] Returning first row: user=admin, role=administrator`);
+      result.innerHTML = `<span class="result-bypass">
+⚠ AUTHENTICATION BYPASSED — LOGGED IN AS ADMIN<br><br>
+Injected query returned: <span style="color:var(--red)">1 row (admin / administrator)</span><br><br>
+<span style="color:var(--amber)">username: admin</span><br>
+<span style="color:var(--amber)">role: administrator</span><br>
+<span style="color:var(--amber)">email: admin@bankapp.local</span><br><br>
+The WHERE condition evaluated to TRUE for every row. The database returned the first matching record — which happens to be the admin account. <strong>No valid password was required.</strong>
+</span>`;
+      showModal("Authentication Bypassed!", `The injected payload made the WHERE clause evaluate to TRUE regardless of the stored password.\n\nResult: Full admin access to BankApp without knowing any credentials.\n\nEvery user logged into the site during the session window is now at risk.`);
+
+    } else if (isLegit) {
+      addLog(log, 'ok',  `[${ts}] Valid credentials — returning user record`);
+      result.innerHTML = `<span class="result-ok">
+✓ LOGIN SUCCESSFUL (legitimate credentials)<br><br>
+username: ${escHtml(user)}<br>
+role: ${isLegit.role}<br><br>
+This is normal, expected behavior. No injection detected.
+</span>`;
+
+    } else {
+      addLog(log, 'warn', `[${ts}] No matching rows — login failed`);
+      result.innerHTML = `<span class="result-wait">
+✗ Login failed — invalid credentials.<br><br>
+No rows matched the query. Try a payload from the Payload Library tab.
+</span>`;
+    }
+  }, 400);
+}
+
+function resetLogin() {
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginResult').innerHTML = '<span class="result-wait">Awaiting login attempt...</span>';
+  updateLiveQuery();
+}
+
+// ── UNION-BASED EXFIL ────────────────────────────────────────────────
+function loadUnionPayload(p) {
+  document.getElementById('unionInput').value = p;
+}
+
+function runUnion() {
+  const input = document.getElementById('unionInput').value.trim();
+  const result = document.getElementById('unionResult');
+  const log = document.getElementById('exfilLog');
+  addLog(log, 'warn', `QUERY: SELECT name,price,category,description,stock FROM products WHERE name LIKE '%${input}%'`);
+
+  setTimeout(() => {
+    if (/UNION\s+SELECT/i.test(input) && /users/i.test(input)) {
+      addLog(log, 'err', `UNION SELECT injected — appending query on users table`);
+      addLog(log, 'err', `Returning ${DB.users.length} extra rows from users`);
+      let html = `<span class="ur-leaked">⚠ UNION INJECTION — users TABLE DUMPED</span>\n\n`;
+      html += `<span class="ur-label">col1(username)&nbsp;&nbsp;&nbsp;col2(password)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;col3(email)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;col4(role)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;col5(balance)</span>\n`;
+      html += `<span style="color:var(--border)">──────────────────────────────────────────────────────────────────────────────────</span>\n`;
+      DB.users.forEach(u => {
+        html += `<span class="ur-val">${u.username.padEnd(16)}${u.password.padEnd(22)}${u.email.padEnd(26)}${u.role.padEnd(14)}${u.balance}</span>\n`;
+      });
+      result.innerHTML = html;
+      showModal("Full User Table Dumped!", `UNION SELECT appended a second query that selected all columns from the users table.\n\nResult: Usernames, PLAINTEXT passwords, emails, and roles for all 5 accounts — including the admin.\n\nAn attacker now has credentials to log in as any user, including the administrator.`);
+
+    } else if (/UNION\s+SELECT/i.test(input) && /information_schema/i.test(input)) {
+      addLog(log, 'err', `Schema enumeration via information_schema`);
+      let html = `<span class="ur-leaked">⚠ SCHEMA ENUMERATION — DATABASE STRUCTURE EXPOSED</span>\n\n`;
+      html += `<span class="ur-label">table_name&nbsp;&nbsp;&nbsp;&nbsp;column_name&nbsp;&nbsp;data_type</span>\n`;
+      const schema = [
+        ['users','id','int'],['users','username','varchar'],['users','password','varchar'],
+        ['users','email','varchar'],['users','role','varchar'],['users','balance','decimal'],
+        ['transactions','id','int'],['transactions','user_id','int'],['transactions','amount','decimal'],
+        ['transactions','type','varchar'],['transactions','memo','varchar'],
+      ];
+      schema.forEach(r => {
+        html += `<span class="ur-val">${r[0].padEnd(14)}${r[1].padEnd(14)}<span style="color:var(--muted)">${r[2]}</span></span>\n`;
+      });
+      result.innerHTML = html;
+      showModal("Database Schema Leaked!", `information_schema is a built-in metadata database in MySQL/PostgreSQL. It stores the names of all tables, columns, and data types.\n\nAttackers enumerate this before crafting targeted UNION payloads — it's the reconnaissance step.`);
+
+    } else if (/UNION\s+SELECT/i.test(input) && /transactions/i.test(input)) {
+      addLog(log, 'err', `UNION SELECT on transactions table`);
+      let html = `<span class="ur-leaked">⚠ UNION INJECTION — transactions TABLE DUMPED</span>\n\n`;
+      DB.transactions.forEach(t => {
+        html += `<span class="ur-val">TXN-${t.id}  user_id:${t.user_id}  ${t.amount.padEnd(12)}${t.type.padEnd(8)}  "${t.memo}"</span>\n`;
+      });
+      result.innerHTML = html;
+      showModal("Transaction Records Dumped!", `All transaction records have been extracted, including account amounts, transfer types, and memo fields.\n\nIn a real attack, this reveals financial data that could be used for fraud, identity theft, or targeted social engineering.`);
+
+    } else if (!/UNION/i.test(input)) {
+      addLog(log, 'ok', `Normal search — no injection detected`);
+      result.innerHTML = `<span class="result-ok">✓ Normal query — results from products table:\n\nLaptop Pro 15"  — $1,299.00  [Electronics]\nUltrabook X1   — $899.00   [Electronics]\n\nNo injection detected.</span>`;
+
+    } else {
+      addLog(log, 'warn', `UNION detected but column mismatch — error thrown`);
+      result.innerHTML = `<span style="color:var(--amber)">ERROR: The used SELECT statements have a different number of columns.\n\nHint: The products table has 5 columns. Your UNION SELECT must also return exactly 5 columns.</span>`;
+    }
+  }, 500);
+}
+
+// ── BLIND TIME-BASED ────────────────────────────────────────────────
+function runBlind() {
+  const probe = document.getElementById('blindSelect').value;
+  const log = document.getElementById('exfilLog');
+  const status = document.getElementById('blindStatus');
+  const fill = document.getElementById('blindFill');
+  const result = document.getElementById('blindResult');
+
+  const probes = {
+    dbname_b:     { truthy: true,  delay: 3, question: "DB name starts with 'b'?",    answer: "YES — database name is 'bankapp'" },
+    admin_exists: { truthy: true,  delay: 3, question: "'admin' user exists?",         answer: "YES — admin account confirmed in users table" },
+    version_mysql:{ truthy: true,  delay: 3, question: "Database engine is MySQL 8.x?",answer: "YES — version() returns '8.0.35'" },
+    col_count:    { truthy: true,  delay: 3, question: "users table has 6 columns?",   answer: "YES — confirmed 6 columns: id,username,password,email,role,balance" },
+  };
+
+  const p = probes[probe];
+  addLog(log, 'info', `BLIND PROBE SENT — waiting for response...`);
+  status.textContent = 'Probe sent — measuring response time...';
+  fill.style.width = '0%';
+  result.innerHTML = '<span class="result-wait">Measuring...</span>';
+
+  // Animate meter to simulate wait
+  let pct = 0;
+  const interval = setInterval(() => {
+    pct += 2;
+    fill.style.width = pct + '%';
+    fill.textContent = (pct / 100 * p.delay).toFixed(1) + 's elapsed';
+    if (pct >= 100) clearInterval(interval);
+  }, p.delay * 20);
+
+  setTimeout(() => {
+    addLog(log, 'err', `Response delayed ${p.delay}s — condition evaluated TRUE`);
+    status.textContent = `Response received after ${p.delay}.0s delay — condition is TRUE`;
+    result.innerHTML = `<span class="result-bypass">
+⏱ DELAY OBSERVED: +${p.delay} seconds<br><br>
+Probe: ${p.question}<br>
+<span style="color:var(--green)">Inferred answer: ${p.answer}</span><br><br>
+<span style="color:var(--text-dim)">The database executed SLEEP(${p.delay}) before responding, confirming the condition is TRUE. By repeating this technique for each character and bit position, an attacker can extract the entire database — one boolean response at a time.</span>
+</span>`;
+    showModal("Blind Injection Confirmed!", `The ${p.delay}-second response delay proves the condition was TRUE.\n\n"${p.answer}"\n\nUsing this method across hundreds or thousands of requests, an attacker can reconstruct full table contents even when no data is returned in the HTTP response.`);
+  }, p.delay * 1000);
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+function addLog(el, type, msg) {
+  const ts = new Date().toTimeString().slice(0,8);
+  el.innerHTML += `<div class="entry"><span class="ts">[${ts}]</span><span class="msg ${type}">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog(id) {
+  document.getElementById(id).innerHTML =
+    '<div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Log cleared.</span></div>';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showModal(title, msg) {
+  document.getElementById('modalTitle').textContent = '⚠ ' + title;
+  document.getElementById('modalBody').innerHTML = msg.replace(/\n/g,'<br>');
+  document.getElementById('attackModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('attackModal').classList.remove('show');
+}
+</script>
+</body>
+</html>

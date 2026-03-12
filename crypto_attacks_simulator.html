@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cryptographic Attacks Simulator — Security+ Lab</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;600;700;800&family=Inter:wght@300;400;500&display=swap');
+
+:root {
+  --bg:          #050709;
+  --surface:     #0a0d12;
+  --panel:       #0f1318;
+  --deep:        #070910;
+  --border:      #182030;
+  /* per-attack accent colors */
+  --dg:          #e05c2a;   /* downgrade — burnt orange */
+  --dg-dim:      #7a2a08;
+  --co:          #c44dff;   /* collision  — electric violet */
+  --co-dim:      #6a1a99;
+  --bd:          #00d4aa;   /* birthday    — cyan-green */
+  --bd-dim:      #007a62;
+  /* neutrals */
+  --green:       #2ecc71;
+  --green-dim:   #177a3f;
+  --red:         #e74c3c;
+  --red-dim:     #7a1a10;
+  --amber:       #f0a500;
+  --amber-dim:   #8a5500;
+  --blue:        #4488ff;
+  --muted:       #2a3d50;
+  --text:        #aabccc;
+  --text-dim:    #4a6070;
+  --mono:        'Space Mono', monospace;
+  --ui:          'Outfit', sans-serif;
+  --body:        'Inter', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none; z-index: 0; opacity: 0.4;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex; align-items: center; gap: 14px;
+  position: sticky; top: 0; z-index: 200;
+}
+
+.lock-icon {
+  width: 32px; height: 32px;
+  border: 2px solid var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-family: var(--ui); font-size: 20px; font-weight: 800;
+  color: #fff; letter-spacing: 0.3px;
+}
+header h1 .sub { font-weight: 300; color: var(--text-dim); margin-left: 6px; font-size: 14px; }
+.course-tag { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 4px 10px; }
+
+/* ── CONTAINER ── */
+.container { max-width: 1200px; margin: 0 auto; padding: 28px 32px 60px; position: relative; z-index: 1; }
+
+/* ── ATTACK TABS ── */
+.attack-tabs {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 0; margin-bottom: 28px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.atab {
+  background: var(--surface);
+  border: none; border-right: 1px solid var(--border);
+  padding: 18px 16px; cursor: pointer;
+  transition: all 0.2s; text-align: left;
+  display: flex; flex-direction: column; gap: 4px;
+  position: relative; overflow: hidden;
+}
+.atab:last-child { border-right: none; }
+.atab::after {
+  content: ''; position: absolute; bottom: 0; left: 0;
+  width: 0; height: 3px; transition: width 0.3s;
+}
+.atab.dg::after { background: var(--dg); }
+.atab.co::after { background: var(--co); }
+.atab.bd::after { background: var(--bd); }
+
+.atab.active::after { width: 100%; }
+.atab.active { background: var(--panel); }
+
+.atab-num { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+.atab-name { font-family: var(--ui); font-size: 18px; font-weight: 700; color: var(--text-dim); transition: color 0.2s; }
+.atab.active.dg .atab-name { color: var(--dg); }
+.atab.active.co .atab-name { color: var(--co); }
+.atab.active.bd .atab-name { color: var(--bd); }
+.atab-sub { font-size: 11px; color: var(--text-dim); }
+.atab:hover .atab-name { color: var(--text); }
+
+/* ── ATTACK PANELS ── */
+.attack-panel { display: none; }
+.attack-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.full { grid-column: 1 / -1; }
+.nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+/* ── CARD ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 22px; position: relative;
+}
+.card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; }
+.card.dg::before { background: var(--dg); }
+.card.co::before { background: var(--co); }
+.card.bd::before { background: var(--bd); }
+.card.green::before { background: var(--green); }
+.card.neutral::before { background: var(--muted); }
+
+.card-label {
+  font-family: var(--ui); font-size: 10px; font-weight: 700;
+  letter-spacing: 2.5px; text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.card-label .dot { width: 5px; height: 5px; border-radius: 50%; }
+.card.dg .card-label .dot { background: var(--dg); }
+.card.co .card-label .dot { background: var(--co); }
+.card.bd .card-label .dot { background: var(--bd); }
+.card.green .card-label .dot { background: var(--green); }
+.card.neutral .card-label .dot { background: var(--muted); }
+
+/* ── TEXT ── */
+.concept { font-size: 13px; color: var(--text-dim); line-height: 1.8; margin-bottom: 12px; }
+.concept strong { color: var(--text); }
+.concept .hl-dg { color: var(--dg); font-family: var(--mono); font-size: 12px; }
+.concept .hl-co { color: var(--co); }
+.concept .hl-bd { color: var(--bd); }
+.concept .danger { color: var(--red); }
+.concept .safe   { color: var(--green); }
+
+/* ── DIVIDER ── */
+.divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0 14px; color: var(--muted);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+}
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── CALLOUT ── */
+.callout {
+  border-left: 3px solid var(--amber); padding: 10px 14px;
+  background: rgba(240,165,0,0.05); font-size: 12px;
+  color: var(--text-dim); margin: 12px 0; line-height: 1.65;
+}
+.callout.info   { border-color: var(--blue);   background: rgba(68,136,255,0.05); }
+.callout.danger { border-color: var(--red);    background: rgba(231,76,60,0.05); color: var(--text); }
+.callout.ok     { border-color: var(--green);  background: rgba(46,204,113,0.05); }
+.callout.dg     { border-color: var(--dg);     background: rgba(224,92,42,0.05); color: var(--text); }
+.callout.co     { border-color: var(--co);     background: rgba(196,77,255,0.05); color: var(--text); }
+.callout.bd     { border-color: var(--bd);     background: rgba(0,212,170,0.05); color: var(--text); }
+.callout strong { color: var(--text); }
+
+code { font-family: var(--mono); font-size: 11px; background: var(--panel); padding: 1px 5px; }
+
+/* ── BUTTONS ── */
+.btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  font-family: var(--ui); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  padding: 10px 20px; cursor: pointer; transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:hover { background: var(--panel); border-color: var(--muted); }
+.btn.dg-btn  { border-color: var(--dg-dim); color: var(--dg); }
+.btn.dg-btn:hover { background: rgba(224,92,42,0.08); border-color: var(--dg); }
+.btn.co-btn  { border-color: var(--co-dim); color: var(--co); }
+.btn.co-btn:hover { background: rgba(196,77,255,0.08); border-color: var(--co); }
+.btn.bd-btn  { border-color: var(--bd-dim); color: var(--bd); }
+.btn.bd-btn:hover { background: rgba(0,212,170,0.08); border-color: var(--bd); }
+.btn.green-btn { border-color: var(--green-dim); color: var(--green); }
+.btn.green-btn:hover { background: rgba(46,204,113,0.08); }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+/* ── PILLS ── */
+.pill { display: inline-block; padding: 2px 8px; font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+.pill.dg  { background: rgba(224,92,42,0.15); border: 1px solid var(--dg-dim); color: var(--dg); }
+.pill.co  { background: rgba(196,77,255,0.15); border: 1px solid var(--co-dim); color: var(--co); }
+.pill.bd  { background: rgba(0,212,170,0.12);  border: 1px solid var(--bd-dim); color: var(--bd); }
+.pill.red { background: rgba(231,76,60,0.15);  border: 1px solid var(--red-dim); color: var(--red); }
+.pill.green { background: rgba(46,204,113,0.12); border: 1px solid var(--green-dim); color: var(--green); }
+.pill.amber { background: rgba(240,165,0,0.12); border: 1px solid var(--amber-dim); color: var(--amber); }
+
+/* ── LOG ── */
+.log {
+  background: #000; border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 11px;
+  padding: 12px; max-height: 180px; overflow-y: auto; line-height: 1.9;
+}
+.log .entry { display: flex; gap: 8px; }
+.log .ts  { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.log .ok  { color: var(--green); }
+.log .warn{ color: var(--amber); }
+.log .err { color: var(--red); }
+.log .sys { color: var(--text-dim); }
+.log .dg-c{ color: var(--dg); }
+.log .co-c{ color: var(--co); }
+.log .bd-c{ color: var(--bd); }
+
+/* ── MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--surface); padding: 30px; max-width: 500px; width: 90%; animation: pop 0.2s ease; }
+@keyframes pop { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-title { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; margin-bottom: 10px; }
+.modal-body  { font-size: 13px; color: var(--text); line-height: 1.75; margin-bottom: 20px; }
+.modal-body strong { color: var(--amber); }
+
+/* ═══════════════════════════════════════════
+   SECTION 1 — DOWNGRADE ATTACK
+   ═══════════════════════════════════════════ */
+
+/* TLS handshake lanes */
+.hs-lanes {
+  display: grid; grid-template-columns: 140px 1fr 140px;
+  gap: 0; margin-bottom: 8px;
+}
+.hs-actor {
+  background: var(--deep); border: 1px solid var(--border);
+  padding: 8px; text-align: center;
+  font-family: var(--ui); font-size: 12px; font-weight: 700;
+}
+.hs-actor.client { border-right: none; color: var(--blue); }
+.hs-actor.server { border-left: none; color: var(--green); }
+.hs-actor.attacker { background: rgba(224,92,42,0.08); border-color: var(--dg-dim); color: var(--dg); }
+.hs-middle { background: var(--panel); border: 1px solid var(--border); padding: 8px; text-align: center; font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+
+.hs-step {
+  display: grid; grid-template-columns: 140px 1fr 140px;
+  min-height: 40px; margin-bottom: 3px; opacity: 0.3;
+  transition: opacity 0.4s;
+}
+.hs-step.active { opacity: 1; }
+.hs-step.done   { opacity: 0.7; }
+
+.hs-side { padding: 6px 8px; display: flex; align-items: center; font-family: var(--mono); font-size: 10px; }
+.hs-side.right { justify-content: flex-end; color: var(--blue); }
+.hs-side.left  { justify-content: flex-start; color: var(--green); }
+.hs-center {
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px; position: relative;
+}
+.hs-arrow {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; white-space: nowrap;
+}
+.hs-arrow .line {
+  height: 1px; background: var(--muted); flex: 1; min-width: 30px;
+  position: relative;
+}
+.hs-arrow.right .line::after { content: '▶'; position: absolute; right: -6px; top: -7px; font-size: 9px; color: var(--muted); }
+.hs-arrow.left  .line::after { content: '◀'; position: absolute; left: -6px;  top: -7px; font-size: 9px; color: var(--muted); }
+.hs-arrow.right.ok .line    { background: var(--green-dim); }
+.hs-arrow.right.ok .line::after { color: var(--green-dim); }
+.hs-arrow.left.ok .line     { background: var(--green-dim); }
+.hs-arrow.left.ok .line::after { color: var(--green-dim); }
+.hs-arrow.intercept .line   { background: var(--dg); border-bottom: 1px dashed var(--dg-dim); }
+.hs-arrow.intercept { color: var(--dg); }
+.hs-label { font-size: 10px; white-space: nowrap; }
+
+.proto-badge {
+  padding: 3px 10px; font-family: var(--mono); font-size: 14px; font-weight: 700;
+  border: 2px solid; display: inline-block; transition: all 0.4s; text-align: center;
+  min-width: 120px;
+}
+.proto-badge.strong { border-color: var(--green); color: var(--green); background: rgba(46,204,113,0.08); }
+.proto-badge.weak   { border-color: var(--red);   color: var(--red);   background: rgba(231,76,60,0.12); animation: proto-warn 1s infinite; }
+@keyframes proto-warn { 0%,100%{background:rgba(231,76,60,0.12)} 50%{background:rgba(231,76,60,0.22)} }
+
+/* cipher suite list */
+.suite-list { display: flex; flex-direction: column; gap: 6px; }
+.suite-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 11px; transition: all 0.3s;
+}
+.suite-row .suite-name { flex: 1; }
+.suite-row.strong { border-color: var(--green-dim); background: rgba(46,204,113,0.04); color: var(--green); }
+.suite-row.weak   { border-color: var(--red-dim);   background: rgba(231,76,60,0.08);  color: var(--red); }
+.suite-row.selected { border-color: var(--amber); background: rgba(240,165,0,0.08); color: var(--amber); animation: suite-pulse 1s infinite; }
+@keyframes suite-pulse { 0%,100%{border-color:var(--amber)} 50%{border-color:var(--amber-dim)} }
+
+/* ═══════════════════════════════════════════
+   SECTION 2 — COLLISION ATTACK
+   ═══════════════════════════════════════════ */
+
+.hash-display {
+  background: var(--deep); border: 1px solid var(--border);
+  padding: 14px; margin-bottom: 10px;
+}
+.hash-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; margin-bottom: 8px; align-items: start; }
+.hash-row:last-child { margin-bottom: 0; }
+.hash-key { font-family: var(--ui); font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; }
+.hash-val { font-family: var(--mono); font-size: 11px; color: var(--text); word-break: break-all; line-height: 1.7; }
+.hash-val.match   { color: var(--red); background: rgba(231,76,60,0.08); padding: 2px 6px; border: 1px solid var(--red-dim); }
+.hash-val.nomatch { color: var(--green); }
+.hash-val.computing { color: var(--amber); }
+
+.input-field {
+  width: 100%; background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 10px 12px; outline: none; transition: border-color 0.2s;
+}
+.input-field:focus { border-color: var(--co); }
+.field-label { font-family: var(--ui); font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px; display: block; }
+.field { margin-bottom: 14px; }
+
+/* collision search viz */
+.search-grid {
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px;
+  margin: 10px 0;
+}
+.search-cell {
+  height: 28px; background: var(--panel); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 8px; display: flex; align-items: center;
+  justify-content: center; color: var(--muted); transition: all 0.15s;
+  overflow: hidden;
+}
+.search-cell.trying  { background: rgba(196,77,255,0.12); border-color: var(--co-dim); color: var(--co); }
+.search-cell.found   { background: rgba(231,76,60,0.20);  border-color: var(--red-dim); color: var(--red); animation: found-pulse 0.8s ease; }
+.search-cell.checked { background: rgba(46,204,113,0.06); border-color: var(--border); color: var(--green-dim); }
+@keyframes found-pulse { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+
+/* ═══════════════════════════════════════════
+   SECTION 3 — BIRTHDAY ATTACK
+   ═══════════════════════════════════════════ */
+
+/* probability visualizer */
+.prob-meter {
+  margin: 14px 0;
+}
+.prob-bar-wrap {
+  height: 24px; background: var(--panel); border: 1px solid var(--border);
+  position: relative; overflow: hidden; margin-bottom: 6px;
+}
+.prob-bar-fill {
+  height: 100%; width: 0%; transition: width 0.4s, background 0.4s;
+  background: var(--bd);
+}
+.prob-bar-50 {
+  position: absolute; top: 0; left: 50%; width: 1px; height: 100%;
+  background: var(--amber); opacity: 0.6;
+}
+.prob-labels {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 9px; color: var(--text-dim);
+}
+.prob-value {
+  font-family: var(--mono); font-size: 28px; font-weight: 700;
+  text-align: center; margin: 8px 0; transition: color 0.4s;
+  color: var(--bd);
+}
+.prob-value.danger { color: var(--red); }
+
+/* birthday pool visualization */
+.birthday-pool {
+  display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px;
+  margin: 10px 0;
+}
+.bd-slot {
+  height: 22px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 2px; transition: all 0.2s; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 7px; color: transparent;
+}
+.bd-slot.taken  { background: rgba(0,212,170,0.20); border-color: var(--bd-dim); color: var(--bd); }
+.bd-slot.match  { background: rgba(231,76,60,0.35); border-color: var(--red); color: var(--red); animation: bd-match 0.6s ease; }
+@keyframes bd-match { 0%{transform:scale(1)} 40%{transform:scale(1.3)} 100%{transform:scale(1)} }
+
+/* hash size selector */
+.hash-size-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.sz-btn {
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text-dim); font-family: var(--mono); font-size: 11px;
+  padding: 6px 14px; cursor: pointer; transition: all 0.15s;
+}
+.sz-btn:hover { border-color: var(--muted); color: var(--text); }
+.sz-btn.active { border-color: var(--bd); color: var(--bd); background: rgba(0,212,170,0.06); }
+
+/* stats row */
+.stats-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;
+}
+.stat-box {
+  background: var(--deep); border: 1px solid var(--border);
+  padding: 12px; text-align: center;
+}
+.stat-box .stat-label { font-family: var(--ui); font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; }
+.stat-box .stat-val   { font-family: var(--mono); font-size: 20px; color: var(--bd); transition: color 0.3s; }
+.stat-box .stat-val.danger { color: var(--red); }
+
+/* compare table */
+.compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.compare-table th {
+  background: var(--deep); border: 1px solid var(--border);
+  padding: 10px 14px; font-family: var(--ui); font-size: 11px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; text-align: left; color: var(--text-dim);
+}
+.compare-table td {
+  border: 1px solid var(--border); padding: 10px 14px;
+  color: var(--text-dim); vertical-align: top; line-height: 1.6;
+}
+.compare-table tr:nth-child(odd) td { background: rgba(255,255,255,0.01); }
+.compare-table .hl-dg { color: var(--dg); font-weight: 700; }
+.compare-table .hl-co { color: var(--co); font-weight: 700; }
+.compare-table .hl-bd { color: var(--bd); font-weight: 700; }
+
+/* code blocks */
+.code-block {
+  background: var(--deep); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 11px; padding: 14px;
+  line-height: 1.9; margin-bottom: 10px;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="lock-icon">🔐</div>
+  <h1>Cryptographic Attacks<span class="sub">Interactive Simulator</span></h1>
+  <span class="course-tag">Security+ SY0-701 · Domain 2</span>
+</header>
+
+<div class="container">
+
+  <!-- ── ATTACK TABS ── -->
+  <div class="attack-tabs">
+    <button class="atab dg active" onclick="switchAttack('dg')">
+      <span class="atab-num">ATTACK 01</span>
+      <span class="atab-name">Downgrade</span>
+      <span class="atab-sub">Force weaker protocol/cipher</span>
+    </button>
+    <button class="atab co" onclick="switchAttack('co')">
+      <span class="atab-num">ATTACK 02</span>
+      <span class="atab-name">Collision</span>
+      <span class="atab-sub">Two inputs → same hash output</span>
+    </button>
+    <button class="atab bd" onclick="switchAttack('bd')">
+      <span class="atab-num">ATTACK 03</span>
+      <span class="atab-name">Birthday</span>
+      <span class="atab-sub">Probability method to find collisions</span>
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       PANEL 1 — DOWNGRADE ATTACK
+       ══════════════════════════════════════════════ -->
+  <div class="attack-panel active" id="panel-dg">
+
+    <div class="card dg">
+      <div class="card-label"><span class="dot"></span>What Is a Downgrade Attack?</div>
+      <div class="concept">
+        A <strong>downgrade attack</strong> forces a connection to use an older, weaker version of a protocol or cipher suite than both parties actually support. The attacker acts as a <span class="hl-dg">man-in-the-middle</span>, intercepting the handshake and stripping out the strong options — leaving only the breakable ones.
+        <br><br>
+        The server and client don't realize they've been downgraded. They complete the handshake believing they've negotiated normally.
+      </div>
+      <div class="callout dg">
+        <strong>Exam anchor:</strong> "POODLE", "BEAST", "DROWN", "FREAK" are all named downgrade attacks. Any question mentioning "forced to use an older protocol" or "SSL instead of TLS" → Downgrade Attack.
+      </div>
+
+      <div class="divider">THE CIPHER SUITE NEGOTIATION</div>
+      <div class="concept">
+        During a TLS handshake, the client sends a list of cipher suites it supports — from strongest to weakest. The server picks the best one it also supports. A downgrade attack removes the strong suites in transit, forcing selection of a breakable one.
+      </div>
+
+      <div class="suite-list" id="suiteList">
+        <div class="suite-row strong"><span class="suite-name">TLS_AES_256_GCM_SHA384</span><span class="pill green">TLS 1.3 — STRONG</span></div>
+        <div class="suite-row strong"><span class="suite-name">TLS_CHACHA20_POLY1305_SHA256</span><span class="pill green">TLS 1.3 — STRONG</span></div>
+        <div class="suite-row strong"><span class="suite-name">TLS_AES_128_GCM_SHA256</span><span class="pill green">TLS 1.2 — STRONG</span></div>
+        <div class="suite-row weak"><span class="suite-name">TLS_RSA_WITH_RC4_128_MD5</span><span class="pill red">LEGACY — BREAKABLE</span></div>
+        <div class="suite-row weak"><span class="suite-name">SSL_RSA_WITH_DES_CBC_SHA</span><span class="pill red">SSL 3.0 — BROKEN</span></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn dg-btn" id="dgRunBtn" onclick="runDowngrade()">⚡ LAUNCH DOWNGRADE ATTACK</button>
+        <button class="btn" onclick="resetDowngrade()">RESET</button>
+      </div>
+    </div>
+
+    <div class="card dg">
+      <div class="card-label"><span class="dot"></span>TLS Handshake — Live View</div>
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div>
+          <div style="font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">Negotiated Protocol</div>
+          <div class="proto-badge strong" id="protoBadge">TLS 1.3</div>
+        </div>
+        <div style="flex:1;font-family:var(--mono);font-size:10px;color:var(--text-dim);line-height:1.7;" id="protoNote">
+          Strong cipher selected.<br>Connection is secure.
+        </div>
+      </div>
+
+      <!-- Handshake lanes -->
+      <div class="hs-lanes">
+        <div class="hs-actor client">CLIENT</div>
+        <div class="hs-middle" id="hsMiddle">NETWORK / ATTACKER</div>
+        <div class="hs-actor server">SERVER</div>
+      </div>
+
+      <div id="hsSteps">
+        <div class="hs-step active" id="hs0">
+          <div class="hs-side right">ClientHello<br>[TLS 1.3, 1.2, 1.1]</div>
+          <div class="hs-center">
+            <div class="hs-arrow right ok">
+              <span class="hs-label">→</span>
+              <div class="line"></div>
+            </div>
+          </div>
+          <div class="hs-side left"></div>
+        </div>
+        <div class="hs-step" id="hs1">
+          <div class="hs-side right"></div>
+          <div class="hs-center">
+            <div class="hs-arrow left ok">
+              <div class="line"></div>
+              <span class="hs-label">←</span>
+            </div>
+          </div>
+          <div class="hs-side left">ServerHello<br>TLS_AES_256_GCM</div>
+        </div>
+        <div class="hs-step" id="hs2">
+          <div class="hs-side right" style="color:var(--dg)">ClientHello<br>[only SSL 3.0]</div>
+          <div class="hs-center">
+            <div class="hs-arrow right intercept">
+              <span class="hs-label" style="color:var(--dg)">STRIPPED →</span>
+              <div class="line"></div>
+            </div>
+          </div>
+          <div class="hs-side left"></div>
+        </div>
+        <div class="hs-step" id="hs3">
+          <div class="hs-side right"></div>
+          <div class="hs-center">
+            <div class="hs-arrow left" style="justify-content:flex-end;">
+              <div class="line" style="background:var(--red-dim);"></div>
+              <span class="hs-label" style="color:var(--red)">← DOWNGRADED</span>
+            </div>
+          </div>
+          <div class="hs-side left" style="color:var(--red)">ServerHello<br>SSL_RSA_DES_SHA</div>
+        </div>
+      </div>
+
+      <div class="divider">CONNECTION LOG</div>
+      <div class="log" id="dgLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="sys">Handshake simulator ready. Connection secure.</span></div>
+      </div>
+    </div>
+
+    <!-- Defenses -->
+    <div class="card green full">
+      <div class="card-label"><span class="dot"></span>How to Stop Downgrade Attacks</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:6px;">Disable Legacy Protocols</div>
+          <div class="concept" style="margin:0;">Disable SSL 2.0, SSL 3.0, TLS 1.0, TLS 1.1 entirely on servers. If weak versions aren't available, they can't be negotiated. This is the simplest and most complete defense.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:6px;">TLS Fallback SCSV</div>
+          <div class="concept" style="margin:0;">A special cipher suite value (<code>TLS_FALLBACK_SCSV</code>) tells the server "the client is using a downgraded version on purpose." If the server supports higher versions, it aborts — making the MITM visible.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:6px;">HSTS</div>
+          <div class="concept" style="margin:0;"><strong>HTTP Strict Transport Security</strong> tells browsers to always use the highest TLS available and refuse protocol downgrades. Enforced at the browser level — attackers can't negotiate down even if they intercept.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-dg -->
+
+  <!-- ══════════════════════════════════════════════
+       PANEL 2 — COLLISION ATTACK
+       ══════════════════════════════════════════════ -->
+  <div class="attack-panel" id="panel-co">
+
+    <div class="card co">
+      <div class="card-label"><span class="dot"></span>What Is a Collision Attack?</div>
+      <div class="concept">
+        A <strong>collision attack</strong> finds two <em>different</em> inputs that produce the <em>same</em> hash output. Hash functions are supposed to be a unique fingerprint — a collision breaks that guarantee.
+        <br><br>
+        If an attacker can find a collision, they can substitute one document for another while keeping the same hash — making a forged file appear authentic.
+      </div>
+      <div class="callout co">
+        <strong>Exam anchor:</strong> "Two different inputs with the same hash" = Collision Attack. MD5 and SHA-1 are broken by real collision attacks. SHA-256+ is still safe. When asked about the "result" of finding two matching hashes — that is the collision.
+      </div>
+
+      <div class="divider">SIMULATE A HASH COLLISION</div>
+      <div class="concept" style="margin-bottom:10px;">Type two different messages. The simulator runs a toy 8-bit hash. Watch for a collision — and then use the "Find Forced Collision" button to demonstrate how an attacker methodically searches for one.</div>
+
+      <div class="field">
+        <span class="field-label">Message A (legitimate document)</span>
+        <input class="input-field" id="msgA" value="Transfer $100 to Alice" oninput="computeHashes()" />
+      </div>
+      <div class="field">
+        <span class="field-label">Message B (attacker's forgery)</span>
+        <input class="input-field" id="msgB" value="Transfer $900 to Eve" oninput="computeHashes()" />
+      </div>
+
+      <div class="btn-row">
+        <button class="btn co-btn" onclick="findCollision()">🔍 AUTO-FIND COLLISION</button>
+        <button class="btn" onclick="resetCollision()">RESET</button>
+      </div>
+    </div>
+
+    <div class="card co">
+      <div class="card-label"><span class="dot"></span>Hash Output Comparison</div>
+
+      <div class="hash-display" id="hashDisplay">
+        <div class="hash-row">
+          <div class="hash-key">Message A</div>
+          <div class="hash-val" id="hashInputA" style="color:var(--blue);">Transfer $100 to Alice</div>
+        </div>
+        <div class="hash-row">
+          <div class="hash-key">Hash(A)</div>
+          <div class="hash-val" id="hashValA">—</div>
+        </div>
+        <div class="hash-row">
+          <div class="hash-key" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">Message B</div>
+          <div class="hash-val" id="hashInputB" style="color:var(--co);">Transfer $900 to Eve</div>
+        </div>
+        <div class="hash-row">
+          <div class="hash-key">Hash(B)</div>
+          <div class="hash-val" id="hashValB">—</div>
+        </div>
+        <div class="hash-row" id="collisionResult" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <div class="hash-key" style="color:var(--red);">STATUS</div>
+          <div class="hash-val" id="collisionStatus"></div>
+        </div>
+      </div>
+
+      <div class="divider">SEARCH VISUALIZATION</div>
+      <div class="concept" style="margin-bottom:8px;font-size:12px;">Each cell = a candidate message tested. Purple = testing, Red = collision found.</div>
+      <div class="search-grid" id="searchGrid">
+        <!-- 32 cells -->
+      </div>
+
+      <div class="divider">ATTACK LOG</div>
+      <div class="log" id="coLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="sys">Type messages above or click Auto-Find Collision.</span></div>
+      </div>
+    </div>
+
+    <!-- Why Collisions Matter -->
+    <div class="card green full">
+      <div class="card-label"><span class="dot"></span>Real-World Impact + Defenses</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div style="font-family:var(--ui);font-weight:700;color:var(--co);margin-bottom:10px;font-size:14px;">Real Collision Attacks</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="border:1px solid var(--border);border-left:3px solid var(--red);padding:10px 12px;">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--red);font-size:12px;margin-bottom:3px;">MD5 — BROKEN (1996)</div>
+              <div class="concept" style="margin:0;font-size:12px;">Researchers produced two different X.509 certificates with the same MD5 hash. Used to forge a rogue CA certificate. Never use MD5 for integrity.</div>
+            </div>
+            <div style="border:1px solid var(--border);border-left:3px solid var(--amber);padding:10px 12px;">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--amber);font-size:12px;margin-bottom:3px;">SHA-1 — BROKEN (SHAttered, 2017)</div>
+              <div class="concept" style="margin:0;font-size:12px;">Google's Project Zero produced two different PDF files with the same SHA-1 hash. SHA-1 is deprecated for code signing and certificates.</div>
+            </div>
+            <div style="border:1px solid var(--border);border-left:3px solid var(--green);padding:10px 12px;">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--green);font-size:12px;margin-bottom:3px;">SHA-256 / SHA-3 — SAFE (so far)</div>
+              <div class="concept" style="margin:0;font-size:12px;">No known practical collisions. The output space (2²⁵⁶ possibilities) is too large for current computing to exhaust, even with quantum considerations.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:10px;font-size:14px;">Defenses</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="border:1px solid var(--border);padding:12px;">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--green);font-size:12px;margin-bottom:4px;">Use Strong Hash Functions</div>
+              <div class="concept" style="margin:0;font-size:12px;">SHA-256, SHA-384, SHA-512, SHA-3. The larger the output space, the harder the collision. Avoid MD5 and SHA-1 in any security context.</div>
+            </div>
+            <div style="border:1px solid var(--border);padding:12px;">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--green);font-size:12px;margin-bottom:4px;">HMAC (Keyed Hash)</div>
+              <div class="concept" style="margin:0;font-size:12px;">Adds a secret key to the hash. An attacker finding a collision can't forge a valid HMAC without the key — even if they find a collision in the underlying hash.</div>
+            </div>
+            <div style="border:1px solid var(--border);padding:12px;">
+              <div style="font-family:var(--ui);font-weight:700;color:var(--green);font-size:12px;margin-bottom:4px;">Digital Signatures</div>
+              <div class="concept" style="margin:0;font-size:12px;">Code signing, certificate chains, and document signatures over strong hashes prevent substitution attacks — any modification changes the signature.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-co -->
+
+  <!-- ══════════════════════════════════════════════
+       PANEL 3 — BIRTHDAY ATTACK
+       ══════════════════════════════════════════════ -->
+  <div class="attack-panel" id="panel-bd">
+
+    <div class="card bd">
+      <div class="card-label"><span class="dot"></span>What Is a Birthday Attack?</div>
+      <div class="concept">
+        A <strong>birthday attack</strong> is the <em>method</em> used to find collisions — it exploits the <span class="hl-bd">birthday paradox</span> in probability. It seems counterintuitive: you need far fewer attempts than expected to find a matching pair.
+        <br><br>
+        The birthday problem: in a room of just <strong>23 people</strong>, there's a 50% chance two share a birthday. Not 183 people (half of 365). The math of <em>pairs</em> grows much faster than the space.
+        <br><br>
+        For a hash with an N-bit output, brute force needs 2ᴺ attempts. A birthday attack needs only <strong>2^(N/2)</strong> — the square root. A 64-bit hash takes only 2³² attempts (~4 billion) to find a collision, not 2⁶⁴.
+      </div>
+      <div class="callout bd">
+        <strong>Exam anchor — the critical distinction:</strong> Birthday attack = the <em>probability method</em> (square root of the space). Collision attack = the <em>result</em> (two inputs with the same hash). On an exam: "Birthday attack is used to <em>find</em> collisions." They work together.
+      </div>
+    </div>
+
+    <div class="card bd">
+      <div class="card-label"><span class="dot"></span>Birthday Paradox Visualizer</div>
+
+      <div class="concept" style="margin-bottom:10px;">Select a hash size, then watch the birthday attack simulate. Each attempt draws a random value — the moment one <em>matches a previous one</em>, a collision is found.</div>
+
+      <div class="hash-size-btns" id="hashSizeBtns">
+        <button class="sz-btn" onclick="setHashSize(4)">4-bit</button>
+        <button class="sz-btn active" onclick="setHashSize(5)">5-bit</button>
+        <button class="sz-btn" onclick="setHashSize(6)">6-bit</button>
+        <button class="sz-btn" onclick="setHashSize(8)">8-bit</button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-label">Hash Space</div>
+          <div class="stat-val" id="bdSpaceVal">32</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Brute Force</div>
+          <div class="stat-val" id="bdBruteVal">32</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Birthday Est.</div>
+          <div class="stat-val" id="bdBirthdayEst">~6</div>
+        </div>
+      </div>
+
+      <div style="font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Collision Probability</div>
+      <div class="prob-meter">
+        <div class="prob-bar-wrap">
+          <div class="prob-bar-fill" id="probFill"></div>
+          <div class="prob-bar-50"></div>
+        </div>
+        <div class="prob-labels"><span>0%</span><span style="color:var(--amber);">50% threshold ↑</span><span>100%</span></div>
+      </div>
+      <div class="prob-value" id="probValue">0%</div>
+
+      <div class="btn-row">
+        <button class="btn bd-btn" id="bdRunBtn" onclick="runBirthday()">▶ BIRTHDAY ATTACK</button>
+        <button class="btn" onclick="resetBirthday()">RESET</button>
+      </div>
+    </div>
+
+    <div class="card bd full">
+      <div class="card-label"><span class="dot"></span>Hash Space — Slot Visualization</div>
+      <div class="concept" style="margin-bottom:10px;">Each slot = one possible hash value. <span style="color:var(--bd);">Teal</span> = occupied (hash seen before). <span style="color:var(--red);">Red flash</span> = collision! Two different inputs landed in the same slot.</div>
+
+      <div class="birthday-pool" id="birthdayPool"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;">
+        <div>
+          <div class="divider">ATTACK LOG</div>
+          <div class="log" id="bdLog">
+            <div class="entry"><span class="ts">[SYS]</span><span class="sys">Select hash size and click Birthday Attack.</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="divider">RESULT</div>
+          <div class="hash-display" id="bdResult">
+            <div style="color:var(--text-dim);font-family:var(--mono);font-size:11px;">Waiting for collision...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- All Three — Comparison Table -->
+    <div class="card neutral full">
+      <div class="card-label"><span class="dot"></span>All Three — Quick Comparison Table</div>
+      <table class="compare-table">
+        <tr>
+          <th>Attack</th>
+          <th>What It Is</th>
+          <th>The Goal</th>
+          <th>Method</th>
+          <th>Exam Trigger Words</th>
+          <th>Broken Algorithms</th>
+        </tr>
+        <tr>
+          <td><span class="hl-dg">Downgrade</span></td>
+          <td>Forces use of weaker protocol/cipher by stripping strong options during negotiation</td>
+          <td>Intercept / decrypt traffic using a broken cipher</td>
+          <td>MITM during TLS handshake</td>
+          <td>"forced to use older version", "SSL instead of TLS", "POODLE", "FREAK", "BEAST"</td>
+          <td>SSL 3.0, TLS 1.0, RC4, DES, Export ciphers</td>
+        </tr>
+        <tr>
+          <td><span class="hl-co">Collision</span></td>
+          <td>Finds two <em>different</em> inputs that produce the same hash output</td>
+          <td>Substitute a forged document that passes integrity check</td>
+          <td>Computational search — birthday attack is the method</td>
+          <td>"same hash, different input", "hash collision", "forged certificate", "MD5 collision"</td>
+          <td>MD5, SHA-1</td>
+        </tr>
+        <tr>
+          <td><span class="hl-bd">Birthday</span></td>
+          <td>Exploits birthday paradox probability — only 2^(N/2) attempts needed, not 2^N</td>
+          <td>Find collisions in a hash function efficiently</td>
+          <td>Probabilistic search exploiting pair math</td>
+          <td>"birthday paradox", "square root of hash space", "how collisions are found"</td>
+          <td>Any hash with small output (MD5=128-bit, SHA-1=160-bit are vulnerable)</td>
+        </tr>
+      </table>
+
+      <div class="callout info" style="margin-top:14px;">
+        <strong>The key relationship:</strong> Birthday attack is the <em>technique</em>. Collision is the <em>outcome</em>. A downgrade attack is completely separate — it targets the <em>protocol negotiation</em>, not the hash function.
+      </div>
+    </div>
+
+  </div><!-- /panel-bd -->
+
+</div><!-- /container -->
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modalInner">
+    <div class="modal-title" id="modalTitle">EVENT</div>
+    <div class="modal-body"  id="modalBody"></div>
+    <button class="btn" id="modalBtn" onclick="closeModal()">CLOSE</button>
+  </div>
+</div>
+
+<script>
+// ── GLOBALS ──────────────────────────────────────────────────────
+function switchAttack(id) {
+  document.querySelectorAll('.atab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.attack-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.atab.${id}`).classList.add('active');
+  document.getElementById(`panel-${id}`).classList.add('active');
+}
+
+function showModal(title, body, color) {
+  const inner = document.getElementById('modalInner');
+  inner.style.borderColor = color || 'var(--muted)';
+  const btn = document.getElementById('modalBtn');
+  btn.style.borderColor = color || 'var(--muted)';
+  btn.style.color = color || 'var(--text)';
+  document.getElementById('modalTitle').style.color = color || 'var(--text-dim)';
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+function logEntry(id, cls, msg) {
+  const el = document.getElementById(id);
+  const ts = new Date().toTimeString().slice(0, 8);
+  el.innerHTML += `<div class="entry"><span class="ts">[${ts}]</span><span class="${cls}">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════
+// SECTION 1 — DOWNGRADE ATTACK
+// ═══════════════════════════════════════════
+let dgRunning = false;
+
+function resetDowngrade() {
+  dgRunning = false;
+  document.getElementById('dgRunBtn').disabled = false;
+  document.getElementById('protoBadge').className = 'proto-badge strong';
+  document.getElementById('protoBadge').textContent = 'TLS 1.3';
+  document.getElementById('protoNote').innerHTML = 'Strong cipher selected.<br>Connection is secure.';
+  document.getElementById('hsMiddle').textContent = 'NETWORK / ATTACKER';
+  document.getElementById('hsMiddle').style.background = '';
+  document.getElementById('hsMiddle').style.borderColor = '';
+  document.getElementById('hsMiddle').style.color = '';
+
+  // Reset steps
+  ['hs0','hs1','hs2','hs3'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+    if (i === 0) el.classList.add('active');
+  });
+
+  // Reset suite list
+  const suites = document.getElementById('suiteList').querySelectorAll('.suite-row');
+  suites.forEach(s => s.classList.remove('selected'));
+
+  document.getElementById('dgLog').innerHTML = '<div class="entry"><span class="ts">[SYS]</span><span class="sys">Handshake simulator ready. Connection secure.</span></div>';
+}
+
+async function runDowngrade() {
+  if (dgRunning) return;
+  dgRunning = true;
+  document.getElementById('dgRunBtn').disabled = true;
+
+  const log = 'dgLog';
+
+  // Step 0 — Client Hello (already active)
+  logEntry(log, 'ok', 'Client → Server: ClientHello [TLS 1.3, 1.2, 1.1, 1.0, SSL 3.0]');
+  await sleep(900);
+
+  // Attacker activates
+  const mid = document.getElementById('hsMiddle');
+  mid.textContent = '⚡ ATTACKER INTERCEPTING';
+  mid.style.background = 'rgba(224,92,42,0.12)';
+  mid.style.borderColor = 'var(--dg-dim)';
+  mid.style.color = 'var(--dg)';
+  logEntry(log, 'dg-c', 'MITM intercepted ClientHello');
+  await sleep(600);
+
+  logEntry(log, 'dg-c', 'Stripping TLS 1.3, TLS 1.2, TLS 1.1 from cipher list...');
+
+  // Highlight strong suites being stripped
+  const suites = document.getElementById('suiteList').querySelectorAll('.suite-row');
+  suites[0].style.opacity = '0.25'; suites[0].style.textDecoration = 'line-through';
+  await sleep(300);
+  suites[1].style.opacity = '0.25'; suites[1].style.textDecoration = 'line-through';
+  await sleep(300);
+  suites[2].style.opacity = '0.25'; suites[2].style.textDecoration = 'line-through';
+  await sleep(400);
+
+  logEntry(log, 'dg-c', 'Forwarding stripped ClientHello [only SSL 3.0] to server');
+
+  // Show stripped step
+  document.getElementById('hs0').classList.remove('active'); document.getElementById('hs0').classList.add('done');
+  document.getElementById('hs2').classList.add('active');
+  await sleep(900);
+
+  // Server responds with weak cipher
+  document.getElementById('hs2').classList.remove('active'); document.getElementById('hs2').classList.add('done');
+  document.getElementById('hs3').classList.add('active');
+
+  logEntry(log, 'warn', 'Server sees only SSL 3.0 available → selects SSL_RSA_WITH_DES_CBC_SHA');
+  await sleep(600);
+  logEntry(log, 'err', 'ServerHello sent: SSL_RSA_WITH_DES_CBC_SHA (56-bit DES — BREAKABLE)');
+
+  // Show downgrade in UI
+  suites[4].classList.add('selected');
+
+  await sleep(500);
+  document.getElementById('protoBadge').className = 'proto-badge weak';
+  document.getElementById('protoBadge').textContent = 'SSL 3.0 / DES';
+  document.getElementById('protoNote').innerHTML = '<span style="color:var(--red)">⚠ Downgraded!</span><br>Traffic can be decrypted.';
+
+  await sleep(400);
+  logEntry(log, 'err', '✗ DOWNGRADE COMPLETE. DES-56 is crackable in < 24 hours.');
+
+  setTimeout(() => showModal(
+    '⚠ DOWNGRADE ATTACK SUCCESSFUL',
+    'The attacker stripped strong cipher suites from the ClientHello.<br><br>' +
+    'Server selected <strong>SSL_RSA_WITH_DES_CBC_SHA</strong> — the only option it saw.<br><br>' +
+    'Client and server believe the connection is legitimate, but the attacker can now decrypt all traffic using DES-56 brute force.<br><br>' +
+    '<strong>This is POODLE / FREAK class attack.</strong>',
+    'var(--dg)'
+  ), 400);
+}
+
+// ═══════════════════════════════════════════
+// SECTION 2 — COLLISION ATTACK
+// ═══════════════════════════════════════════
+
+// Toy hash: 8-bit djb2-style
+function toyHash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 3) + h) ^ str.charCodeAt(i);
+    h = h & 0xFF; // keep 8-bit
+  }
+  return h;
+}
+
+function toHex8(n) { return '0x' + n.toString(16).padStart(2, '0').toUpperCase(); }
+
+function computeHashes() {
+  const a = document.getElementById('msgA').value;
+  const b = document.getElementById('msgB').value;
+  const ha = toyHash(a);
+  const hb = toyHash(b);
+
+  document.getElementById('hashInputA').textContent = a;
+  document.getElementById('hashInputB').textContent = b;
+  document.getElementById('hashValA').className = 'hash-val';
+  document.getElementById('hashValA').textContent = toHex8(ha) + ' (' + ha + ')';
+  document.getElementById('hashValB').className = 'hash-val';
+  document.getElementById('hashValB').textContent = toHex8(hb) + ' (' + hb + ')';
+
+  const res = document.getElementById('collisionResult');
+  const stat = document.getElementById('collisionStatus');
+  res.style.display = 'grid';
+
+  if (a !== b && ha === hb) {
+    stat.className = 'hash-val match';
+    stat.textContent = '💥 COLLISION FOUND! Different inputs, same hash (' + toHex8(ha) + ')';
+    logEntry('coLog', 'err', `COLLISION: "${a}" and "${b}" both hash to ${toHex8(ha)}`);
+  } else {
+    stat.className = 'hash-val nomatch';
+    stat.textContent = ha === hb ? 'Same input — same hash (expected)' : 'No collision (hashes differ)';
+  }
+}
+
+function initSearchGrid() {
+  const g = document.getElementById('searchGrid');
+  g.innerHTML = '';
+  for (let i = 0; i < 32; i++) {
+    const d = document.createElement('div');
+    d.className = 'search-cell'; d.id = `sc${i}`;
+    g.appendChild(d);
+  }
+}
+
+let coRunning = false;
+
+function resetCollision() {
+  coRunning = false;
+  document.getElementById('msgA').value = 'Transfer $100 to Alice';
+  document.getElementById('msgB').value = 'Transfer $900 to Eve';
+  document.getElementById('hashValA').textContent = '—';
+  document.getElementById('hashValB').textContent = '—';
+  document.getElementById('collisionResult').style.display = 'none';
+  document.getElementById('coLog').innerHTML = '<div class="entry"><span class="ts">[SYS]</span><span class="sys">Type messages above or click Auto-Find Collision.</span></div>';
+  initSearchGrid();
+}
+
+async function findCollision() {
+  if (coRunning) return;
+  coRunning = true;
+  initSearchGrid();
+  const logId = 'coLog';
+  logEntry(logId, 'co-c', 'Starting collision search on 8-bit hash space (256 values)...');
+
+  const base = document.getElementById('msgA').value || 'document';
+  const target = toyHash(base);
+  logEntry(logId, 'ok', `Target: hash("${base}") = ${toHex8(target)}`);
+  logEntry(logId, 'co-c', 'Generating candidate messages...');
+
+  const seen = new Map();
+  seen.set(target, base);
+
+  let cellIdx = 0;
+  let found = false;
+
+  // Generate mutations
+  const variants = [];
+  const suffixes = ['!','?','.','_v2','_FINAL','_rev','2','_alt','X','_copy','_new','_mod','_b',
+    '_test','_backup','_forged','_orig','_real','_fake','_1','_2','_3','_4','_5','_6','_7','_8',
+    '_9','_10','_11','_12'];
+  for (let s of suffixes) {
+    variants.push(base + s);
+  }
+
+  for (let i = 0; i < variants.length && !found; i++) {
+    await sleep(80);
+    const msg = variants[i];
+    const h = toyHash(msg);
+
+    if (cellIdx < 32) {
+      const cell = document.getElementById(`sc${cellIdx}`);
+      cell.className = 'search-cell trying';
+      cell.textContent = toHex8(h);
+      cellIdx++;
+    }
+
+    logEntry(logId, 'sys', `Testing: "${msg}" → ${toHex8(h)}`);
+
+    if (h === target && msg !== base) {
+      // Collision!
+      found = true;
+      if (cellIdx - 1 < 32) {
+        document.getElementById(`sc${cellIdx - 1}`).className = 'search-cell found';
+      }
+      await sleep(200);
+
+      document.getElementById('msgB').value = msg;
+      document.getElementById('hashInputB').textContent = msg;
+      document.getElementById('hashValB').textContent = toHex8(h) + ' (' + h + ')';
+      document.getElementById('hashValB').className = 'hash-val match';
+      document.getElementById('hashValA').textContent = toHex8(target) + ' (' + target + ')';
+      document.getElementById('hashValA').className = 'hash-val match';
+
+      document.getElementById('collisionResult').style.display = 'grid';
+      document.getElementById('collisionStatus').className = 'hash-val match';
+      document.getElementById('collisionStatus').textContent = `💥 COLLISION: Both map to ${toHex8(h)}`;
+
+      logEntry(logId, 'err', `💥 COLLISION FOUND after ${i + 1} attempts!`);
+      logEntry(logId, 'err', `"${base}" = "${msg}" = ${toHex8(h)}`);
+      logEntry(logId, 'err', 'Attacker can substitute forged document — integrity check will pass!');
+
+      setTimeout(() => showModal(
+        '💥 COLLISION FOUND',
+        `Two different messages produce the same 8-bit hash:<br><br>` +
+        `"<strong>${base}</strong>" → <strong>${toHex8(target)}</strong><br>` +
+        `"<strong>${msg}</strong>" → <strong>${toHex8(h)}</strong><br><br>` +
+        `An attacker could substitute the forged document in place of the original. Any integrity check using this hash would pass — it sees the same value.<br><br>` +
+        `This is why MD5 and SHA-1 are deprecated — real collisions have been found in both.`,
+        'var(--co)'
+      ), 400);
+
+      break;
+    } else {
+      if (cellIdx - 1 < 32 && document.getElementById(`sc${cellIdx - 1}`)) {
+        document.getElementById(`sc${cellIdx - 1}`).className = 'search-cell checked';
+      }
+    }
+  }
+
+  if (!found) {
+    logEntry(logId, 'warn', 'No collision found with current variants. Adjust Message A to try a different hash target.');
+  }
+
+  coRunning = false;
+}
+
+// ═══════════════════════════════════════════
+// SECTION 3 — BIRTHDAY ATTACK
+// ═══════════════════════════════════════════
+let bdBits = 5;
+let bdRunning = false;
+let bdInterval = null;
+
+function setHashSize(bits) {
+  bdBits = bits;
+  document.querySelectorAll('.sz-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === bits + '-bit');
+  });
+  resetBirthday();
+}
+
+function bdUpdateStats() {
+  const space = Math.pow(2, bdBits);
+  document.getElementById('bdSpaceVal').textContent = space;
+  document.getElementById('bdBruteVal').textContent = space;
+  const est = Math.ceil(Math.sqrt(space) * 1.25);
+  document.getElementById('bdBirthdayEst').textContent = '~' + est;
+  document.getElementById('probFill').style.width = '0%';
+  document.getElementById('probValue').textContent = '0%';
+  document.getElementById('probValue').className = 'prob-value';
+  buildPool(space);
+}
+
+function buildPool(space) {
+  const pool = document.getElementById('birthdayPool');
+  pool.style.gridTemplateColumns = `repeat(${Math.min(space, 16)}, 1fr)`;
+  pool.innerHTML = '';
+  for (let i = 0; i < Math.min(space, 256); i++) {
+    const d = document.createElement('div');
+    d.className = 'bd-slot'; d.id = `bd${i}`;
+    pool.appendChild(d);
+  }
+}
+
+function resetBirthday() {
+  bdRunning = false;
+  clearInterval(bdInterval);
+  document.getElementById('bdRunBtn').disabled = false;
+  document.getElementById('bdLog').innerHTML = '<div class="entry"><span class="ts">[SYS]</span><span class="sys">Select hash size and click Birthday Attack.</span></div>';
+  document.getElementById('bdResult').innerHTML = '<div style="color:var(--text-dim);font-family:var(--mono);font-size:11px;">Waiting for collision...</div>';
+  bdUpdateStats();
+}
+
+async function runBirthday() {
+  if (bdRunning) return;
+  bdRunning = true;
+  document.getElementById('bdRunBtn').disabled = true;
+
+  const space = Math.pow(2, bdBits);
+  const logId = 'bdLog';
+
+  logEntry(logId, 'bd-c', `Birthday attack started on ${bdBits}-bit hash (space: ${space} values)`);
+  logEntry(logId, 'bd-c', `Brute force would need up to ${space} attempts`);
+  logEntry(logId, 'bd-c', `Birthday estimate: ~${Math.ceil(Math.sqrt(space) * 1.25)} attempts for 50%+ collision probability`);
+
+  const seen = new Map();
+  let attempts = 0;
+  let collisionFound = false;
+
+  // Birthday probability formula: P(n,H) = 1 - e^(-n(n-1)/(2H))
+  function collProb(n, H) {
+    return 1 - Math.exp(-n * (n - 1) / (2 * H));
+  }
+
+  while (!collisionFound && attempts < space * 3 && bdRunning) {
+    await sleep(bdBits <= 5 ? 120 : bdBits === 6 ? 80 : 40);
+    attempts++;
+
+    const val = Math.floor(Math.random() * space);
+    const prob = collProb(attempts, space);
+    const pct = Math.min(Math.round(prob * 100), 99);
+
+    document.getElementById('probFill').style.width = pct + '%';
+    document.getElementById('probFill').style.background = pct < 40 ? 'var(--bd)' : pct < 70 ? 'var(--amber)' : 'var(--red)';
+    document.getElementById('probValue').textContent = pct + '%';
+    document.getElementById('probValue').className = 'prob-value' + (pct >= 50 ? ' danger' : '');
+
+    const slotEl = document.getElementById(`bd${val}`);
+    if (slotEl) slotEl.title = `val: ${val}`;
+
+    if (seen.has(val)) {
+      // COLLISION
+      collisionFound = true;
+      const prev = seen.get(val);
+
+      if (slotEl) { slotEl.className = 'bd-slot match'; slotEl.textContent = val; }
+
+      document.getElementById('probFill').style.width = '100%';
+      document.getElementById('probFill').style.background = 'var(--red)';
+      document.getElementById('probValue').textContent = 'COLLISION!';
+      document.getElementById('probValue').className = 'prob-value danger';
+
+      logEntry(logId, 'err', `💥 COLLISION at attempt #${attempts}!`);
+      logEntry(logId, 'err', `Hash value ${val} seen before (attempt #${prev})`);
+      logEntry(logId, 'bd-c', `Birthday prediction was ~${Math.ceil(Math.sqrt(space) * 1.25)}`);
+      logEntry(logId, 'bd-c', `Actual: ${attempts} attempts (${Math.round(attempts/space*100)}% of brute force)`);
+
+      document.getElementById('bdResult').innerHTML = `
+        <div class="hash-row"><div class="hash-key">Attempt #</div><div class="hash-val" style="color:var(--red)">#${attempts} of ${space} max</div></div>
+        <div class="hash-row"><div class="hash-key">Collision</div><div class="hash-val match">Hash value: ${val}</div></div>
+        <div class="hash-row"><div class="hash-key">Saving</div><div class="hash-val" style="color:var(--bd)">${Math.round((1 - attempts/space)*100)}% fewer attempts vs brute force</div></div>
+        <div class="hash-row"><div class="hash-key">Prob at hit</div><div class="hash-val" style="color:var(--amber)">${Math.round(collProb(attempts, space)*100)}%</div></div>`;
+
+      setTimeout(() => showModal(
+        '🎂 BIRTHDAY COLLISION FOUND',
+        `After only <strong>${attempts}</strong> attempts (out of ${space} possible values), two different inputs collided on hash value <strong>${val}</strong>.<br><br>` +
+        `Brute force would need up to <strong>${space}</strong> attempts — the birthday attack found it in <strong>${Math.round(attempts/space*100)}%</strong> of that.<br><br>` +
+        `This is why hash output length matters so much: a 64-bit hash needs only 2³² (~4 billion) attempts, not 2⁶⁴. Attackers exploit this math.`,
+        'var(--bd)'
+      ), 400);
+
+    } else {
+      seen.set(val, attempts);
+      if (slotEl) { slotEl.className = 'bd-slot taken'; slotEl.textContent = val; }
+      if (attempts % 5 === 0 || attempts <= 5) {
+        logEntry(logId, 'sys', `Attempt ${attempts}: hash(msg${attempts}) = ${val} — slot occupied`);
+      }
+    }
+  }
+
+  bdRunning = false;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+initSearchGrid();
+bdUpdateStats();
+computeHashes();
+</script>
+</body>
+</html>

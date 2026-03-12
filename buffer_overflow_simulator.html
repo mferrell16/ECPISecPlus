@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buffer Overflow Simulator — Security+ Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #06080c;
+    --surface:   #0b0f15;
+    --panel:     #10161e;
+    --border:    #1a2535;
+    --deep:      #080d12;
+    --orange:    #ff6b1a;
+    --orange-dim:#cc4a0a;
+    --cyan:      #00cfcf;
+    --cyan-dim:  #009090;
+    --green:     #39d98a;
+    --green-dim: #1f9955;
+    --red:       #ff3b3b;
+    --red-dim:   #aa1a1a;
+    --yellow:    #ffd166;
+    --purple:    #a06cff;
+    --muted:     #3a5060;
+    --text:      #b8ccd8;
+    --text-dim:  #6a8090;
+    --mono:      'Share Tech Mono', monospace;
+    --ui:        'Barlow Condensed', sans-serif;
+    --body:      'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,207,207,0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,207,207,0.018) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    position: relative;
+  }
+
+  .badge {
+    background: var(--orange);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: bold;
+    padding: 4px 10px;
+    letter-spacing: 2px;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  header h1 {
+    font-family: var(--ui);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #fff;
+    text-transform: uppercase;
+  }
+
+  header h1 span { color: var(--orange); }
+
+  .course-tag {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+  }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 32px 60px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── PHASE NAV ── */
+  .phase-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+  }
+
+  .phase-btn {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 13px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .phase-btn:last-child { border-right: none; }
+  .phase-btn .num { font-family: var(--mono); font-size: 20px; color: var(--border); transition: color 0.2s; }
+  .phase-btn:hover { background: var(--panel); color: var(--text); }
+  .phase-btn:hover .num { color: var(--muted); }
+  .phase-btn.active { background: var(--panel); color: var(--orange); border-bottom: 2px solid var(--orange); }
+  .phase-btn.active .num { color: var(--orange); }
+  .phase-btn.done { color: var(--green-dim); }
+  .phase-btn.done .num { color: var(--green-dim); }
+
+  /* ── PROGRESS ── */
+  .progress-strip { height: 3px; background: var(--border); margin-bottom: 24px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--orange), var(--yellow)); transition: width 0.4s; }
+
+  /* ── PHASE PANELS ── */
+  .phase { display: none; }
+  .phase.active { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .full { grid-column: 1 / -1; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 22px;
+    position: relative;
+  }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; }
+  .card.orange::before { background: var(--orange); }
+  .card.cyan::before   { background: var(--cyan); }
+  .card.green::before  { background: var(--green); }
+  .card.red::before    { background: var(--red); }
+  .card.yellow::before { background: var(--yellow); }
+  .card.purple::before { background: var(--purple); }
+
+  .card-title {
+    font-family: var(--ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .card.orange .card-title .dot { background: var(--orange); }
+  .card.cyan .card-title .dot   { background: var(--cyan); }
+  .card.green .card-title .dot  { background: var(--green); }
+  .card.red .card-title .dot    { background: var(--red); }
+  .card.yellow .card-title .dot { background: var(--yellow); }
+  .card.purple .card-title .dot { background: var(--purple); }
+
+  /* ── CONCEPT TEXT ── */
+  .concept { font-size: 13px; color: var(--text-dim); line-height: 1.75; margin-bottom: 14px; }
+  .concept strong { color: var(--text); }
+  .concept .hl-orange { color: var(--orange); font-family: var(--mono); font-size: 12px; }
+  .concept .hl-cyan   { color: var(--cyan); }
+  .concept .hl-red    { color: var(--red); }
+  .concept .hl-green  { color: var(--green); }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--yellow);
+    padding: 10px 14px;
+    background: rgba(255,209,102,0.05);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 12px 0;
+    line-height: 1.6;
+  }
+  .callout.info   { border-color: var(--cyan);   background: rgba(0,207,207,0.05); }
+  .callout.danger { border-color: var(--red);    background: rgba(255,59,59,0.05); color: var(--text); }
+  .callout.ok     { border-color: var(--green);  background: rgba(57,217,138,0.05); }
+  .callout strong { color: var(--text); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 20px 0 14px;
+    color: var(--muted);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--ui); font-size: 13px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 10px 22px; cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: var(--panel); border-color: var(--muted); }
+  .btn.primary { border-color: var(--orange); color: var(--orange); }
+  .btn.primary:hover { background: rgba(255,107,26,0.08); }
+  .btn.danger { border-color: var(--red-dim); color: var(--red); }
+  .btn.danger:hover { background: rgba(255,59,59,0.08); border-color: var(--red); }
+  .btn.safe { border-color: var(--green-dim); color: var(--green); }
+  .btn.safe:hover { background: rgba(57,217,138,0.08); }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+  /* ── INPUT ── */
+  input[type=text], input[type=range] {
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 10px 14px; outline: none; transition: border-color 0.2s;
+    width: 100%;
+  }
+  input[type=text]:focus { border-color: var(--orange); }
+  input[type=range] { padding: 4px 0; cursor: pointer; accent-color: var(--orange); }
+  label { display: block; font-family: var(--ui); font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; }
+  .field { margin-bottom: 14px; }
+
+  /* ── MEMORY VISUALIZER ── */
+  .memory-wrap {
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .mem-legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .mem-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
+  .mem-legend-swatch { width: 14px; height: 14px; border: 1px solid rgba(255,255,255,0.1); }
+
+  .mem-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .mem-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 100px;
+    gap: 0;
+    align-items: stretch;
+    min-height: 32px;
+    transition: all 0.3s;
+  }
+
+  .mem-addr {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex; align-items: center;
+    border-right: none;
+  }
+
+  .mem-cell {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    display: flex; align-items: center;
+    font-size: 11px;
+    transition: background 0.3s, border-color 0.3s;
+    word-break: break-all;
+    min-height: 32px;
+  }
+
+  .mem-label {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex; align-items: center;
+    border-left: none;
+    white-space: nowrap;
+  }
+
+  /* cell states */
+  .mem-cell.buf-empty   { background: rgba(0,207,207,0.04); color: var(--muted); }
+  .mem-cell.buf-data    { background: rgba(0,207,207,0.12); border-color: var(--cyan-dim); color: var(--cyan); }
+  .mem-cell.buf-over    { background: rgba(255,107,26,0.18); border-color: var(--orange); color: var(--orange); }
+  .mem-cell.buf-crit    { background: rgba(255,59,59,0.25); border-color: var(--red); color: var(--red); }
+  .mem-cell.sep         { background: var(--border); color: var(--muted); font-size: 9px; letter-spacing: 1px; justify-content: center; }
+  .mem-cell.ret-safe    { background: rgba(57,217,138,0.10); border-color: var(--green-dim); color: var(--green); }
+  .mem-cell.ret-corrupt { background: rgba(255,59,59,0.30); border-color: var(--red); color: var(--red); animation: pulse-red 1s infinite; }
+  .mem-cell.shellcode   { background: rgba(160,108,255,0.25); border-color: var(--purple); color: var(--purple); }
+  .mem-cell.metadata    { background: rgba(255,209,102,0.07); color: var(--text-dim); }
+
+  @keyframes pulse-red {
+    0%, 100% { background: rgba(255,59,59,0.30); }
+    50%       { background: rgba(255,59,59,0.55); }
+  }
+
+  /* ── LOG ── */
+  .log {
+    background: #000;
+    border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px;
+    padding: 12px; max-height: 190px; overflow-y: auto; line-height: 1.9;
+  }
+  .log .entry { display: flex; gap: 10px; }
+  .log .ts { color: var(--muted); white-space: nowrap; }
+  .log .msg { color: var(--text); }
+  .log .msg.ok   { color: var(--green); }
+  .log .msg.warn { color: var(--yellow); }
+  .log .msg.err  { color: var(--red); }
+  .log .msg.shell{ color: var(--purple); }
+
+  /* ── CODE COMPARE ── */
+  .compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .compare-bad, .compare-good {
+    padding: 14px; font-family: var(--mono); font-size: 11px;
+    line-height: 1.8; border: 1px solid;
+  }
+  .compare-bad  { border-color: var(--red-dim); background: rgba(255,59,59,0.05); }
+  .compare-good { border-color: var(--green-dim); background: rgba(57,217,138,0.05); }
+  .compare-label { font-family: var(--ui); font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .compare-bad  .compare-label { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  code { font-family: var(--mono); font-size: 11px; background: var(--panel); padding: 1px 5px; }
+
+  /* ── PILL ── */
+  .pill { display: inline-block; padding: 2px 8px; font-family: var(--mono); font-size: 10px; font-weight: bold; letter-spacing: 1px; }
+  .pill.orange { background: rgba(255,107,26,0.15); border: 1px solid var(--orange-dim); color: var(--orange); }
+  .pill.red    { background: rgba(255,59,59,0.15);  border: 1px solid var(--red-dim);    color: var(--red); }
+  .pill.green  { background: rgba(57,217,138,0.12); border: 1px solid var(--green-dim);  color: var(--green); }
+  .pill.cyan   { background: rgba(0,207,207,0.12);  border: 1px solid var(--cyan-dim);   color: var(--cyan); }
+  .pill.purple { background: rgba(160,108,255,0.15);border: 1px solid var(--purple);     color: var(--purple); }
+
+  /* ── ATTACK STAGE STEPS ── */
+  .stages { display: flex; flex-direction: column; gap: 10px; }
+  .stage {
+    display: grid; grid-template-columns: 42px 1fr;
+    gap: 12px; align-items: start;
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .stage:hover { border-color: var(--muted); }
+  .stage.active-stage { border-color: var(--orange); }
+  .stage-num {
+    width: 36px; height: 36px; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 16px; color: var(--muted);
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  .stage.active-stage .stage-num { border-color: var(--orange); color: var(--orange); }
+  .stage.done-stage .stage-num   { border-color: var(--green); color: var(--green); background: rgba(57,217,138,0.08); }
+  .stage-title { font-family: var(--ui); font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .stage-desc  { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ── SHELLCODE BUILDER ── */
+  .shell-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0;
+  }
+  .shell-piece {
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 3px solid var(--purple);
+    padding: 10px 10px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .shell-piece:hover { border-left-color: var(--purple); background: rgba(160,108,255,0.08); }
+  .shell-piece.selected { border-color: var(--purple); background: rgba(160,108,255,0.15); }
+  .shell-piece .sp-name { font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--purple); margin-bottom: 3px; }
+  .shell-piece .sp-hex  { font-family: var(--mono); font-size: 9px; color: var(--text-dim); }
+
+  .hex-stream {
+    background: #000; border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; color: var(--purple);
+    padding: 12px; min-height: 44px; line-height: 1.9;
+    letter-spacing: 1px; word-break: break-all;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border: 2px solid var(--orange);
+    padding: 32px; max-width: 480px; width: 90%;
+    animation: boom 0.3s ease;
+  }
+  @keyframes boom {
+    0% { transform: scale(0.85); opacity: 0; }
+    60% { transform: scale(1.04); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .modal-title { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--orange); margin-bottom: 12px; }
+  .modal-body  { font-size: 13px; color: var(--text); line-height: 1.7; margin-bottom: 20px; }
+  .modal-body strong { color: var(--orange); }
+
+  /* ── STACK POINTER ARROW ── */
+  .sp-indicator {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--orange); text-align: right;
+    padding-right: 4px;
+    display: flex; align-items: center; justify-content: flex-end;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--panel); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* nav row */
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">SIMULATED</div>
+  <h1>Buffer <span>Overflow</span> Lab</h1>
+  <span class="course-tag">Security+ SY0-701 · 2.3</span>
+</header>
+
+<div class="container">
+
+  <div class="progress-strip">
+    <div class="progress-fill" id="progressFill" style="width:25%"></div>
+  </div>
+
+  <nav class="phase-nav">
+    <button class="phase-btn active" onclick="goPhase(1)"><span class="num">01</span>WHAT IS IT</button>
+    <button class="phase-btn" onclick="goPhase(2)"><span class="num">02</span>MEMORY LAB</button>
+    <button class="phase-btn" onclick="goPhase(3)"><span class="num">03</span>EXPLOIT</button>
+    <button class="phase-btn" onclick="goPhase(4)"><span class="num">04</span>DEFENSES</button>
+  </nav>
+
+  <!-- ══════════════ PHASE 1: WHAT IS IT ══════════════ -->
+  <div class="phase active" id="phase1">
+
+    <div class="card orange">
+      <div class="card-title"><span class="dot"></span>The Core Concept</div>
+      <div class="concept">
+        A <strong>buffer overflow</strong> happens when a program writes more data into a fixed-size memory region (a buffer) than it was allocated to hold. The excess data spills into <span class="hl-red">adjacent memory</span>, corrupting it.
+        <br><br>
+        Unlike XSS — which is <em>intentional injection</em> — buffer overflow exploits a <span class="hl-orange">fundamental mistake</span>: the program trusted the user to send the right amount of data, and didn't check.
+      </div>
+
+      <div class="callout danger">
+        <strong>Exam anchor:</strong> If a question says "input exceeded the allocated space" or "adjacent memory was overwritten" → Buffer Overflow. If it says "attacker placed code into a running process" → Memory Injection (different attack).
+      </div>
+
+      <div class="divider">THE STACK — WHERE THIS HAPPENS</div>
+
+      <div class="concept">
+        Programs store local variables and function call information on the <strong>stack</strong> — a region of memory. One of those pieces of information is the <span class="hl-cyan">return address</span>: where execution goes when the current function finishes.
+        <br><br>
+        A buffer overflow that reaches the return address lets an attacker <span class="hl-red">redirect execution</span> to their own code — called <strong>shellcode</strong>.
+      </div>
+    </div>
+
+    <div class="card cyan">
+      <div class="card-title"><span class="dot"></span>The Stack Layout</div>
+
+      <div class="concept" style="margin-bottom:16px;">Every function call creates a <strong>stack frame</strong>. Here's what a typical frame looks like in memory, from high address (top) to low (bottom):</div>
+
+      <div class="memory-wrap">
+        <div class="mem-stack">
+          <div class="mem-row">
+            <div class="mem-addr">0xFFFF0020</div>
+            <div class="mem-cell metadata">[ previous frame data ]</div>
+            <div class="mem-label">← caller's frame</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0xFFFF0018</div>
+            <div class="mem-cell ret-safe">0x080491a3</div>
+            <div class="mem-label" style="color:var(--green);">← RETURN ADDRESS ★</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0xFFFF0014</div>
+            <div class="mem-cell metadata">0xFFFF0040</div>
+            <div class="mem-label">← saved EBP</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0xFFFF0010</div>
+            <div class="mem-cell buf-empty">[ empty ]</div>
+            <div class="mem-label">← buffer[3]</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0xFFFF000C</div>
+            <div class="mem-cell buf-empty">[ empty ]</div>
+            <div class="mem-label">← buffer[2]</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0xFFFF0008</div>
+            <div class="mem-cell buf-empty">[ empty ]</div>
+            <div class="mem-label">← buffer[1]</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-addr">0xFFFF0004</div>
+            <div class="mem-cell buf-empty">[ empty ]</div>
+            <div class="mem-label">← buffer[0]  ← ESP</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout info" style="margin-top:14px;">
+        <strong>Goal of the attacker:</strong> Write enough bytes to fill the buffer AND overwrite the return address with the address of their shellcode.
+      </div>
+    </div>
+
+    <div class="card yellow full">
+      <div class="card-title"><span class="dot"></span>Buffer Overflow vs Memory Injection — Exam Differentiator</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--orange);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--orange);margin-bottom:8px;font-size:14px;">BUFFER OVERFLOW</div>
+          <div class="concept">Cause: <strong>Bad input exceeds buffer size</strong><br>How: Adjacent memory corrupted by excess bytes<br>Target: Stack or heap memory boundary<br>Look for: "input exceeded allocated space", "program crashed", "adjacent memory"</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--purple);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--purple);margin-bottom:8px;font-size:14px;">MEMORY INJECTION</div>
+          <div class="concept">Cause: <strong>Deliberate code placement</strong><br>How: Attacker injects code into a running process<br>Target: Process memory space (DLL injection, hollowing)<br>Look for: "injected into process", "DLL injection", "process hollowing"</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--yellow);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--yellow);margin-bottom:8px;font-size:14px;">KEY RULE</div>
+          <div class="concept">
+            Overflow = accidental input-driven corruption.<br><br>
+            Injection = attacker intentionally put code in the right place.<br><br>
+            <span style="color:var(--orange);">If the question says "crashed" or "exceeded" → Overflow.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full nav-row">
+      <div></div>
+      <button class="btn primary" onclick="goPhase(2)">MEMORY LAB →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 2: MEMORY LAB ══════════════ -->
+  <div class="phase" id="phase2">
+
+    <div class="card orange">
+      <div class="card-title"><span class="dot"></span>Input the Data</div>
+
+      <div class="concept">
+        The vulnerable program below calls <code>strcpy(buffer, userInput)</code> — it copies your input into a <strong>4-slot buffer</strong> without checking the length. Type input and watch what happens to memory.
+      </div>
+
+      <div class="field">
+        <label>User Input (type freely — no length check)</label>
+        <input type="text" id="userInput" placeholder="Type here..." oninput="updateMemory()" maxlength="30" />
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label>Input Length: <span id="lenVal" style="color:var(--orange);font-family:var(--mono);">0</span> bytes &nbsp;|&nbsp; Buffer capacity: <span style="color:var(--cyan);font-family:var(--mono);">4</span> bytes</label>
+        <div style="height:10px;background:var(--panel);border:1px solid var(--border);margin-top:6px;position:relative;overflow:hidden;">
+          <div id="fillBar" style="height:100%;width:0%;background:var(--cyan);transition:width 0.2s,background 0.2s;"></div>
+        </div>
+      </div>
+
+      <div class="divider">VULNERABLE CODE</div>
+      <div style="background:#000;border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;line-height:1.9;">
+        <span style="color:var(--text-dim);">// C function — NO bounds checking</span><br>
+        <span style="color:var(--cyan);">void</span> <span style="color:var(--yellow);">processInput</span>(<span style="color:var(--cyan);">char</span> *userInput) {<br>
+        &nbsp;&nbsp;<span style="color:var(--cyan);">char</span> buffer[<span style="color:var(--orange);">4</span>];<br>
+        &nbsp;&nbsp;<span style="color:var(--red);">strcpy</span>(buffer, userInput);  <span style="color:var(--muted);">// ← VULNERABLE</span><br>
+        &nbsp;&nbsp;printf(<span style="color:var(--green);">"Input: %s\n"</span>, buffer);<br>
+        }
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="setInput('')">CLEAR</button>
+        <button class="btn danger" onclick="setInput('AAAABBBBCCCC')">OVERFLOW DEMO</button>
+      </div>
+    </div>
+
+    <div class="card cyan">
+      <div class="card-title"><span class="dot"></span>Live Memory View</div>
+
+      <div class="mem-legend">
+        <div class="mem-legend-item"><div class="mem-legend-swatch" style="background:rgba(0,207,207,0.12);border-color:var(--cyan-dim);"></div>Buffer data</div>
+        <div class="mem-legend-item"><div class="mem-legend-swatch" style="background:rgba(255,107,26,0.18);border-color:var(--orange);"></div>Overflow → saved EBP</div>
+        <div class="mem-legend-item"><div class="mem-legend-swatch" style="background:rgba(255,59,59,0.25);border-color:var(--red);"></div>Return addr overwritten!</div>
+      </div>
+
+      <div class="memory-wrap">
+        <div class="mem-stack" id="memStack">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="divider">PROGRAM STATUS</div>
+      <div class="log" id="memLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Program started. Buffer allocated at 0xFFFF0004.</span></div>
+      </div>
+    </div>
+
+    <div class="full nav-row">
+      <button class="btn" onclick="goPhase(1)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(3)">BUILD AN EXPLOIT →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 3: EXPLOIT ══════════════ -->
+  <div class="phase" id="phase3">
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>Building the Exploit Payload</div>
+
+      <div class="concept">
+        A real buffer overflow exploit has three parts, sent as one continuous string of bytes. Click each component to add it to your payload, then launch the exploit.
+      </div>
+
+      <div class="stages" id="exploitStages">
+
+        <div class="stage active-stage" id="stg1">
+          <div class="stage-num">1</div>
+          <div>
+            <div class="stage-title">NOP Sled <span class="pill cyan">Landing Pad</span></div>
+            <div class="stage-desc">A sequence of <code>0x90</code> (NOP = No Operation) bytes. The CPU slides through them harmlessly until it hits the shellcode. Gives the attacker a large target — they don't need to know the exact address of the shellcode, just anywhere in the sled.</div>
+          </div>
+        </div>
+
+        <div class="stage" id="stg2">
+          <div class="stage-num">2</div>
+          <div>
+            <div class="stage-title">Shellcode <span class="pill purple">Malicious Payload</span></div>
+            <div class="stage-desc">The actual code the attacker wants to run — often opens a shell, creates a backdoor user, or disables security controls. Injected as raw bytes inside the overflow.</div>
+          </div>
+        </div>
+
+        <div class="stage" id="stg3">
+          <div class="stage-num">3</div>
+          <div>
+            <div class="stage-title">Return Address Override <span class="pill red">The Hijack</span></div>
+            <div class="stage-desc">The last bytes of the payload overwrite the return address on the stack, pointing execution back into the NOP sled. When the function returns, the CPU jumps to the attacker's code instead.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider">SELECT SHELLCODE COMPONENT</div>
+
+      <div class="shell-grid" id="shellGrid">
+        <div class="shell-piece" onclick="addShell('nop')">
+          <div class="sp-name">NOP Sled</div>
+          <div class="sp-hex">90 90 90 90 90 90 90 90</div>
+        </div>
+        <div class="shell-piece" onclick="addShell('padding')">
+          <div class="sp-name">Padding (A×8)</div>
+          <div class="sp-hex">41 41 41 41 41 41 41 41</div>
+        </div>
+        <div class="shell-piece" onclick="addShell('shellcode')">
+          <div class="sp-name">Shellcode</div>
+          <div class="sp-hex">31 c0 50 68 2f 2f 73 68 68 2f 62 69 6e 89 e3 50 53 89 e1 b0 0b cd 80</div>
+        </div>
+        <div class="shell-piece" onclick="addShell('retaddr')">
+          <div class="sp-name">Return Addr</div>
+          <div class="sp-hex">0xFFFF0004  →  shellcode</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:6px;"><label>Assembled Payload (hex stream)</label></div>
+      <div class="hex-stream" id="hexStream">— add components above —</div>
+
+      <div class="btn-row">
+        <button class="btn danger" id="launchBtn" onclick="launchExploit()" disabled>⚡ LAUNCH EXPLOIT</button>
+        <button class="btn" onclick="resetExploit()">RESET</button>
+      </div>
+    </div>
+
+    <div class="card purple">
+      <div class="card-title"><span class="dot"></span>Exploit Execution</div>
+
+      <div class="concept" style="margin-bottom:14px;">
+        Watch what happens to memory and program flow when the payload is launched. The return address is overwritten — when the function returns, control goes to the attacker's shellcode.
+      </div>
+
+      <div class="memory-wrap">
+        <div class="mem-stack" id="exploitMem">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="divider">EXECUTION LOG</div>
+      <div class="log" id="exploitLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Waiting for payload...</span></div>
+      </div>
+    </div>
+
+    <div class="full nav-row">
+      <button class="btn" onclick="goPhase(2)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(4)">HOW TO STOP IT →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 4: DEFENSES ══════════════ -->
+  <div class="phase" id="phase4">
+
+    <div class="card green full">
+      <div class="card-title"><span class="dot"></span>How to Stop Buffer Overflows</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:22px;">
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">1. Bounds Checking</div>
+          <div class="concept">Use safe functions that enforce length limits. Replace <code>strcpy()</code> with <code>strncpy()</code>. Replace <code>gets()</code> (banned in C11) with <code>fgets()</code>. The fix is simple — the vulnerability exists because developers skipped it.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">2. ASLR</div>
+          <div class="concept"><strong>Address Space Layout Randomization</strong> — the OS randomizes where the stack, heap, and libraries are placed in memory on every run. The attacker can no longer hardcode a return address — they don't know where the shellcode will land.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">3. DEP / NX Bit</div>
+          <div class="concept"><strong>Data Execution Prevention / No-Execute</strong> — marks the stack and heap as non-executable. Even if the attacker injects shellcode, the CPU will refuse to execute bytes in data regions, crashing the program instead.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">4. Stack Canaries</div>
+          <div class="concept">A random value ("canary") is placed between the buffer and the return address at function entry. Before returning, the program checks if the canary changed. If so, the stack was corrupted and the program terminates safely instead of jumping to attacker code.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">5. Safe Languages</div>
+          <div class="concept">Languages like Rust, Go, and modern Java perform automatic bounds checking on arrays and strings. Buffer overflows are nearly impossible by design — the runtime checks every array access and panics safely rather than writing out-of-bounds.</div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">6. Input Validation</div>
+          <div class="concept">Validate and sanitize all input before processing. Enforce maximum lengths at the application layer. Reject or truncate inputs that exceed expected size — never pass unchecked user data to memory-unsafe functions.</div>
+        </div>
+
+      </div>
+
+      <div class="divider">VULNERABLE vs SAFE CODE</div>
+
+      <div class="compare-row">
+        <div class="compare-bad">
+          <div class="compare-label">❌ Vulnerable — C (classic)</div>
+          <span style="color:var(--text-dim);">char buffer[4];</span><br>
+          <span style="color:var(--red);">strcpy(buffer, userInput);</span>  <span style="color:var(--muted);">// no limit</span><br>
+          <br>
+          <span style="color:var(--text-dim);">char line[64];</span><br>
+          <span style="color:var(--red);">gets(line);</span>  <span style="color:var(--muted);">// banned — no length arg</span>
+        </div>
+        <div class="compare-good">
+          <div class="compare-label">✓ Safe — bounded C</div>
+          <span style="color:var(--text-dim);">char buffer[4];</span><br>
+          <span style="color:var(--green);">strncpy(buffer, userInput, sizeof(buffer) - 1);</span><br>
+          <span style="color:var(--green);">buffer[3] = '\0';  // always null-terminate</span><br>
+          <br>
+          <span style="color:var(--text-dim);">char line[64];</span><br>
+          <span style="color:var(--green);">fgets(line, sizeof(line), stdin);</span>
+        </div>
+      </div>
+
+      <div class="compare-row">
+        <div class="compare-bad">
+          <div class="compare-label">❌ Vulnerable — C (with canary disabled)</div>
+          <span style="color:var(--muted);">// gcc -fno-stack-protector -z execstack vuln.c</span><br>
+          <span style="color:var(--red);">// ASLR off, DEP off, no canary</span><br>
+          <span style="color:var(--red);">// → classic exploit works directly</span>
+        </div>
+        <div class="compare-good">
+          <div class="compare-label">✓ Safe — hardened compilation</div>
+          <span style="color:var(--green);">// gcc -fstack-protector-strong  (canary)</span><br>
+          <span style="color:var(--green);">//     -pie -fPIE               (ASLR)</span><br>
+          <span style="color:var(--green);">//     -z noexecstack            (DEP/NX)</span>
+        </div>
+      </div>
+
+      <div class="callout info" style="margin-top:8px;">
+        <strong>Exam note:</strong> ASLR, DEP/NX, and stack canaries are OS/compiler-level mitigations. They reduce exploitability but don't fix the root cause — unsafe code. Bounds checking fixes the root cause.
+      </div>
+    </div>
+
+    <div class="full nav-row">
+      <button class="btn" onclick="goPhase(3)">← BACK</button>
+      <div></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">SYSTEM EVENT</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="btn primary" onclick="closeModal()">ACKNOWLEDGE</button>
+  </div>
+</div>
+
+<script>
+// ── NAVIGATION ──────────────────────────────────────────────────
+let currentPhase = 1;
+
+function goPhase(n) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.phase-btn').forEach((b, i) => {
+    b.classList.remove('active');
+    if (i + 1 < n) b.classList.add('done'); else b.classList.remove('done');
+  });
+  document.getElementById('phase' + n).classList.add('active');
+  document.querySelectorAll('.phase-btn')[n - 1].classList.add('active');
+  currentPhase = n;
+  document.getElementById('progressFill').style.width = (n * 25) + '%';
+  if (n === 2) initMemLab();
+  if (n === 3) initExploitView();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── MODAL ───────────────────────────────────────────────────────
+function showModal(title, body) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+// ── HELPERS ─────────────────────────────────────────────────────
+function addLog(id, type, msg) {
+  const el = document.getElementById(id);
+  const ts = new Date().toTimeString().slice(0,8);
+  el.innerHTML += `<div class="entry"><span class="ts">[${ts}]</span><span class="msg ${type}">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function ts() { return new Date().toTimeString().slice(0,8); }
+
+// ── PHASE 2: MEMORY LAB ─────────────────────────────────────────
+
+const STACK_ADDRS = [
+  '0xFFFF001C', // frame above
+  '0xFFFF0018', // return address
+  '0xFFFF0014', // saved EBP
+  '0xFFFF0010', // buf[3]
+  '0xFFFF000C', // buf[2]
+  '0xFFFF0008', // buf[1]
+  '0xFFFF0004', // buf[0]   ← ESP
+];
+
+const STACK_LABELS = [
+  '← caller frame',
+  '← RETURN ADDRESS',
+  '← saved EBP',
+  '← buffer[3]',
+  '← buffer[2]',
+  '← buffer[1]',
+  '← buffer[0]  ← ESP',
+];
+
+function initMemLab() {
+  renderStack('memStack', '', 0);
+  document.getElementById('userInput').value = '';
+  document.getElementById('lenVal').textContent = '0';
+  document.getElementById('fillBar').style.width = '0%';
+  document.getElementById('fillBar').style.background = 'var(--cyan)';
+  document.getElementById('memLog').innerHTML = `<div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Program started. Buffer allocated at 0xFFFF0004.</span></div>`;
+}
+
+function renderStack(containerId, input, len) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  // slots: 0=caller, 1=retaddr, 2=ebp, 3-6=buffer[3..0]
+  const rows = [];
+
+  // caller frame
+  rows.push({ addr: '0xFFFF001C', cls: 'metadata', val: '[ caller frame ]', label: '← caller frame' });
+
+  // return address
+  const retOverwritten = len >= 13; // buf(4) + ebp(4) + retaddr starts at byte 9
+  const retPartial = len >= 9 && len < 13;
+  rows.push({
+    addr: '0xFFFF0018',
+    cls: retOverwritten ? 'buf-crit' : retPartial ? 'buf-over' : 'ret-safe',
+    val: retOverwritten ? '0x41414141  ← CORRUPTED' : retPartial ? '0x080491??' : '0x080491a3',
+    label: '← RETURN ADDRESS'
+  });
+
+  // saved EBP
+  const ebpOver = len >= 9;
+  rows.push({
+    addr: '0xFFFF0014',
+    cls: ebpOver ? 'buf-over' : 'metadata',
+    val: ebpOver ? input.slice(8, 12).padEnd(4,'·') + ' (overflowed)' : '0xFFFF0040',
+    label: '← saved EBP'
+  });
+
+  // buffer slots 3..0
+  for (let i = 3; i >= 0; i--) {
+    const byteIndex = i;
+    const hasByte = byteIndex < len;
+    const isOver = len > 4 && byteIndex < len && byteIndex >= 4;
+    rows.push({
+      addr: `0xFFFF000${4 + i * 4}`,
+      cls: hasByte ? 'buf-data' : 'buf-empty',
+      val: hasByte ? `'${input[byteIndex] || ' '}' (0x${(input.charCodeAt(byteIndex) || 0).toString(16).padStart(2,'0')})` : '[ empty ]',
+      label: i === 0 ? '← buffer[0]  ← ESP' : `← buffer[${i}]`
+    });
+  }
+
+  el.innerHTML = rows.map(r => `
+    <div class="mem-row">
+      <div class="mem-addr">${r.addr}</div>
+      <div class="mem-cell ${r.cls}">${r.val}</div>
+      <div class="mem-label" style="${r.label.includes('RETURN') ? 'color:var(--green)' : ''}">${r.label}</div>
+    </div>`).join('');
+}
+
+function updateMemory() {
+  const input = document.getElementById('userInput').value;
+  const len = input.length;
+  document.getElementById('lenVal').textContent = len;
+
+  const pct = Math.min(len / 12 * 100, 100);
+  const bar = document.getElementById('fillBar');
+  bar.style.width = pct + '%';
+  bar.style.background = len <= 4 ? 'var(--cyan)' : len <= 8 ? 'var(--yellow)' : 'var(--red)';
+
+  renderStack('memStack', input, len);
+
+  // log events
+  const log = 'memLog';
+  if (len === 1) addLog(log, 'ok', 'Writing to buffer[0]...');
+  if (len === 4) addLog(log, 'ok', 'Buffer full (4 bytes). No overflow yet.');
+  if (len === 5) addLog(log, 'warn', '⚠ Buffer overflow begins! Writing past buffer boundary.');
+  if (len === 9) addLog(log, 'err', '✗ Saved EBP overwritten! Stack frame corrupted.');
+  if (len === 13) addLog(log, 'err', '✗ RETURN ADDRESS OVERWRITTEN. Execution hijacked on function return!');
+  if (len === 13) {
+    setTimeout(() => showModal(
+      '⚠ STACK SMASHING DETECTED',
+      'The return address at <strong>0xFFFF0018</strong> has been overwritten with attacker-controlled data.<br><br>' +
+      'When <code>processInput()</code> returns, the CPU will jump to <strong>0x41414141</strong> — the attacker\'s chosen address — instead of the legitimate caller.<br><br>' +
+      'In a real attack, this address points to shellcode injected earlier in the payload.'
+    ), 400);
+  }
+}
+
+function setInput(val) {
+  document.getElementById('userInput').value = val;
+  updateMemory();
+}
+
+// ── PHASE 3: EXPLOIT ────────────────────────────────────────────
+let hexParts = [];
+const shellDefs = {
+  nop:      { hex: '90 90 90 90 90 90 90 90', stage: 1, label: 'NOP Sled' },
+  padding:  { hex: '41 41 41 41 41 41 41 41', stage: 1, label: 'Padding' },
+  shellcode:{ hex: '31 c0 50 68 2f 2f 73 68\n68 2f 62 69 6e 89 e3 50\n53 89 e1 b0 0b cd 80', stage: 2, label: 'Shellcode' },
+  retaddr:  { hex: '04 00 FF FF  (→ 0xFFFF0004)', stage: 3, label: 'Return Addr Override' },
+};
+
+function initExploitView() {
+  renderExploitMem(false);
+  hexParts = [];
+  document.getElementById('hexStream').textContent = '— add components above —';
+  document.getElementById('launchBtn').disabled = true;
+  document.getElementById('exploitLog').innerHTML = `<div class="entry"><span class="ts">[SYS]</span><span class="msg ok">Waiting for payload...</span></div>`;
+  document.querySelectorAll('.shell-piece').forEach(p => p.classList.remove('selected'));
+  document.querySelectorAll('.stage').forEach((s,i) => {
+    s.classList.remove('done-stage','active-stage');
+    if (i === 0) s.classList.add('active-stage');
+  });
+}
+
+function renderExploitMem(launched) {
+  const el = document.getElementById('exploitMem');
+  if (!el) return;
+  const rows = [
+    { addr:'0xFFFF001C', cls: launched ? 'shellcode' : 'metadata', val: launched ? '\\x31\\xc0\\x50\\x68... (shellcode)' : '[ caller frame ]', label:'← caller frame' },
+    { addr:'0xFFFF0018', cls: launched ? 'ret-corrupt' : 'ret-safe', val: launched ? '0xFFFF0004  ← HIJACKED!' : '0x080491a3', label:'← RETURN ADDRESS' },
+    { addr:'0xFFFF0014', cls: launched ? 'buf-over'  : 'metadata', val: launched ? '0x41414141 (padding)' : '0xFFFF0040', label:'← saved EBP' },
+    { addr:'0xFFFF0010', cls: launched ? 'shellcode' : 'buf-empty', val: launched ? '\\x90 (NOP)' : '[ empty ]', label:'← buffer[3]' },
+    { addr:'0xFFFF000C', cls: launched ? 'shellcode' : 'buf-empty', val: launched ? '\\x90 (NOP)' : '[ empty ]', label:'← buffer[2]' },
+    { addr:'0xFFFF0008', cls: launched ? 'shellcode' : 'buf-empty', val: launched ? '\\x90 (NOP)' : '[ empty ]', label:'← buffer[1]' },
+    { addr:'0xFFFF0004', cls: launched ? 'shellcode' : 'buf-empty', val: launched ? '\\x31\\xc0... shellcode start' : '[ empty ]', label:'← buffer[0]' },
+  ];
+  el.innerHTML = rows.map(r => `
+    <div class="mem-row">
+      <div class="mem-addr">${r.addr}</div>
+      <div class="mem-cell ${r.cls}">${r.val}</div>
+      <div class="mem-label" style="${r.label.includes('RETURN') ? 'color:'+(launched?'var(--red)':'var(--green)') : ''}">${r.label}</div>
+    </div>`).join('');
+}
+
+let stagesComplete = { nop: false, padding: false, shellcode: false, retaddr: false };
+
+function addShell(type) {
+  const def = shellDefs[type];
+  hexParts.push(def.hex);
+  stagesComplete[type] = true;
+
+  document.querySelector(`.shell-piece[onclick="addShell('${type}')"]`).classList.add('selected');
+
+  // update hex stream
+  document.getElementById('hexStream').textContent = hexParts.join('\n');
+
+  // advance stage indicators
+  const stage = def.stage;
+  const stageEl = document.getElementById('stg' + stage);
+  if (stageEl) { stageEl.classList.remove('active-stage'); stageEl.classList.add('done-stage'); }
+  const nextEl = document.getElementById('stg' + (stage + 1));
+  if (nextEl) nextEl.classList.add('active-stage');
+
+  addLog('exploitLog', 'warn', `Added: ${def.label} → ${def.hex.split('\n')[0].substring(0,32)}...`);
+
+  // enable launch when retaddr is added
+  if (type === 'retaddr') {
+    document.getElementById('launchBtn').disabled = false;
+    addLog('exploitLog', 'err', 'Payload complete. Return address overwrite staged. Ready to launch.');
+  }
+}
+
+function launchExploit() {
+  addLog('exploitLog', 'err', 'Sending payload to vulnerable processInput()...');
+  setTimeout(() => {
+    addLog('exploitLog', 'err', 'Buffer filled: buf[0..3] = \\x90\\x90\\x90\\x90');
+    renderExploitMem(false);
+  }, 400);
+  setTimeout(() => {
+    addLog('exploitLog', 'err', 'Overflow: saved EBP overwritten → 0x41414141');
+  }, 800);
+  setTimeout(() => {
+    addLog('exploitLog', 'err', '✗ RETURN ADDRESS OVERWRITTEN → 0xFFFF0004');
+    renderExploitMem(true);
+  }, 1300);
+  setTimeout(() => {
+    addLog('exploitLog', 'shell', '$ processInput() returns...');
+  }, 1800);
+  setTimeout(() => {
+    addLog('exploitLog', 'shell', '$ CPU jumps to 0xFFFF0004 → NOP sled → shellcode');
+  }, 2200);
+  setTimeout(() => {
+    addLog('exploitLog', 'shell', '$ execve("/bin/sh", ...) → SHELL SPAWNED');
+    showModal(
+      '💀 EXPLOITATION SUCCESSFUL',
+      'The CPU followed the overwritten return address to <strong>0xFFFF0004</strong>, slid through the NOP sled, and executed the shellcode.<br><br>' +
+      'Result: <strong>a /bin/sh shell has been spawned</strong> with the privileges of the vulnerable process.<br><br>' +
+      'If the program ran as root or SYSTEM — the attacker now has full control of the machine.'
+    );
+  }, 2800);
+}
+
+function resetExploit() {
+  initExploitView();
+}
+</script>
+</body>
+</html>

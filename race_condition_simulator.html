@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Race Condition / TOCTOU Simulator — Security+ Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:         #07090f;
+    --surface:    #0c0f18;
+    --panel:      #111620;
+    --deep:       #080b12;
+    --border:     #1c2438;
+    --blue:       #4c9fff;
+    --blue-dim:   #2a6abf;
+    --green:      #2ecc71;
+    --green-dim:  #1a8a48;
+    --red:        #e74c3c;
+    --red-dim:    #8b2014;
+    --amber:      #f39c12;
+    --amber-dim:  #a06008;
+    --purple:     #9b59b6;
+    --purple-dim: #5d2d7a;
+    --teal:       #1abc9c;
+    --teal-dim:   #0d7a63;
+    --muted:      #374860;
+    --text:       #b0c4d8;
+    --text-dim:   #5a7090;
+    --mono:       'JetBrains Mono', monospace;
+    --ui:         'Syne', sans-serif;
+    --body:       'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* subtle dot grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: radial-gradient(circle, rgba(76,159,255,0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; align-items: center; gap: 14px;
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 200;
+  }
+
+  .badge {
+    background: var(--purple);
+    color: #fff;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    padding: 4px 10px; letter-spacing: 2px;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  header h1 {
+    font-family: var(--ui); font-size: 22px; font-weight: 800;
+    letter-spacing: 0.5px; color: #fff;
+  }
+  header h1 span { color: var(--purple); }
+  .course-tag {
+    margin-left: auto; font-family: var(--mono); font-size: 10px;
+    color: var(--muted); border: 1px solid var(--border); padding: 4px 10px;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 26px 32px 60px; position: relative; z-index: 1; }
+
+  /* ── PHASE NAV ── */
+  .phase-nav { display: flex; border: 1px solid var(--border); margin-bottom: 24px; }
+  .phase-btn {
+    flex: 1; background: var(--surface); border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); font-family: var(--ui); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase; padding: 12px 8px; cursor: pointer;
+    transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .phase-btn:last-child { border-right: none; }
+  .phase-btn .num { font-family: var(--mono); font-size: 18px; color: var(--border); transition: color 0.2s; }
+  .phase-btn:hover { background: var(--panel); color: var(--text); }
+  .phase-btn:hover .num { color: var(--muted); }
+  .phase-btn.active { background: var(--panel); color: var(--purple); border-bottom: 2px solid var(--purple); }
+  .phase-btn.active .num { color: var(--purple); }
+  .phase-btn.done { color: var(--green-dim); }
+  .phase-btn.done .num { color: var(--green-dim); }
+
+  /* ── PROGRESS ── */
+  .progress-strip { height: 3px; background: var(--border); margin-bottom: 22px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--purple), var(--blue)); transition: width 0.4s; }
+
+  /* ── PHASE GRID ── */
+  .phase { display: none; }
+  .phase.active { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .full { grid-column: 1 / -1; }
+
+  /* ── CARD ── */
+  .card { background: var(--surface); border: 1px solid var(--border); padding: 22px; position: relative; }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; }
+  .card.purple::before { background: var(--purple); }
+  .card.blue::before   { background: var(--blue); }
+  .card.green::before  { background: var(--green); }
+  .card.red::before    { background: var(--red); }
+  .card.amber::before  { background: var(--amber); }
+  .card.teal::before   { background: var(--teal); }
+
+  .card-title {
+    font-family: var(--ui); font-size: 11px; font-weight: 700;
+    letter-spacing: 2.5px; text-transform: uppercase; color: var(--text-dim);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .card.purple .card-title .dot { background: var(--purple); }
+  .card.blue   .card-title .dot { background: var(--blue); }
+  .card.green  .card-title .dot { background: var(--green); }
+  .card.red    .card-title .dot { background: var(--red); }
+  .card.amber  .card-title .dot { background: var(--amber); }
+  .card.teal   .card-title .dot { background: var(--teal); }
+
+  /* ── TEXT ── */
+  .concept { font-size: 13px; color: var(--text-dim); line-height: 1.75; margin-bottom: 12px; }
+  .concept strong { color: var(--text); }
+  .concept .hl { color: var(--purple); font-family: var(--mono); font-size: 12px; }
+  .concept .danger { color: var(--red); }
+  .concept .safe { color: var(--green); }
+  .concept .hi { color: var(--amber); }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--amber); padding: 10px 14px;
+    background: rgba(243,156,18,0.05); font-size: 12px; color: var(--text-dim);
+    margin: 12px 0; line-height: 1.65;
+  }
+  .callout.info   { border-color: var(--blue);   background: rgba(76,159,255,0.05); }
+  .callout.danger { border-color: var(--red);    background: rgba(231,76,60,0.05); color: var(--text); }
+  .callout.ok     { border-color: var(--green);  background: rgba(46,204,113,0.05); }
+  .callout strong { color: var(--text); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 18px 0 14px; color: var(--muted);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    font-family: var(--ui); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase;
+    padding: 10px 20px; cursor: pointer; transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: var(--panel); border-color: var(--muted); }
+  .btn.primary { border-color: var(--purple); color: var(--purple); }
+  .btn.primary:hover { background: rgba(155,89,182,0.08); }
+  .btn.danger  { border-color: var(--red-dim); color: var(--red); }
+  .btn.danger:hover  { background: rgba(231,76,60,0.08); border-color: var(--red); }
+  .btn.safe    { border-color: var(--green-dim); color: var(--green); }
+  .btn.safe:hover    { background: rgba(46,204,113,0.08); }
+  .btn.blue-btn { border-color: var(--blue-dim); color: var(--blue); }
+  .btn.blue-btn:hover { background: rgba(76,159,255,0.08); border-color: var(--blue); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+  code { font-family: var(--mono); font-size: 11px; background: var(--panel); padding: 1px 5px; }
+
+  /* ── PILL ── */
+  .pill { display: inline-block; padding: 2px 8px; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+  .pill.purple { background: rgba(155,89,182,0.15); border: 1px solid var(--purple-dim); color: var(--purple); }
+  .pill.red    { background: rgba(231,76,60,0.15);  border: 1px solid var(--red-dim);    color: var(--red); }
+  .pill.green  { background: rgba(46,204,113,0.12); border: 1px solid var(--green-dim);  color: var(--green); }
+  .pill.blue   { background: rgba(76,159,255,0.12); border: 1px solid var(--blue-dim);   color: var(--blue); }
+  .pill.amber  { background: rgba(243,156,18,0.12); border: 1px solid var(--amber-dim);  color: var(--amber); }
+
+  /* ── TIMELINE DIAGRAM ── */
+  .timeline-wrap { position: relative; padding: 8px 0; }
+
+  .tl-row {
+    display: grid; grid-template-columns: 110px 1fr;
+    gap: 0; margin-bottom: 3px; min-height: 36px;
+  }
+
+  .tl-label {
+    font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+    display: flex; align-items: center; padding-right: 10px;
+    white-space: nowrap;
+  }
+
+  .tl-track {
+    display: flex; align-items: center; gap: 0;
+    border-left: 1px solid var(--border); padding-left: 0;
+    position: relative;
+  }
+
+  .tl-block {
+    height: 30px; display: flex; align-items: center;
+    padding: 0 10px; font-family: var(--mono); font-size: 10px;
+    white-space: nowrap; transition: all 0.3s; flex-shrink: 0;
+  }
+
+  .tl-block.check  { background: rgba(76,159,255,0.18); border: 1px solid var(--blue-dim); color: var(--blue); }
+  .tl-block.gap    { background: transparent; color: var(--muted); min-width: 40px; }
+  .tl-block.use    { background: rgba(46,204,113,0.18); border: 1px solid var(--green-dim); color: var(--green); }
+  .tl-block.attack { background: rgba(231,76,60,0.22); border: 1px solid var(--red-dim); color: var(--red); animation: pulse-block 1.2s infinite; }
+  .tl-block.window { background: rgba(243,156,18,0.12); border: 1px dashed var(--amber-dim); color: var(--amber); min-width: 80px; }
+  .tl-block.empty  { min-width: 60px; }
+
+  @keyframes pulse-block {
+    0%,100% { background: rgba(231,76,60,0.22); }
+    50%      { background: rgba(231,76,60,0.40); }
+  }
+
+  /* ── RACE VISUALIZER ── */
+  .race-arena {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-bottom: 14px;
+  }
+
+  .thread-panel {
+    background: var(--deep); border: 1px solid var(--border);
+    padding: 14px; position: relative;
+  }
+  .thread-panel.t-blue { border-top: 2px solid var(--blue); }
+  .thread-panel.t-red  { border-top: 2px solid var(--red); }
+
+  .thread-label {
+    font-family: var(--ui); font-size: 12px; font-weight: 700;
+    letter-spacing: 1px; margin-bottom: 10px;
+  }
+  .thread-panel.t-blue .thread-label { color: var(--blue); }
+  .thread-panel.t-red  .thread-label { color: var(--red); }
+
+  .thread-step {
+    font-family: var(--mono); font-size: 11px; line-height: 1.9;
+    padding: 4px 8px; border-left: 2px solid var(--border);
+    margin-bottom: 4px; color: var(--text-dim); transition: all 0.3s;
+  }
+  .thread-step.active  { border-left-color: var(--amber); color: var(--amber); background: rgba(243,156,18,0.05); }
+  .thread-step.done    { border-left-color: var(--green-dim); color: var(--text-dim); }
+  .thread-step.exploit { border-left-color: var(--red); color: var(--red); background: rgba(231,76,60,0.07); }
+
+  /* ── SHARED RESOURCE BOX ── */
+  .resource-box {
+    background: var(--panel); border: 2px solid var(--border);
+    padding: 16px; text-align: center; margin-bottom: 12px;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .resource-box.owned-blue   { border-color: var(--blue); background: rgba(76,159,255,0.05); }
+  .resource-box.owned-red    { border-color: var(--red);  background: rgba(231,76,60,0.08); }
+  .resource-box.compromised  { border-color: var(--red);  background: rgba(231,76,60,0.15); animation: pulse-border 1s infinite; }
+
+  @keyframes pulse-border {
+    0%,100% { border-color: var(--red); }
+    50%      { border-color: var(--red-dim); }
+  }
+
+  .resource-title { font-family: var(--ui); font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; }
+  .resource-val   { font-family: var(--mono); font-size: 22px; color: var(--text); transition: color 0.3s; }
+  .resource-val.danger { color: var(--red); }
+  .resource-val.ok     { color: var(--green); }
+
+  /* ── SCENARIO SELECTOR ── */
+  .scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .scenario-card {
+    background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--purple-dim);
+    padding: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .scenario-card:hover { border-left-color: var(--purple); background: rgba(155,89,182,0.06); }
+  .scenario-card.selected { border-color: var(--purple); border-left-color: var(--purple); background: rgba(155,89,182,0.10); }
+  .scenario-card .sc-name { font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--purple); margin-bottom: 3px; }
+  .scenario-card .sc-desc { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ── LOG ── */
+  .log {
+    background: #000; border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px;
+    padding: 12px; max-height: 200px; overflow-y: auto; line-height: 1.9;
+  }
+  .log .entry { display: flex; gap: 10px; }
+  .log .ts { color: var(--muted); white-space: nowrap; }
+  .log .t-a { color: var(--blue); white-space: nowrap; }
+  .log .t-b { color: var(--red); white-space: nowrap; }
+  .log .msg { color: var(--text); }
+  .log .msg.ok     { color: var(--green); }
+  .log .msg.warn   { color: var(--amber); }
+  .log .msg.err    { color: var(--red); }
+  .log .msg.sys    { color: var(--text-dim); }
+  .log .msg.attack { color: var(--purple); }
+
+  /* ── FILE SYSTEM VIEW ── */
+  .fs-view {
+    background: var(--deep); border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; padding: 14px;
+    line-height: 2.0;
+  }
+  .fs-row { display: flex; gap: 12px; align-items: center; padding: 3px 0; transition: background 0.3s; }
+  .fs-row:hover { background: rgba(255,255,255,0.02); }
+  .fs-perms { color: var(--muted); min-width: 100px; }
+  .fs-owner { color: var(--text-dim); min-width: 60px; }
+  .fs-name  { color: var(--blue); }
+  .fs-link  { color: var(--amber); }
+  .fs-name.compromised { color: var(--red); }
+  .fs-badge { font-size: 9px; padding: 1px 6px; }
+
+  /* ── CODE COMPARE ── */
+  .compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .compare-bad, .compare-good {
+    padding: 14px; font-family: var(--mono); font-size: 11px;
+    line-height: 1.85; border: 1px solid;
+  }
+  .compare-bad  { border-color: var(--red-dim); background: rgba(231,76,60,0.05); }
+  .compare-good { border-color: var(--green-dim); background: rgba(46,204,113,0.05); }
+  .compare-label { font-family: var(--ui); font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .compare-bad  .compare-label { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  /* ── SPEED SLIDER ── */
+  input[type=range] {
+    width: 100%; accent-color: var(--purple); cursor: pointer;
+    background: var(--panel); border: none; height: 4px;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border: 2px solid var(--purple); padding: 30px; max-width: 480px; width: 90%; animation: slide-in 0.25s ease; }
+  @keyframes slide-in { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-title { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--purple); margin-bottom: 12px; }
+  .modal-body  { font-size: 13px; color: var(--text); line-height: 1.75; margin-bottom: 20px; }
+  .modal-body strong { color: var(--purple); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--panel); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">SIMULATED</div>
+  <h1>Race Condition <span>/ TOCTOU</span> Lab</h1>
+  <span class="course-tag">Security+ SY0-701 · 2.3</span>
+</header>
+
+<div class="container">
+
+  <div class="progress-strip">
+    <div class="progress-fill" id="progressFill" style="width:25%"></div>
+  </div>
+
+  <nav class="phase-nav">
+    <button class="phase-btn active" onclick="goPhase(1)"><span class="num">01</span>WHAT IS IT</button>
+    <button class="phase-btn" onclick="goPhase(2)"><span class="num">02</span>TOCTOU DEMO</button>
+    <button class="phase-btn" onclick="goPhase(3)"><span class="num">03</span>LIVE RACE</button>
+    <button class="phase-btn" onclick="goPhase(4)"><span class="num">04</span>DEFENSES</button>
+  </nav>
+
+  <!-- ══════════════ PHASE 1: WHAT IS IT ══════════════ -->
+  <div class="phase active" id="phase1">
+
+    <div class="card purple">
+      <div class="card-title"><span class="dot"></span>The Core Concept</div>
+      <div class="concept">
+        A <strong>race condition</strong> occurs when a program's behavior depends on the timing or sequence of events — and an attacker can manipulate that timing to their advantage.
+        <br><br>
+        The classic form is <strong>TOCTOU</strong>: <span class="hl">Time of Check</span> to <span class="hl">Time of Use</span>. The program checks a condition, then uses the result — but an attacker <span class="danger">changes the state between the check and the use</span>.
+        <br><br>
+        The program trusted its own check — but the world changed underneath it.
+      </div>
+
+      <div class="callout danger">
+        <strong>Exam anchor:</strong> "Time of Check / Time of Use" or "TOCTOU" on any exam question → Race Condition. Look for: a check that happens separately from the action, two processes accessing the same resource, a "window of opportunity."
+      </div>
+
+      <div class="divider">THE TOCTOU WINDOW</div>
+
+      <div class="timeline-wrap">
+        <div class="tl-row">
+          <div class="tl-label">Legitimate app</div>
+          <div class="tl-track">
+            <div class="tl-block check">CHECK: is this safe?</div>
+            <div class="tl-block gap">···</div>
+            <div class="tl-block use">USE: perform action</div>
+          </div>
+        </div>
+        <div class="tl-row">
+          <div class="tl-label" style="color:var(--red);">Attacker</div>
+          <div class="tl-track">
+            <div class="tl-block empty"></div>
+            <div class="tl-block attack">SWAP the resource here ↑</div>
+          </div>
+        </div>
+        <div class="tl-row">
+          <div class="tl-label" style="color:var(--amber);font-size:9px;">Vuln window</div>
+          <div class="tl-track">
+            <div class="tl-block empty"></div>
+            <div class="tl-block window">← race window →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card blue">
+      <div class="card-title"><span class="dot"></span>Why The Name "Race Condition"?</div>
+      <div class="concept">
+        The attacker is literally <strong>racing</strong> the legitimate process. They need to win the race — get their swap in during the gap — before the program uses the checked value.
+        <br><br>
+        The vulnerability is not in the check itself, nor in the use itself — it's in the <span class="hi">assumed atomicity</span> between them. The program assumes "what I checked is still true when I act." That assumption is wrong if another process can run in between.
+      </div>
+
+      <div class="divider">THREE REAL-WORLD EXAMPLES</div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="border:1px solid var(--border);border-left:3px solid var(--purple);padding:12px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--purple);font-size:13px;margin-bottom:4px;">File System (Classic TOCTOU)</div>
+          <div class="concept" style="margin:0;">Program checks if <code>/tmp/safefile</code> is safe, then opens it. Attacker swaps it for a symlink to <code>/etc/passwd</code> in the gap. Program now writes to <code>/etc/passwd</code>.</div>
+        </div>
+        <div style="border:1px solid var(--border);border-left:3px solid var(--blue);padding:12px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--blue);font-size:13px;margin-bottom:4px;">Bank Account (Double-Spend)</div>
+          <div class="concept" style="margin:0;">Two simultaneous withdrawals. Both threads check balance = $100, both see "sufficient funds," both complete the withdrawal. Account goes to –$100.</div>
+        </div>
+        <div style="border:1px solid var(--border);border-left:3px solid var(--teal);padding:12px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--teal);font-size:13px;margin-bottom:4px;">Security Check Bypass</div>
+          <div class="concept" style="margin:0;">Antivirus scans an uploaded file, reports it clean. Between the scan and execution, attacker swaps it for malware. Program runs the malware trusting the AV result.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card amber full">
+      <div class="card-title"><span class="dot"></span>Race Condition vs Buffer Overflow vs XSS — Exam Differentiator</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--purple);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--purple);margin-bottom:8px;font-size:14px;">RACE CONDITION / TOCTOU</div>
+          <div class="concept">Cause: <strong>Timing gap between check and use</strong><br>How: Attacker modifies state during the window<br>Look for: "TOCTOU", "between check and use", "simultaneous", "window of opportunity", two threads/processes</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--red);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--red);margin-bottom:8px;font-size:14px;">BUFFER OVERFLOW</div>
+          <div class="concept">Cause: <strong>Input exceeds buffer size</strong><br>How: Adjacent memory corrupted by too many bytes<br>Look for: "exceeded allocated space", "adjacent memory overwritten", crashes, shellcode</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;border-left:3px solid var(--blue);">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--blue);margin-bottom:8px;font-size:14px;">XSS</div>
+          <div class="concept">Cause: <strong>Unsanitized input rendered as HTML</strong><br>How: Script runs in other users' browsers<br>Look for: "script executes in browser", cookie theft, &lt;script&gt; tags in input</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full nav-row"><div></div><button class="btn primary" onclick="goPhase(2)">TOCTOU FILE DEMO →</button></div>
+  </div>
+
+  <!-- ══════════════ PHASE 2: TOCTOU DEMO ══════════════ -->
+  <div class="phase" id="phase2">
+
+    <div class="card purple">
+      <div class="card-title"><span class="dot"></span>The File Symlink Attack</div>
+
+      <div class="concept">
+        This is the <strong>classic TOCTOU exploit</strong>. A privileged program (running as root) checks whether a file is safe before writing to it. An attacker creates a symlink in the gap — the program ends up writing to a sensitive system file.
+      </div>
+
+      <div class="divider">VULNERABLE PSEUDOCODE</div>
+      <div style="background:#000;border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;line-height:2.0;margin-bottom:14px;">
+        <span style="color:var(--text-dim);">// Privileged program (runs as root)</span><br>
+        <span style="color:var(--blue);">if</span> (is_safe(<span style="color:var(--amber);">"/tmp/userfile"</span>)) {   <span style="color:var(--text-dim);">// ← TIME OF CHECK</span><br>
+        &nbsp;&nbsp;<span style="color:var(--text-dim);">// ... attacker swaps /tmp/userfile here ...</span><br>
+        &nbsp;&nbsp;write_data(<span style="color:var(--amber);">"/tmp/userfile"</span>, data); <span style="color:var(--text-dim);">// ← TIME OF USE</span><br>
+        }
+      </div>
+
+      <div class="concept">Step through the attack using the buttons below. Watch the filesystem and observe how the attacker swaps the file between the check and the write.</div>
+
+      <div class="btn-row" id="demoButtons">
+        <button class="btn blue-btn" id="demoBtn1" onclick="demoStep(1)">1 — Check File</button>
+        <button class="btn danger"   id="demoBtn2" onclick="demoStep(2)" disabled>2 — Attacker Swaps</button>
+        <button class="btn primary"  id="demoBtn3" onclick="demoStep(3)" disabled>3 — Program Writes</button>
+        <button class="btn"          id="demoBtn4" onclick="demoStep(4)" disabled>4 — Damage Done</button>
+        <button class="btn"          onclick="resetDemo()">RESET</button>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>Live Filesystem View</div>
+
+      <div style="font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;">Current State</div>
+      <div class="fs-view" id="fsView">
+        <div class="fs-row">
+          <span class="fs-perms">-rw-r--r--</span>
+          <span class="fs-owner">root</span>
+          <span class="fs-name">/tmp/userfile</span>
+          <span class="pill green fs-badge">SAFE</span>
+        </div>
+        <div class="fs-row">
+          <span class="fs-perms">-rw-r--r--</span>
+          <span class="fs-owner">root</span>
+          <span class="fs-name">/etc/passwd</span>
+        </div>
+        <div class="fs-row">
+          <span class="fs-perms">-rw-r--r--</span>
+          <span class="fs-owner">root</span>
+          <span class="fs-name">/etc/shadow</span>
+        </div>
+      </div>
+
+      <div class="divider">PROGRAM + ATTACKER LOG</div>
+      <div class="log" id="demoLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="msg sys">Privileged program initialized. Waiting for input.</span></div>
+      </div>
+
+      <div style="margin-top:14px;" id="demoExplain">
+        <div class="callout info">
+          <strong>What to watch:</strong> The program checks <code>/tmp/userfile</code> and finds it safe. But before it writes, the attacker replaces it with a symlink pointing to <code>/etc/passwd</code>. The program's write goes to the wrong file — with root privileges.
+        </div>
+      </div>
+    </div>
+
+    <div class="full nav-row">
+      <button class="btn" onclick="goPhase(1)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(3)">LIVE RACE SIMULATION →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 3: LIVE RACE ══════════════ -->
+  <div class="phase" id="phase3">
+
+    <div class="card blue">
+      <div class="card-title"><span class="dot"></span>Choose a Scenario</div>
+
+      <div class="concept" style="margin-bottom:12px;">Select a real-world race condition scenario, then run the simulation. Watch two threads compete for a shared resource in real time.</div>
+
+      <div class="scenario-grid">
+        <div class="scenario-card selected" id="sc0" onclick="selectScenario(0)">
+          <div class="sc-name">Bank: Double Withdrawal</div>
+          <div class="sc-desc">Two threads withdraw simultaneously. Both check the same balance. Account goes negative.</div>
+        </div>
+        <div class="scenario-card" id="sc1" onclick="selectScenario(1)">
+          <div class="sc-name">File: Symlink Swap</div>
+          <div class="sc-desc">Legit process checks a temp file while attacker swaps it with a symlink to a sensitive file.</div>
+        </div>
+        <div class="scenario-card" id="sc2" onclick="selectScenario(2)">
+          <div class="sc-name">Auth: Privilege Escalation</div>
+          <div class="sc-desc">App checks if user is admin between authentication steps. Attacker flips the flag in the gap.</div>
+        </div>
+        <div class="scenario-card" id="sc3" onclick="selectScenario(3)">
+          <div class="sc-name">Ticket: Double Booking</div>
+          <div class="sc-desc">Two users book the last seat simultaneously. Both see it available. Both get a confirmation.</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <label style="font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;display:block;margin-bottom:6px;">
+          Race Window Size: <span id="windowLabel" style="color:var(--purple);font-family:var(--mono);">Medium</span>
+        </label>
+        <input type="range" id="windowSlider" min="0" max="2" value="1" oninput="updateWindowLabel(this.value)" />
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">
+          <span>Narrow (harder to exploit)</span><span>Wide (easy exploit)</span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="runBtn" onclick="runRace()">▶ RUN RACE</button>
+        <button class="btn" onclick="resetRace()">RESET</button>
+      </div>
+    </div>
+
+    <div class="card red">
+      <div class="card-title"><span class="dot"></span>Shared Resource</div>
+
+      <div class="resource-box" id="resourceBox">
+        <div class="resource-title" id="resourceTitle">ACCOUNT BALANCE</div>
+        <div class="resource-val" id="resourceVal">$100</div>
+      </div>
+
+      <div class="race-arena">
+        <div class="thread-panel t-blue" id="threadA">
+          <div class="thread-label">THREAD A — Legitimate</div>
+          <div id="stepsA"></div>
+        </div>
+        <div class="thread-panel t-red" id="threadB">
+          <div class="thread-label" id="threadBLabel">THREAD B — Attacker</div>
+          <div id="stepsB"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card purple full">
+      <div class="card-title"><span class="dot"></span>Execution Log</div>
+      <div class="log" id="raceLog">
+        <div class="entry"><span class="ts">[SYS]</span><span class="msg sys">Select a scenario and click RUN RACE.</span></div>
+      </div>
+    </div>
+
+    <div class="full nav-row">
+      <button class="btn" onclick="goPhase(2)">← BACK</button>
+      <button class="btn primary" onclick="goPhase(4)">HOW TO STOP IT →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ PHASE 4: DEFENSES ══════════════ -->
+  <div class="phase" id="phase4">
+
+    <div class="card green full">
+      <div class="card-title"><span class="dot"></span>How to Stop Race Conditions</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:22px;">
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">1. Atomic Operations</div>
+          <div class="concept">Combine the check and the use into a single, uninterruptible operation. No other thread can run between them. Databases call these <strong>transactions</strong> — either the whole thing succeeds or none of it does.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">2. Mutexes / Locks</div>
+          <div class="concept">A <strong>mutex</strong> (mutual exclusion lock) ensures only one thread can access a shared resource at a time. While Thread A holds the lock, Thread B must wait. Eliminates the race window entirely for that resource.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">3. Open with O_NOFOLLOW</div>
+          <div class="concept">For file-system TOCTOU: open files with the <code>O_NOFOLLOW</code> flag, which refuses to follow symlinks. Or use <code>openat()</code> with a directory file descriptor to lock the path at check time.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">4. Minimize the Window</div>
+          <div class="concept">The smaller the gap between check and use, the harder the race. Move the check as close as possible to the use. Don't perform expensive operations between them. Reduces exploitability even if not eliminated.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">5. Re-verify at Use Time</div>
+          <div class="concept">Check the condition again immediately before acting. Use file handles (already-opened file descriptors) instead of file paths — a path can be changed; an open file descriptor cannot.</div>
+        </div>
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--ui);font-weight:700;color:var(--green);margin-bottom:8px;font-size:14px;">6. Principle of Least Privilege</div>
+          <div class="concept">If the vulnerable process runs with minimal privileges, a successful exploit causes minimal damage. A TOCTOU on a non-privileged process cannot write to <code>/etc/passwd</code>. Don't run things as root unnecessarily.</div>
+        </div>
+      </div>
+
+      <div class="divider">VULNERABLE vs SAFE CODE</div>
+
+      <div class="compare-row">
+        <div class="compare-bad">
+          <div class="compare-label">❌ Vulnerable — TOCTOU File Access</div>
+          <span style="color:var(--text-dim);">// Check and open are TWO separate calls</span><br>
+          <span style="color:var(--red);">if (access("/tmp/file", W_OK) == 0) {</span><br>
+          <span style="color:var(--text-dim);">&nbsp;&nbsp;// ← attacker swaps /tmp/file HERE</span><br>
+          <span style="color:var(--red);">&nbsp;&nbsp;fd = open("/tmp/file", O_WRONLY);</span><br>
+          <span style="color:var(--red);">&nbsp;&nbsp;write(fd, data, len);  // writes to wrong file!</span><br>
+          }
+        </div>
+        <div class="compare-good">
+          <div class="compare-label">✓ Safe — Atomic open + check</div>
+          <span style="color:var(--text-dim);">// open() itself does the check atomically</span><br>
+          <span style="color:var(--green);">fd = open("/tmp/file",</span><br>
+          <span style="color:var(--green);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;O_WRONLY | O_NOFOLLOW);</span><br>
+          <span style="color:var(--green);">if (fd >= 0) {</span><br>
+          <span style="color:var(--green);">&nbsp;&nbsp;write(fd, data, len);  // safe</span><br>
+          }
+        </div>
+      </div>
+
+      <div class="compare-row">
+        <div class="compare-bad">
+          <div class="compare-label">❌ Vulnerable — Bank Withdrawal (no lock)</div>
+          <span style="color:var(--text-dim);">// Two threads run this simultaneously</span><br>
+          <span style="color:var(--red);">if (balance >= amount) {      // both threads: TRUE</span><br>
+          <span style="color:var(--red);">&nbsp;&nbsp;balance -= amount;         // both subtract!</span><br>
+          }                            <span style="color:var(--text-dim);">// balance goes negative</span>
+        </div>
+        <div class="compare-good">
+          <div class="compare-label">✓ Safe — With Mutex Lock</div>
+          <span style="color:var(--green);">mutex.lock();</span><br>
+          <span style="color:var(--text-dim);">// only ONE thread can be here at a time</span><br>
+          <span style="color:var(--green);">if (balance >= amount) {</span><br>
+          <span style="color:var(--green);">&nbsp;&nbsp;balance -= amount;</span><br>
+          }<br>
+          <span style="color:var(--green);">mutex.unlock();</span>
+        </div>
+      </div>
+
+      <div class="callout info" style="margin-top:8px;">
+        <strong>Exam note:</strong> The fix for race conditions is always about making the check and use <em>atomic</em> — inseparable. Mutexes, transactions, and atomic OS calls all achieve this in different ways.
+      </div>
+    </div>
+
+    <div class="full nav-row">
+      <button class="btn" onclick="goPhase(3)">← BACK</button>
+      <div></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">SYSTEM EVENT</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="btn primary" onclick="closeModal()">ACKNOWLEDGE</button>
+  </div>
+</div>
+
+<script>
+// ── NAV ─────────────────────────────────────────────────────────
+function goPhase(n) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.phase-btn').forEach((b, i) => {
+    b.classList.remove('active');
+    if (i + 1 < n) b.classList.add('done'); else b.classList.remove('done');
+  });
+  document.getElementById('phase' + n).classList.add('active');
+  document.querySelectorAll('.phase-btn')[n - 1].classList.add('active');
+  document.getElementById('progressFill').style.width = (n * 25) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showModal(title, body) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+function addLog(id, thread, type, msg) {
+  const el = document.getElementById(id);
+  const ts = new Date().toTimeString().slice(0, 8);
+  const threadSpan = thread ? `<span class="${thread}">[${thread === 't-a' ? 'Thread A' : 'Attacker'}]</span>` : '';
+  el.innerHTML += `<div class="entry"><span class="ts">[${ts}]</span>${threadSpan}<span class="msg ${type}">${msg}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── PHASE 2: TOCTOU DEMO ────────────────────────────────────────
+let demoState = 0;
+
+function resetDemo() {
+  demoState = 0;
+  document.getElementById('demoBtn1').disabled = false;
+  document.getElementById('demoBtn2').disabled = true;
+  document.getElementById('demoBtn3').disabled = true;
+  document.getElementById('demoBtn4').disabled = true;
+  document.getElementById('fsView').innerHTML = `
+    <div class="fs-row"><span class="fs-perms">-rw-r--r--</span><span class="fs-owner">root</span><span class="fs-name">/tmp/userfile</span><span class="pill green fs-badge">SAFE</span></div>
+    <div class="fs-row"><span class="fs-perms">-rw-r--r--</span><span class="fs-owner">root</span><span class="fs-name">/etc/passwd</span></div>
+    <div class="fs-row"><span class="fs-perms">-rw-r--r--</span><span class="fs-owner">root</span><span class="fs-name">/etc/shadow</span></div>`;
+  document.getElementById('demoLog').innerHTML = '<div class="entry"><span class="ts">[SYS]</span><span class="msg sys">Privileged program initialized. Waiting for input.</span></div>';
+  document.getElementById('demoExplain').innerHTML = `<div class="callout info"><strong>What to watch:</strong> The program checks <code>/tmp/userfile</code> and finds it safe. But before it writes, the attacker replaces it with a symlink pointing to <code>/etc/passwd</code>. The program's write goes to the wrong file — with root privileges.</div>`;
+}
+
+function demoStep(n) {
+  if (n === 1) {
+    addLog('demoLog', 't-a', 'ok', 'is_safe("/tmp/userfile") → checking permissions...');
+    setTimeout(() => addLog('demoLog', 't-a', 'ok', 'Result: /tmp/userfile is a regular file owned by user. SAFE ✓'), 600);
+    setTimeout(() => addLog('demoLog', null, 'warn', '⟵ Program pauses briefly before writing (does other work)'), 1200);
+    document.getElementById('demoBtn1').disabled = true;
+    document.getElementById('demoBtn2').disabled = false;
+    document.getElementById('demoExplain').innerHTML = `<div class="callout ok"><strong>Step 1 complete:</strong> The program checked <code>/tmp/userfile</code> — it's a regular file owned by the user. The check passed. Now the program is about to write to it. This is the TIME OF CHECK.</div>`;
+  }
+
+  if (n === 2) {
+    addLog('demoLog', null, 'err', '⚡ ATTACKER: rm /tmp/userfile');
+    setTimeout(() => addLog('demoLog', null, 'err', '⚡ ATTACKER: ln -s /etc/passwd /tmp/userfile'), 500);
+    setTimeout(() => {
+      document.getElementById('fsView').innerHTML = `
+        <div class="fs-row"><span class="fs-perms">lrwxrwxrwx</span><span class="fs-owner">attacker</span><span class="fs-name fs-link">/tmp/userfile</span><span style="color:var(--text-dim);font-family:var(--mono);font-size:10px;">→</span><span class="fs-name compromised">/etc/passwd</span><span class="pill red fs-badge">SWAPPED!</span></div>
+        <div class="fs-row"><span class="fs-perms">-rw-r--r--</span><span class="fs-owner">root</span><span class="fs-name">/etc/passwd</span></div>
+        <div class="fs-row"><span class="fs-perms">-rw-r--r--</span><span class="fs-owner">root</span><span class="fs-name">/etc/shadow</span></div>`;
+    }, 600);
+    document.getElementById('demoBtn2').disabled = true;
+    document.getElementById('demoBtn3').disabled = false;
+    document.getElementById('demoExplain').innerHTML = `<div class="callout danger"><strong>Step 2 — The Swap:</strong> The attacker deleted <code>/tmp/userfile</code> and created a symlink with the same name pointing to <code>/etc/passwd</code>. The program doesn't know. It still thinks it's about to write to a safe user file.</div>`;
+  }
+
+  if (n === 3) {
+    addLog('demoLog', 't-a', 'warn', 'write_data("/tmp/userfile", data) → opening file...');
+    setTimeout(() => addLog('demoLog', 't-a', 'err', 'Following path: /tmp/userfile → /etc/passwd (symlink!)'), 700);
+    setTimeout(() => addLog('demoLog', 't-a', 'err', 'Writing attacker data to /etc/passwd with ROOT privileges!'), 1400);
+    setTimeout(() => {
+      document.getElementById('fsView').innerHTML = `
+        <div class="fs-row"><span class="fs-perms">lrwxrwxrwx</span><span class="fs-owner">attacker</span><span class="fs-name fs-link">/tmp/userfile</span><span style="color:var(--text-dim);font-family:var(--mono);font-size:10px;">→</span><span class="fs-name compromised">/etc/passwd</span></div>
+        <div class="fs-row"><span class="fs-perms">-rw-r--r--</span><span class="fs-owner">root</span><span class="fs-name compromised">/etc/passwd</span><span class="pill red fs-badge">OVERWRITTEN!</span></div>
+        <div class="fs-row"><span class="fs-perms">-rw-r--r--</span><span class="fs-owner">root</span><span class="fs-name">/etc/shadow</span></div>`;
+    }, 1500);
+    document.getElementById('demoBtn3').disabled = true;
+    document.getElementById('demoBtn4').disabled = false;
+    document.getElementById('demoExplain').innerHTML = `<div class="callout danger"><strong>Step 3 — TIME OF USE:</strong> The program opened <code>/tmp/userfile</code> — but the OS followed the symlink to <code>/etc/passwd</code>. The program wrote its data (controlled by the attacker) to <code>/etc/passwd</code> as root.</div>`;
+  }
+
+  if (n === 4) {
+    addLog('demoLog', null, 'attack', '✗ /etc/passwd corrupted. Attacker can now add a root-level account.');
+    addLog('demoLog', null, 'attack', '✗ Result: full privilege escalation via TOCTOU.');
+    document.getElementById('demoBtn4').disabled = true;
+    document.getElementById('demoExplain').innerHTML = `<div class="callout danger"><strong>Attack complete:</strong> The attacker exploited the time gap between <em>checking</em> the file and <em>using</em> it. The privileged program unknowingly overwrote a critical system file. The attacker can now add a backdoor user with root privileges.</div>`;
+    setTimeout(() => showModal(
+      '⚠ TOCTOU EXPLOITATION COMPLETE',
+      'The program checked <code>/tmp/userfile</code> — safe at time of check.<br><br>' +
+      'The attacker swapped it for a symlink to <strong>/etc/passwd</strong> during the gap.<br><br>' +
+      'The program wrote to <strong>/etc/passwd</strong> with root privileges — believing it was writing to the safe temp file.<br><br>' +
+      'Result: attacker can append a root-level account to /etc/passwd and log in as root.'
+    ), 400);
+  }
+}
+
+// ── PHASE 3: LIVE RACE ───────────────────────────────────────────
+let selectedScenario = 0;
+let raceRunning = false;
+const windowLabels = ['Narrow', 'Medium', 'Wide'];
+
+const scenarios = [
+  {
+    name: 'Bank: Double Withdrawal',
+    resource: 'ACCOUNT BALANCE',
+    initialVal: '$100',
+    threadALabel: 'THREAD A — Customer 1',
+    threadBLabel: 'THREAD B — Customer 2',
+    stepsA: [
+      { text: 'check_balance() → $100', type: 'ok' },
+      { text: '// ... gap ... ', type: 'warn' },
+      { text: 'withdraw($100)', type: 'ok' },
+      { text: 'balance = $100 - $100 = $0', type: 'ok' },
+    ],
+    stepsB: [
+      { text: 'check_balance() → $100  ← SAME READ', type: 'err' },
+      { text: '// races into the gap', type: 'warn' },
+      { text: 'withdraw($100)  ← ALSO SUCCEEDS', type: 'err' },
+      { text: 'balance = $0 - $100 = -$100  ← BUG', type: 'err' },
+    ],
+    delaysA:   [0,    700,  1600, 2400],
+    delaysB:   [200,  900,  2000, 2800],
+    resourceUpdates: [
+      { delay: 2500, val: '$0',   cls: 'ok',     box: '' },
+      { delay: 3000, val: '-$100', cls: 'danger', box: 'compromised' },
+    ],
+    logs: [
+      { delay: 0,    thread: 't-a', type: 'ok',   msg: 'Thread A: read balance → $100' },
+      { delay: 200,  thread: 't-b', type: 'err',  msg: 'Thread B: read balance → $100 (same stale value!)' },
+      { delay: 700,  thread: null,  type: 'warn', msg: '⚡ Race window open — both threads see $100' },
+      { delay: 1600, thread: 't-a', type: 'ok',   msg: 'Thread A: withdraw $100 → success' },
+      { delay: 2000, thread: 't-b', type: 'err',  msg: 'Thread B: withdraw $100 → also succeeds (no lock!)' },
+      { delay: 2500, thread: null,  type: 'warn', msg: 'Thread A commits: balance = $0' },
+      { delay: 3000, thread: null,  type: 'err',  msg: 'Thread B commits: balance = -$100 ← RACE CONDITION!' },
+    ],
+    modal: {
+      title: '⚠ DOUBLE WITHDRAWAL — RACE CONDITION',
+      body: 'Both threads checked the balance at the same time and both saw <strong>$100</strong>. Without a lock, both withdrawals succeeded.<br><br>The account went to <strong>-$100</strong>. This is how double-spend attacks work in banking systems, and it\'s the same principle behind some cryptocurrency exploits.'
+    }
+  },
+  {
+    name: 'File: Symlink Swap',
+    resource: 'TARGET FILE',
+    initialVal: '/tmp/file',
+    threadALabel: 'THREAD A — Legit Process',
+    threadBLabel: 'THREAD B — Attacker',
+    stepsA: [
+      { text: 'access("/tmp/file") → SAFE', type: 'ok' },
+      { text: '// processing...', type: 'warn' },
+      { text: 'open("/tmp/file", WRITE)', type: 'ok' },
+      { text: 'write(data) → to wrong file!', type: 'err' },
+    ],
+    stepsB: [
+      { text: '// watching for the gap...', type: 'warn' },
+      { text: 'rm /tmp/file', type: 'err' },
+      { text: 'ln -s /etc/passwd /tmp/file', type: 'err' },
+      { text: '// swapped! legit process will write to /etc/passwd', type: 'err' },
+    ],
+    delaysA:   [0,    600,  1600, 2400],
+    delaysB:   [100,  700,  900,  1100],
+    resourceUpdates: [
+      { delay: 1000, val: '→ /etc/passwd', cls: 'danger', box: 'compromised' },
+    ],
+    logs: [
+      { delay: 0,    thread: 't-a', type: 'ok',   msg: 'Legit process: access("/tmp/file") → safe' },
+      { delay: 700,  thread: 't-b', type: 'err',  msg: 'Attacker: rm /tmp/file' },
+      { delay: 900,  thread: 't-b', type: 'err',  msg: 'Attacker: ln -s /etc/passwd /tmp/file' },
+      { delay: 1100, thread: null,  type: 'warn', msg: '⚡ /tmp/file is now a symlink to /etc/passwd!' },
+      { delay: 1600, thread: 't-a', type: 'err',  msg: 'Legit process: open("/tmp/file") → follows symlink → /etc/passwd' },
+      { delay: 2400, thread: null,  type: 'err',  msg: '✗ Data written to /etc/passwd with elevated privileges!' },
+    ],
+    modal: {
+      title: '⚠ SYMLINK SWAP — TOCTOU EXPLOIT',
+      body: 'The legitimate process checked <code>/tmp/file</code> — it was safe at time of check.<br><br>The attacker swapped it with a symlink to <strong>/etc/passwd</strong> during the gap.<br><br>The process wrote to <strong>/etc/passwd</strong> thinking it was writing to the safe temp file.'
+    }
+  },
+  {
+    name: 'Auth: Privilege Escalation',
+    resource: 'IS_ADMIN FLAG',
+    initialVal: 'false',
+    threadALabel: 'THREAD A — App Logic',
+    threadBLabel: 'THREAD B — Attacker',
+    stepsA: [
+      { text: 'authenticate(user) → OK', type: 'ok' },
+      { text: 'check(is_admin) → false', type: 'ok' },
+      { text: '// setting up session...', type: 'warn' },
+      { text: 'grant_access(is_admin) → ADMIN!', type: 'err' },
+    ],
+    stepsB: [
+      { text: '// wait for auth to pass...', type: 'warn' },
+      { text: '// targeting is_admin flag in memory', type: 'warn' },
+      { text: 'is_admin = true  ← flip the flag!', type: 'err' },
+      { text: '// app will read new value', type: 'err' },
+    ],
+    delaysA:   [0,    500,  1100, 2000],
+    delaysB:   [200,  600,  800,  1000],
+    resourceUpdates: [
+      { delay: 850,  val: 'TRUE ← FLIPPED', cls: 'danger', box: 'compromised' },
+    ],
+    logs: [
+      { delay: 0,    thread: 't-a', type: 'ok',   msg: 'App: authenticate(user) → success' },
+      { delay: 500,  thread: 't-a', type: 'ok',   msg: 'App: read is_admin → false' },
+      { delay: 800,  thread: 't-b', type: 'err',  msg: 'Attacker: write is_admin = true (race window!)' },
+      { delay: 1100, thread: null,  type: 'warn', msg: '⚡ is_admin flag flipped between check and use!' },
+      { delay: 2000, thread: 't-a', type: 'err',  msg: 'App: grant_access using is_admin → reads TRUE → grants admin!' },
+      { delay: 2200, thread: null,  type: 'err',  msg: '✗ Privilege escalation via race condition!' },
+    ],
+    modal: {
+      title: '⚠ PRIVILEGE ESCALATION — RACE CONDITION',
+      body: 'The app checked <code>is_admin</code> and saw <strong>false</strong>. During the setup period, the attacker wrote <strong>true</strong> to the flag.<br><br>When the app used the value to grant access, it read the attacker\'s value — and granted admin privileges to a non-admin user.'
+    }
+  },
+  {
+    name: 'Ticket: Double Booking',
+    resource: 'SEATS AVAILABLE',
+    initialVal: '1 seat',
+    threadALabel: 'THREAD A — User 1',
+    threadBLabel: 'THREAD B — User 2',
+    stepsA: [
+      { text: 'check_availability() → 1 seat', type: 'ok' },
+      { text: '// user selects seat, enters payment...', type: 'warn' },
+      { text: 'reserve_seat(userA)', type: 'ok' },
+      { text: 'confirmed! Seat 14C booked.', type: 'ok' },
+    ],
+    stepsB: [
+      { text: 'check_availability() → 1 seat ← SAME', type: 'err' },
+      { text: '// also sees 1 available seat!', type: 'warn' },
+      { text: 'reserve_seat(userB)  ← both succeed', type: 'err' },
+      { text: 'confirmed! Seat 14C also booked. ← BUG', type: 'err' },
+    ],
+    delaysA:   [0,    400,  1400, 2200],
+    delaysB:   [150,  550,  1700, 2500],
+    resourceUpdates: [
+      { delay: 1500, val: '0 seats', cls: 'ok',     box: 'owned-blue' },
+      { delay: 2300, val: 'OVERBOOOKED', cls: 'danger', box: 'compromised' },
+    ],
+    logs: [
+      { delay: 0,    thread: 't-a', type: 'ok',   msg: 'User 1: check_availability() → 1 seat' },
+      { delay: 150,  thread: 't-b', type: 'err',  msg: 'User 2: check_availability() → 1 seat (same read!)' },
+      { delay: 400,  thread: null,  type: 'warn', msg: '⚡ Both users see 1 seat available — race window open' },
+      { delay: 1400, thread: 't-a', type: 'ok',   msg: 'User 1: reserve_seat → SUCCESS' },
+      { delay: 1700, thread: 't-b', type: 'err',  msg: 'User 2: reserve_seat → also SUCCESS (no lock!)' },
+      { delay: 2300, thread: null,  type: 'err',  msg: '✗ Seat 14C double-booked! Two confirmations issued.' },
+    ],
+    modal: {
+      title: '⚠ DOUBLE BOOKING — RACE CONDITION',
+      body: 'Both users checked availability at the same time and both saw <strong>1 seat</strong>.<br><br>Without a lock around the check-and-reserve operation, both reservations succeeded.<br><br>The same seat was sold to two people — a classic race condition in ticketing and e-commerce systems.'
+    }
+  }
+];
+
+function selectScenario(i) {
+  selectedScenario = i;
+  document.querySelectorAll('.scenario-card').forEach((c, idx) => {
+    c.classList.toggle('selected', idx === i);
+  });
+  resetRace();
+}
+
+function updateWindowLabel(v) {
+  document.getElementById('windowLabel').textContent = windowLabels[v];
+}
+
+function resetRace() {
+  raceRunning = false;
+  const sc = scenarios[selectedScenario];
+  document.getElementById('resourceBox').className = 'resource-box';
+  document.getElementById('resourceTitle').textContent = sc.resource;
+  document.getElementById('resourceVal').textContent = sc.initialVal;
+  document.getElementById('resourceVal').className = 'resource-val';
+  document.getElementById('threadBLabel').textContent = sc.threadBLabel;
+  document.getElementById('stepsA').innerHTML = sc.stepsA.map(s =>
+    `<div class="thread-step">${s.text}</div>`).join('');
+  document.getElementById('stepsB').innerHTML = sc.stepsB.map(s =>
+    `<div class="thread-step">${s.text}</div>`).join('');
+  document.getElementById('raceLog').innerHTML = '<div class="entry"><span class="ts">[SYS]</span><span class="msg sys">Select a scenario and click RUN RACE.</span></div>';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('threadA').querySelector('.thread-label').textContent = sc.threadALabel;
+}
+
+function runRace() {
+  if (raceRunning) return;
+  raceRunning = true;
+  document.getElementById('runBtn').disabled = true;
+  const sc = scenarios[selectedScenario];
+  const speedMult = [0.5, 1, 1.8][parseInt(document.getElementById('windowSlider').value)];
+
+  const stepsAEls = document.getElementById('stepsA').querySelectorAll('.thread-step');
+  const stepsBEls = document.getElementById('stepsB').querySelectorAll('.thread-step');
+
+  // animate thread steps
+  sc.delaysA.forEach((d, i) => {
+    setTimeout(() => {
+      stepsAEls.forEach(s => s.classList.remove('active'));
+      stepsAEls[i].classList.add('active');
+      if (i > 0) stepsAEls[i-1].classList.add('done');
+    }, d * speedMult);
+  });
+
+  sc.delaysB.forEach((d, i) => {
+    setTimeout(() => {
+      stepsBEls.forEach(s => s.classList.remove('active'));
+      stepsBEls[i].classList.add(i >= 1 ? 'exploit' : 'active');
+    }, d * speedMult);
+  });
+
+  // resource box updates
+  sc.resourceUpdates.forEach(u => {
+    setTimeout(() => {
+      document.getElementById('resourceVal').textContent = u.val;
+      document.getElementById('resourceVal').className = 'resource-val ' + u.cls;
+      document.getElementById('resourceBox').className = 'resource-box ' + u.box;
+    }, u.delay * speedMult);
+  });
+
+  // logs
+  sc.logs.forEach(l => {
+    setTimeout(() => {
+      const el = document.getElementById('raceLog');
+      const ts = new Date().toTimeString().slice(0, 8);
+      const tspan = l.thread ? `<span class="${l.thread}">[${l.thread === 't-a' ? 'Thread A' : 'Thread B'}]</span>` : '';
+      el.innerHTML += `<div class="entry"><span class="ts">[${ts}]</span>${tspan}<span class="msg ${l.type}">${l.msg}</span></div>`;
+      el.scrollTop = el.scrollHeight;
+    }, l.delay * speedMult);
+  });
+
+  // final modal
+  const lastDelay = Math.max(...sc.logs.map(l => l.delay)) * speedMult + 600;
+  setTimeout(() => showModal(sc.modal.title, sc.modal.body), lastDelay);
+}
+</script>
+</body>
+</html>
