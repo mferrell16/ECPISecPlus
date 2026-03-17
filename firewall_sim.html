@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FirewallLab — Security+ ACL Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #080c10;
+    --surface:  #0d1117;
+    --panel:    #111820;
+    --border:   #1e2d3d;
+    --border2:  #243040;
+    --teal:     #00d4ff;
+    --teal-dim: #0a8fa8;
+    --green:    #00ff88;
+    --green-dim:#0a6640;
+    --red:      #ff4455;
+    --red-dim:  #6b1520;
+    --amber:    #ffb800;
+    --amber-dim:#6b4a00;
+    --purple:   #9d6fff;
+    --gray:     #4a5568;
+    --text:     #c9d8e8;
+    --text-dim: #5a7080;
+    --permit:   #00ff8822;
+    --deny:     #ff445522;
+    --drag-bg:  #1a2535;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Grid bg */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+    background: rgba(8,12,16,0.95);
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .header-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1400px; margin: 0 auto; padding: 0 20px;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem; font-weight: 800;
+    color: var(--teal);
+    letter-spacing: -0.02em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    border: 2px solid var(--teal);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .logo-icon::before {
+    content: ''; position: absolute;
+    inset: 3px; border: 1px solid var(--teal-dim);
+    opacity: 0.5;
+  }
+  .header-badge {
+    font-size: 0.65rem; font-weight: 500;
+    background: var(--teal-dim);
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    padding: 3px 8px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Scenario Tabs ── */
+  .scenario-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+    display: flex; overflow-x: auto;
+  }
+  .scenario-tab {
+    padding: 12px 20px;
+    font-size: 0.7rem; font-weight: 500;
+    color: var(--text-dim);
+    cursor: pointer;
+    border: none; background: none;
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+    transition: all 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    position: relative;
+  }
+  .scenario-tab.active {
+    color: var(--teal);
+    background: rgba(0,212,255,0.06);
+  }
+  .scenario-tab.active::after {
+    content: ''; position: absolute;
+    bottom: 0; left: 0; right: 0; height: 2px;
+    background: var(--teal);
+  }
+  .scenario-tab:hover:not(.active) {
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+  }
+  .tab-num {
+    display: inline-block;
+    background: var(--border2);
+    color: var(--text-dim);
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    margin-right: 6px;
+  }
+  .scenario-tab.active .tab-num {
+    background: var(--teal-dim);
+    color: var(--teal);
+  }
+  .scenario-tab.completed .tab-num {
+    background: var(--green-dim);
+    color: var(--green);
+  }
+  .scenario-tab.completed { color: var(--green); }
+
+  /* ── Layout ── */
+  .main { display: grid; grid-template-columns: 1fr 380px; gap: 0; min-height: calc(100vh - 120px); }
+
+  /* ── Left Panel ── */
+  .left-panel { border-right: 1px solid var(--border); }
+
+  /* Mission brief */
+  .mission-brief {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,212,255,0.03);
+  }
+  .mission-label {
+    font-size: 0.6rem; letter-spacing: 0.15em; color: var(--teal);
+    text-transform: uppercase; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mission-label::before {
+    content: ''; display: inline-block;
+    width: 20px; height: 1px; background: var(--teal);
+  }
+  .mission-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem; font-weight: 700;
+    color: var(--text); margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .mission-desc {
+    font-size: 0.72rem; color: var(--text-dim);
+    line-height: 1.6; margin-bottom: 12px;
+  }
+  .mission-goals {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .goal {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 0.7rem; color: var(--text-dim);
+  }
+  .goal-icon { color: var(--amber); margin-top: 1px; flex-shrink: 0; }
+  .goal.met .goal-icon { color: var(--green); }
+  .goal.met { color: var(--text-dim); }
+  .goal.met span { text-decoration: line-through; opacity: 0.6; }
+
+  /* ACL Builder */
+  .acl-header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .acl-title {
+    font-size: 0.65rem; letter-spacing: 0.12em; color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .acl-actions { display: flex; gap: 8px; }
+
+  .btn {
+    padding: 6px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; font-weight: 500;
+    letter-spacing: 0.08em;
+    cursor: pointer; border: 1px solid; transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .btn-teal { border-color: var(--teal); color: var(--teal); background: rgba(0,212,255,0.08); }
+  .btn-teal:hover { background: rgba(0,212,255,0.18); }
+  .btn-red { border-color: var(--red); color: var(--red); background: rgba(255,68,85,0.08); }
+  .btn-red:hover { background: rgba(255,68,85,0.18); }
+  .btn-gray { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+  .btn-gray:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .btn-green { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+  .btn-green:hover { background: rgba(0,255,136,0.18); }
+
+  /* Column Headers */
+  .rule-cols {
+    display: grid;
+    grid-template-columns: 36px 48px 1fr 1fr 90px 90px 80px 40px;
+    gap: 0;
+    padding: 8px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .col-head {
+    font-size: 0.58rem; color: var(--text-dim);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0 4px;
+  }
+
+  /* Rules list */
+  .rules-list {
+    padding: 8px 16px;
+    min-height: 200px;
+  }
+
+  /* Rule Row */
+  .rule-row {
+    display: grid;
+    grid-template-columns: 36px 48px 1fr 1fr 90px 90px 80px 40px;
+    gap: 0;
+    align-items: center;
+    margin-bottom: 4px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    transition: all 0.15s;
+    position: relative;
+    cursor: grab;
+    user-select: none;
+  }
+  .rule-row:active { cursor: grabbing; }
+  .rule-row.dragging {
+    opacity: 0.4;
+    border-color: var(--teal);
+  }
+  .rule-row.drag-over {
+    border-color: var(--teal);
+    background: var(--drag-bg);
+  }
+  .rule-row.rule-permit { border-left: 3px solid var(--green); }
+  .rule-row.rule-deny   { border-left: 3px solid var(--red); }
+  .rule-row.implicit    {
+    opacity: 0.5; cursor: default;
+    border-left: 3px solid var(--gray);
+    background: var(--surface);
+  }
+  .rule-row.rule-highlight {
+    animation: highlight-flash 0.6s ease;
+  }
+  @keyframes highlight-flash {
+    0%,100% { background: var(--panel); }
+    50% { background: rgba(0,212,255,0.15); }
+  }
+
+  .rule-cell {
+    padding: 8px 6px;
+    font-size: 0.68rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .drag-handle {
+    color: var(--border2);
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: grab;
+    padding: 8px 4px;
+  }
+  .drag-handle:hover { color: var(--text-dim); }
+  .rule-num {
+    font-size: 0.65rem; color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    padding: 8px 4px;
+  }
+  .action-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.6rem; font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .action-permit { background: var(--permit); color: var(--green); border: 1px solid var(--green-dim); }
+  .action-deny   { background: var(--deny);   color: var(--red);   border: 1px solid var(--red-dim);   }
+  .action-implicit { background: transparent; color: var(--gray); border: 1px solid var(--gray); font-size: 0.55rem; }
+
+  .rule-del {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-dim); font-size: 14px;
+    transition: all 0.15s;
+    margin: auto;
+  }
+  .rule-del:hover { color: var(--red); }
+
+  select, input[type="text"] {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    width: 100%;
+    outline: none;
+    padding: 2px 0;
+    cursor: pointer;
+  }
+  select option { background: var(--panel); color: var(--text); }
+
+  .editable { position: relative; }
+  .editable input { background: transparent; border-bottom: 1px solid var(--border2); }
+  .editable input:focus { border-bottom-color: var(--teal); color: var(--teal); }
+
+  /* Add Rule Form */
+  .add-rule-section {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .add-rule-label {
+    font-size: 0.6rem; color: var(--teal);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .add-rule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 100px 100px 90px;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .field-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .field-input {
+    background: var(--panel);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field-input:focus { border-color: var(--teal); }
+  .field-input.error { border-color: var(--red); }
+  select.field-input option { background: #0d1117; }
+
+  .add-row-actions { display: flex; gap: 8px; align-items: center; }
+  .hint { font-size: 0.6rem; color: var(--text-dim); }
+
+  /* ── Right Panel ── */
+  .right-panel {
+    display: flex; flex-direction: column;
+    background: var(--surface);
+  }
+
+  .panel-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-section-title {
+    font-size: 0.6rem; color: var(--text-dim);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .panel-section-title::before {
+    content: ''; display: block;
+    width: 3px; height: 12px;
+    background: var(--teal);
+  }
+
+  /* Traffic Tester */
+  .traffic-form { display: flex; flex-direction: column; gap: 8px; }
+  .traffic-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .field-sm .field-input { padding: 6px 8px; font-size: 0.65rem; }
+
+  .test-btn {
+    width: 100%;
+    padding: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem; font-weight: 700;
+    letter-spacing: 0.05em;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .test-btn:hover { background: rgba(0,212,255,0.2); }
+
+  /* Result */
+  .result-box {
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    font-size: 0.68rem;
+    display: none;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .result-box.show { display: block; }
+  .result-box.permit { border-color: var(--green); background: rgba(0,255,136,0.05); }
+  .result-box.deny   { border-color: var(--red);   background: rgba(255,68,85,0.05); }
+  .result-verdict {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem; font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .result-box.permit .result-verdict { color: var(--green); }
+  .result-box.deny   .result-verdict { color: var(--red); }
+  .result-trace { color: var(--text-dim); line-height: 1.6; }
+  .trace-match { color: var(--teal); }
+  .trace-line { display: flex; align-items: baseline; gap: 6px; }
+  .trace-line .rule-ref { color: var(--amber); min-width: 28px; }
+
+  /* Traffic Scenarios */
+  .traffic-scenario {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--panel);
+    margin-bottom: 4px;
+    transition: all 0.15s;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .traffic-scenario:hover { border-color: var(--border2); background: var(--drag-bg); }
+  .traffic-scenario.should-permit { border-left: 3px solid var(--green); }
+  .traffic-scenario.should-deny   { border-left: 3px solid var(--red); }
+  .traffic-scenario.pass  { background: rgba(0,255,136,0.07); }
+  .traffic-scenario.fail  { background: rgba(255,68,85,0.07); }
+  .ts-info { font-size: 0.62rem; line-height: 1.5; }
+  .ts-label { color: var(--text-dim); }
+  .ts-status { font-size: 0.65rem; font-weight: 700; }
+  .ts-status.pass { color: var(--green); }
+  .ts-status.fail { color: var(--red); }
+  .ts-status.pending { color: var(--text-dim); }
+
+  /* Score */
+  .score-display {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,212,255,0.03);
+  }
+  .score-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem; font-weight: 800;
+    color: var(--teal);
+    line-height: 1;
+  }
+  .score-label { font-size: 0.6rem; color: var(--text-dim); line-height: 1.4; text-transform: uppercase; letter-spacing: 0.08em; }
+  .score-bar-wrap { flex: 1; height: 4px; background: var(--border); }
+  .score-bar { height: 100%; background: var(--teal); transition: width 0.4s ease; }
+
+  /* Console Log */
+  .console-log {
+    flex: 1;
+    padding: 12px 16px;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    overflow-y: auto;
+    max-height: 180px;
+    border-top: 1px solid var(--border);
+  }
+  .console-line { margin-bottom: 3px; line-height: 1.5; }
+  .console-line.info  { color: var(--teal-dim); }
+  .console-line.ok    { color: var(--green); }
+  .console-line.err   { color: var(--red); }
+  .console-line.warn  { color: var(--amber); }
+  .console-prompt { color: var(--text-dim); }
+
+  /* Validate button */
+  .validate-section {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border2);
+    padding: 32px;
+    max-width: 480px; width: 90%;
+    transform: translateY(20px); transition: transform 0.2s;
+    position: relative;
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.4rem; font-weight: 800;
+    margin-bottom: 12px;
+  }
+  .modal-title.win { color: var(--green); }
+  .modal-title.lose { color: var(--red); }
+  .modal-body { font-size: 0.72rem; color: var(--text-dim); line-height: 1.7; margin-bottom: 20px; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 18px;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  /* IP helper */
+  .ip-hint { font-size: 0.58rem; color: var(--text-dim); margin-top: 3px; }
+
+  /* Difficulty badge */
+  .diff-badge {
+    display: inline-block;
+    padding: 2px 8px; font-size: 0.58rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-left: 8px;
+  }
+  .diff-easy   { color: var(--green); border: 1px solid var(--green-dim); background: rgba(0,255,136,0.08); }
+  .diff-medium { color: var(--amber); border: 1px solid var(--amber-dim); background: rgba(255,184,0,0.08); }
+  .diff-hard   { color: var(--red);   border: 1px solid var(--red-dim);   background: rgba(255,68,85,0.08); }
+
+  .empty-rules {
+    padding: 32px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    border: 1px dashed var(--border);
+    margin: 8px 0;
+  }
+
+  .tooltip {
+    position: absolute;
+    background: var(--panel);
+    border: 1px solid var(--border2);
+    padding: 6px 10px;
+    font-size: 0.62rem;
+    color: var(--text);
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 50;
+    display: none;
+  }
+
+  /* Wildcard toggle */
+  .any-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.6rem; color: var(--text-dim);
+    cursor: pointer; margin-top: 3px;
+  }
+  .any-toggle input { accent-color: var(--teal); }
+
+  @media (max-width: 1000px) {
+    .main { grid-template-columns: 1fr; }
+    .right-panel { border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">&#x25A3;</div>
+      FirewallLab
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="header-badge">Security+ ACL Simulator</div>
+      <div style="font-size:0.62rem; color:var(--text-dim);">First-match · Stateless · Real-time evaluation</div>
+    </div>
+  </div>
+</header>
+
+<!-- Scenario Tabs -->
+<div class="scenario-bar">
+  <button class="scenario-tab active" onclick="loadScenario(0)">
+    <span class="tab-num">01</span>Block a Server
+  </button>
+  <button class="scenario-tab" onclick="loadScenario(1)">
+    <span class="tab-num">02</span>DMZ Isolation
+  </button>
+  <button class="scenario-tab" onclick="loadScenario(2)">
+    <span class="tab-num">03</span>Admin Lockdown
+  </button>
+  <button class="scenario-tab" onclick="loadScenario(3)">
+    <span class="tab-num">04</span>ACL Order Bug
+  </button>
+  <button class="scenario-tab" onclick="loadScenario(4)">
+    <span class="tab-num">05</span>Zero Trust Subnet
+  </button>
+  <button class="scenario-tab" onclick="loadScenario(5)">
+    <span class="tab-num">06</span>Free Build
+  </button>
+</div>
+
+<div class="container" style="padding:0; max-width:100%;">
+<div class="main">
+
+  <!-- Left Panel -->
+  <div class="left-panel">
+
+    <!-- Mission Brief -->
+    <div class="mission-brief" id="missionBrief">
+      <!-- populated by JS -->
+    </div>
+
+    <!-- ACL Table Header -->
+    <div class="acl-header">
+      <div class="acl-title">Access Control List — Rules evaluated top → bottom</div>
+      <div class="acl-actions">
+        <button class="btn btn-gray" onclick="resetScenario()">↺ Reset</button>
+        <button class="btn btn-teal" onclick="showAddRule()">+ Add Rule</button>
+      </div>
+    </div>
+
+    <div class="rule-cols">
+      <div class="col-head" style="grid-column:1/2;"></div>
+      <div class="col-head" style="grid-column:2/3;">#</div>
+      <div class="col-head" style="grid-column:3/4;">Source IP</div>
+      <div class="col-head" style="grid-column:4/5;">Destination IP</div>
+      <div class="col-head" style="grid-column:5/6;">Port</div>
+      <div class="col-head" style="grid-column:6/7;">Protocol</div>
+      <div class="col-head" style="grid-column:7/8;">Action</div>
+      <div class="col-head" style="grid-column:8/9;"></div>
+    </div>
+
+    <div class="rules-list" id="rulesList"></div>
+
+    <!-- Add Rule Form -->
+    <div class="add-rule-section" id="addRuleSection" style="display:none;">
+      <div class="add-rule-label">⊕ New Rule</div>
+      <div class="add-rule-grid">
+        <div class="field-wrap">
+          <div class="field-label">Source IP / CIDR</div>
+          <input type="text" class="field-input" id="newSrc" placeholder="e.g. 10.0.0.0/8 or ANY">
+          <div class="ip-hint">ANY = 0.0.0.0/0</div>
+        </div>
+        <div class="field-wrap">
+          <div class="field-label">Destination IP / CIDR</div>
+          <input type="text" class="field-input" id="newDst" placeholder="e.g. 192.168.1.50 or ANY">
+        </div>
+        <div class="field-wrap">
+          <div class="field-label">Port</div>
+          <input type="text" class="field-input" id="newPort" placeholder="ANY / 443 / 80">
+        </div>
+        <div class="field-wrap">
+          <div class="field-label">Protocol</div>
+          <select class="field-input" id="newProto">
+            <option>ANY</option><option>TCP</option><option>UDP</option><option>ICMP</option>
+          </select>
+        </div>
+        <div class="field-wrap">
+          <div class="field-label">Action</div>
+          <select class="field-input" id="newAction">
+            <option value="PERMIT">PERMIT</option>
+            <option value="DENY">DENY</option>
+          </select>
+        </div>
+      </div>
+      <div class="add-row-actions">
+        <button class="btn btn-green" onclick="addRule()">Add Rule</button>
+        <button class="btn btn-gray" onclick="hideAddRule()">Cancel</button>
+        <div class="hint">Tip: Rules are evaluated top-to-bottom. First match wins.</div>
+      </div>
+    </div>
+
+  </div><!-- /left-panel -->
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+
+    <!-- Score -->
+    <div class="score-display">
+      <div>
+        <div class="score-num" id="scoreNum">0/0</div>
+        <div class="score-label">Tests<br>Passing</div>
+      </div>
+      <div style="flex:1;">
+        <div class="score-bar-wrap"><div class="score-bar" id="scoreBar" style="width:0%"></div></div>
+        <div style="font-size:0.58rem; color:var(--text-dim); margin-top:4px;" id="scoreMsg">Configure your rules and test traffic below.</div>
+      </div>
+    </div>
+
+    <!-- Traffic Tester -->
+    <div class="panel-section">
+      <div class="panel-section-title">Manual Traffic Test</div>
+      <div class="traffic-form">
+        <div class="traffic-row">
+          <div class="field-wrap field-sm">
+            <div class="field-label">Source IP</div>
+            <input type="text" class="field-input" id="testSrc" placeholder="e.g. 203.0.113.5">
+          </div>
+          <div class="field-wrap field-sm">
+            <div class="field-label">Destination IP</div>
+            <input type="text" class="field-input" id="testDst" placeholder="e.g. 10.0.1.50">
+          </div>
+        </div>
+        <div class="traffic-row">
+          <div class="field-wrap field-sm">
+            <div class="field-label">Port</div>
+            <input type="text" class="field-input" id="testPort" placeholder="443">
+          </div>
+          <div class="field-wrap field-sm">
+            <div class="field-label">Protocol</div>
+            <select class="field-input" id="testProto">
+              <option>TCP</option><option>UDP</option><option>ICMP</option><option>ANY</option>
+            </select>
+          </div>
+        </div>
+        <button class="test-btn" onclick="testTraffic()">▶ Evaluate Traffic</button>
+        <div class="result-box" id="resultBox">
+          <div class="result-verdict" id="resultVerdict"></div>
+          <div class="result-trace" id="resultTrace"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Traffic Scenarios -->
+    <div class="panel-section" style="flex:1; overflow-y:auto;">
+      <div class="panel-section-title">Required Traffic Tests</div>
+      <div id="trafficTests"><!-- populated by JS --></div>
+    </div>
+
+    <!-- Validate -->
+    <div class="validate-section">
+      <button class="btn btn-green" style="width:100%; padding:12px; font-size:0.75rem;" onclick="validateAll()">
+        ✓ Validate All Tests
+      </button>
+    </div>
+
+    <!-- Console -->
+    <div class="console-log" id="consoleLog">
+      <div class="console-line info"><span class="console-prompt">&gt;</span> FirewallLab v1.0 initialized</div>
+      <div class="console-line info"><span class="console-prompt">&gt;</span> Load a scenario to begin</div>
+    </div>
+
+  </div><!-- /right-panel -->
+</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-teal" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="btn btn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIOS
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+  {
+    id: 0,
+    title: "Block a Specific Server",
+    difficulty: "easy",
+    description: "The server at 192.168.10.50 was compromised last week. Your CISO has ordered that ALL inbound traffic to this server be blocked immediately — from any source, on any port. All other traffic to the 192.168.10.0/24 subnet should continue normally.",
+    goals: [
+      "Block ALL traffic to 192.168.10.50 from any source",
+      "Allow traffic to the rest of the 192.168.10.0/24 subnet",
+      "Deny all other traffic by default (implicit)"
+    ],
+    starter: [
+      { src:"ANY", dst:"192.168.10.0/24", port:"ANY", proto:"ANY", action:"PERMIT" },
+    ],
+    tests: [
+      { src:"10.0.0.5",    dst:"192.168.10.50",  port:"443",  proto:"TCP", expect:"DENY",   label:"HTTPS to compromised server" },
+      { src:"10.0.0.5",    dst:"192.168.10.50",  port:"22",   proto:"TCP", expect:"DENY",   label:"SSH to compromised server" },
+      { src:"10.0.0.5",    dst:"192.168.10.50",  port:"80",   proto:"TCP", expect:"DENY",   label:"HTTP to compromised server" },
+      { src:"10.0.0.5",    dst:"192.168.10.100", port:"443",  proto:"TCP", expect:"PERMIT", label:"HTTPS to healthy server" },
+      { src:"203.0.113.1", dst:"192.168.10.200", port:"80",   proto:"TCP", expect:"PERMIT", label:"HTTP to other subnet host" },
+    ],
+    hint: "Order matters! Place the specific DENY rule for .50 BEFORE the broad PERMIT for the /24 subnet."
+  },
+  {
+    id: 1,
+    title: "DMZ Isolation",
+    difficulty: "medium",
+    description: "You have a web server in the DMZ (172.16.0.10) that must be reachable from the internet on ports 80 and 443. However, the DMZ must NOT be able to initiate connections to the internal network (10.0.0.0/8). The database server (10.0.0.20) must only be reachable from the web server on port 5432.",
+    goals: [
+      "Allow internet (ANY) → DMZ web server on port 80",
+      "Allow internet (ANY) → DMZ web server on port 443",
+      "Block DMZ → internal network (10.0.0.0/8) general access",
+      "Allow web server (172.16.0.10) → DB (10.0.0.20) on port 5432 only"
+    ],
+    starter: [],
+    tests: [
+      { src:"203.0.113.5",  dst:"172.16.0.10", port:"80",   proto:"TCP", expect:"PERMIT", label:"Internet → Web server HTTP" },
+      { src:"203.0.113.5",  dst:"172.16.0.10", port:"443",  proto:"TCP", expect:"PERMIT", label:"Internet → Web server HTTPS" },
+      { src:"203.0.113.5",  dst:"172.16.0.10", port:"22",   proto:"TCP", expect:"DENY",   label:"Internet → Web server SSH (blocked)" },
+      { src:"172.16.0.10",  dst:"10.0.0.20",   port:"5432", proto:"TCP", expect:"PERMIT", label:"Web server → DB on 5432" },
+      { src:"172.16.0.10",  dst:"10.0.0.50",   port:"22",   proto:"TCP", expect:"DENY",   label:"DMZ → Internal (lateral blocked)" },
+      { src:"172.16.0.10",  dst:"10.0.0.20",   port:"443",  proto:"TCP", expect:"DENY",   label:"DMZ → DB wrong port (blocked)" },
+    ],
+    hint: "Build specific PERMIT rules for allowed flows first. Then add a broad DENY to block DMZ → 10.0.0.0/8. Order is critical!"
+  },
+  {
+    id: 2,
+    title: "Admin Lockdown",
+    difficulty: "medium",
+    description: "SSH access (port 22) to all production servers (10.10.0.0/24) must be restricted to the dedicated admin workstation (10.0.1.5) only. No other host should be able to SSH in. HTTPS traffic should be permitted from any internal host (10.0.0.0/8) to production servers.",
+    goals: [
+      "Allow 10.0.1.5 → 10.10.0.0/24 on port 22 (admin SSH only)",
+      "Block all other sources → 10.10.0.0/24 on port 22",
+      "Allow any internal host → 10.10.0.0/24 on port 443",
+      "Block all other traffic"
+    ],
+    starter: [],
+    tests: [
+      { src:"10.0.1.5",   dst:"10.10.0.15", port:"22",  proto:"TCP", expect:"PERMIT", label:"Admin workstation SSH ✓" },
+      { src:"10.0.1.10",  dst:"10.10.0.15", port:"22",  proto:"TCP", expect:"DENY",   label:"Other host SSH (blocked)" },
+      { src:"203.0.113.1",dst:"10.10.0.15", port:"22",  proto:"TCP", expect:"DENY",   label:"External SSH (blocked)" },
+      { src:"10.0.5.20",  dst:"10.10.0.15", port:"443", proto:"TCP", expect:"PERMIT", label:"Internal HTTPS to prod ✓" },
+      { src:"10.0.1.5",   dst:"10.10.0.15", port:"443", proto:"TCP", expect:"PERMIT", label:"Admin HTTPS to prod ✓" },
+      { src:"10.0.5.20",  dst:"10.10.0.15", port:"80",  proto:"TCP", expect:"DENY",   label:"HTTP to prod (not permitted)" },
+    ],
+    hint: "Specific PERMIT for admin SSH first. Then a broad DENY for all SSH to the subnet. Then PERMIT HTTPS from /8. Order matters!"
+  },
+  {
+    id: 3,
+    title: "Fix the ACL Order Bug",
+    difficulty: "hard",
+    description: "A junior admin wrote this ACL but reports that the 'block malicious IP' rule isn't working — traffic from 198.51.100.0/24 is still getting through. Diagnose the bug and fix the rule order without deleting any rules.",
+    goals: [
+      "Block all traffic from 198.51.100.0/24 (threat intel block)",
+      "Allow internal 10.0.0.0/8 → server 172.16.5.10 on ports 80 and 443",
+      "Block everything else by default"
+    ],
+    starter: [
+      { src:"10.0.0.0/8",      dst:"172.16.5.10", port:"ANY", proto:"ANY",  action:"PERMIT" },
+      { src:"198.51.100.0/24", dst:"ANY",          port:"ANY", proto:"ANY",  action:"DENY"   },
+      { src:"ANY",             dst:"172.16.5.10",  port:"80",  proto:"TCP",  action:"PERMIT" },
+      { src:"ANY",             dst:"172.16.5.10",  port:"443", proto:"TCP",  action:"PERMIT" },
+    ],
+    tests: [
+      { src:"198.51.100.5",  dst:"172.16.5.10", port:"80",  proto:"TCP", expect:"DENY",   label:"Threat IP → server (must block)" },
+      { src:"198.51.100.5",  dst:"172.16.5.10", port:"443", proto:"TCP", expect:"DENY",   label:"Threat IP HTTPS (must block)" },
+      { src:"10.0.0.50",     dst:"172.16.5.10", port:"80",  proto:"TCP", expect:"PERMIT", label:"Internal HTTP → server ✓" },
+      { src:"10.0.0.50",     dst:"172.16.5.10", port:"443", proto:"TCP", expect:"PERMIT", label:"Internal HTTPS → server ✓" },
+      { src:"203.0.113.1",   dst:"172.16.5.10", port:"80",  proto:"TCP", expect:"DENY",   label:"External (not listed) → blocked" },
+    ],
+    hint: "The DENY for the threat subnet is BELOW the broad PERMIT for 10.0.0.0/8 — but 198.51.100.0/24 is not in that range, so the real issue is rule ordering. Look at which rule matches 198.51.100.5 first."
+  },
+  {
+    id: 4,
+    title: "Zero Trust Subnet Policy",
+    difficulty: "hard",
+    description: "Implement a strict Zero Trust policy for the finance VLAN (192.168.50.0/24). Only the jump server (10.0.0.250) can reach any host in this subnet on port 22. Finance systems can reach the Active Directory server (10.0.0.10) on port 389 (LDAP). HTTPS from finance to the internet (ANY external) is allowed. All other traffic is denied.",
+    goals: [
+      "Allow jump server (10.0.0.250) → Finance VLAN on port 22 only",
+      "Allow Finance VLAN → AD server (10.0.0.10) on port 389",
+      "Allow Finance VLAN → ANY on port 443 (HTTPS outbound)",
+      "Block all other traffic to/from Finance VLAN"
+    ],
+    starter: [],
+    tests: [
+      { src:"10.0.0.250",    dst:"192.168.50.25", port:"22",  proto:"TCP", expect:"PERMIT", label:"Jump server → Finance SSH ✓" },
+      { src:"10.0.0.100",    dst:"192.168.50.25", port:"22",  proto:"TCP", expect:"DENY",   label:"Other host → Finance SSH ✗" },
+      { src:"192.168.50.10", dst:"10.0.0.10",     port:"389", proto:"TCP", expect:"PERMIT", label:"Finance → AD LDAP ✓" },
+      { src:"192.168.50.10", dst:"10.0.0.10",     port:"636", proto:"TCP", expect:"DENY",   label:"Finance → AD wrong port ✗" },
+      { src:"192.168.50.10", dst:"8.8.8.8",       port:"443", proto:"TCP", expect:"PERMIT", label:"Finance HTTPS outbound ✓" },
+      { src:"192.168.50.10", dst:"8.8.8.8",       port:"80",  proto:"TCP", expect:"DENY",   label:"Finance HTTP outbound ✗" },
+      { src:"10.0.0.200",    dst:"192.168.50.10", port:"443", proto:"TCP", expect:"DENY",   label:"Internal → Finance non-SSH ✗" },
+    ],
+    hint: "Think about which rules need to be most specific. Permit jump server SSH, then deny all other SSH to the subnet. Build each allowed flow then add broad denies."
+  },
+  {
+    id: 5,
+    title: "Free Build",
+    difficulty: "easy",
+    description: "Build your own ACL from scratch. Use the Add Rule button to create rules, then test custom traffic in the Manual Traffic Test panel. Practice ordering rules, testing edge cases, and see the full trace of rule evaluation for any packet.",
+    goals: [
+      "No requirements — experiment freely",
+      "Try adding a PERMIT then a DENY for the same traffic",
+      "Observe how first-match prevents the second rule from firing"
+    ],
+    starter: [],
+    tests: [],
+    hint: "Try this: Add PERMIT ANY → ANY on port 443. Then add DENY ANY → 10.0.0.1 on ANY port. Test traffic to 10.0.0.1 on port 443 — which rule fires?"
+  }
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentScenario = 0;
+let rules = [];
+let completedScenarios = new Set();
+
+// ════════════════════════════════════════════════════════════════════════
+// IP MATCHING ENGINE
+// ════════════════════════════════════════════════════════════════════════
+function ipToNum(ip) {
+  if (!ip || ip === 'ANY') return 0;
+  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct), 0) >>> 0;
+}
+
+function cidrMatch(ip, cidr) {
+  if (!cidr || cidr.toUpperCase() === 'ANY') return true;
+  if (ip.toUpperCase() === 'ANY') return true;
+  // Exact IP match
+  if (!cidr.includes('/')) {
+    return ip === cidr;
+  }
+  const [network, bits] = cidr.split('/');
+  const mask = bits === '0' ? 0 : (~0 << (32 - parseInt(bits))) >>> 0;
+  return (ipToNum(ip) & mask) === (ipToNum(network) & mask);
+}
+
+function portMatch(pkt, rule) {
+  const rp = rule.port;
+  if (!rp || rp.toUpperCase() === 'ANY') return true;
+  if (pkt.toUpperCase() === 'ANY') return true;
+  if (rp.includes('-')) {
+    const [lo, hi] = rp.split('-').map(Number);
+    return parseInt(pkt) >= lo && parseInt(pkt) <= hi;
+  }
+  return parseInt(pkt) === parseInt(rp);
+}
+
+function protoMatch(pkt, rule) {
+  if (!rule.proto || rule.proto.toUpperCase() === 'ANY') return true;
+  if (pkt.toUpperCase() === 'ANY') return true;
+  return pkt.toUpperCase() === rule.proto.toUpperCase();
+}
+
+function evaluateACL(src, dst, port, proto) {
+  const trace = [];
+  for (let i = 0; i < rules.length; i++) {
+    const r = rules[i];
+    const sm = cidrMatch(src, r.src);
+    const dm = cidrMatch(dst, r.dst);
+    const pm = portMatch(port, r);
+    const prm = protoMatch(proto, r);
+    const matched = sm && dm && pm && prm;
+    trace.push({ ruleIndex: i, rule: r, matched, sm, dm, pm, prm });
+    if (matched) return { verdict: r.action, matchedIndex: i, trace };
+  }
+  // Implicit deny
+  trace.push({ ruleIndex: rules.length, rule: { src:'ANY', dst:'ANY', port:'ANY', proto:'ANY', action:'DENY' }, matched: true, implicit: true });
+  return { verdict: 'DENY', matchedIndex: rules.length, trace, implicit: true };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER RULES
+// ════════════════════════════════════════════════════════════════════════
+function renderRules() {
+  const list = document.getElementById('rulesList');
+  list.innerHTML = '';
+
+  if (rules.length === 0) {
+    list.innerHTML = '<div class="empty-rules">No rules configured.<br>Add rules above — implicit DENY ALL is always active at the bottom.</div>';
+  }
+
+  rules.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = `rule-row rule-${r.action.toLowerCase()}`;
+    row.draggable = true;
+    row.dataset.index = i;
+
+    row.innerHTML = `
+      <div class="drag-handle" title="Drag to reorder">⠿</div>
+      <div class="rule-num">${i + 1}</div>
+      <div class="rule-cell editable"><input type="text" value="${r.src}" onchange="updateRule(${i},'src',this.value)" title="${r.src}"></div>
+      <div class="rule-cell editable"><input type="text" value="${r.dst}" onchange="updateRule(${i},'dst',this.value)" title="${r.dst}"></div>
+      <div class="rule-cell editable"><input type="text" value="${r.port}" onchange="updateRule(${i},'port',this.value)" style="width:70px;"></div>
+      <div class="rule-cell">
+        <select onchange="updateRule(${i},'proto',this.value)" style="max-width:78px;">
+          ${['ANY','TCP','UDP','ICMP'].map(p=>`<option ${r.proto===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="rule-cell">
+        <select onchange="updateRule(${i},'action',this.value); renderRules();" style="max-width:78px;">
+          <option value="PERMIT" ${r.action==='PERMIT'?'selected':''}>PERMIT</option>
+          <option value="DENY"   ${r.action==='DENY'  ?'selected':''}>DENY</option>
+        </select>
+      </div>
+      <div class="rule-cell"><button class="rule-del" onclick="deleteRule(${i})" title="Remove rule">✕</button></div>
+    `;
+
+    // Drag events
+    row.addEventListener('dragstart', e => {
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', i);
+    });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.classList.remove('drag-over');
+      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      const toIdx = parseInt(row.dataset.index);
+      if (fromIdx !== toIdx) {
+        const moved = rules.splice(fromIdx, 1)[0];
+        rules.splice(toIdx, 0, moved);
+        renderRules();
+        consoleLog(`Rule ${fromIdx+1} moved to position ${toIdx+1}`, 'info');
+      }
+    });
+
+    list.appendChild(row);
+  });
+
+  // Implicit deny row
+  const imp = document.createElement('div');
+  imp.className = 'rule-row rule-deny implicit';
+  imp.innerHTML = `
+    <div class="drag-handle" style="opacity:0.3;">⠿</div>
+    <div class="rule-num" style="color:var(--gray);">—</div>
+    <div class="rule-cell" style="color:var(--gray);">ANY</div>
+    <div class="rule-cell" style="color:var(--gray);">ANY</div>
+    <div class="rule-cell" style="color:var(--gray);">ANY</div>
+    <div class="rule-cell" style="color:var(--gray);">ANY</div>
+    <div class="rule-cell"><span class="action-badge action-implicit">DENY (implicit)</span></div>
+    <div class="rule-cell"></div>
+  `;
+  list.appendChild(imp);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RULE OPERATIONS
+// ════════════════════════════════════════════════════════════════════════
+function updateRule(idx, field, val) {
+  rules[idx][field] = val.trim().toUpperCase() === 'ANY' ? 'ANY' : val.trim();
+  consoleLog(`Rule ${idx+1} updated: ${field} → ${val}`, 'info');
+}
+
+function deleteRule(idx) {
+  const r = rules[idx];
+  rules.splice(idx, 1);
+  renderRules();
+  consoleLog(`Rule ${idx+1} deleted (${r.src} → ${r.dst}:${r.port} ${r.action})`, 'warn');
+}
+
+function showAddRule() {
+  document.getElementById('addRuleSection').style.display = 'block';
+  document.getElementById('newSrc').focus();
+}
+function hideAddRule() {
+  document.getElementById('addRuleSection').style.display = 'none';
+}
+
+function addRule() {
+  const src  = document.getElementById('newSrc').value.trim()  || 'ANY';
+  const dst  = document.getElementById('newDst').value.trim()  || 'ANY';
+  const port = document.getElementById('newPort').value.trim() || 'ANY';
+  const proto = document.getElementById('newProto').value;
+  const action = document.getElementById('newAction').value;
+
+  rules.push({ src, dst, port, proto, action });
+  renderRules();
+  hideAddRule();
+  document.getElementById('newSrc').value = '';
+  document.getElementById('newDst').value = '';
+  document.getElementById('newPort').value = '';
+
+  consoleLog(`Rule added: ${src} → ${dst}:${port} [${proto}] → ${action}`, 'ok');
+}
+
+function resetScenario() {
+  loadScenario(currentScenario);
+  consoleLog(`Scenario ${currentScenario+1} reset to defaults`, 'warn');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TRAFFIC TEST
+// ════════════════════════════════════════════════════════════════════════
+function testTraffic() {
+  const src   = document.getElementById('testSrc').value.trim()  || 'ANY';
+  const dst   = document.getElementById('testDst').value.trim()  || 'ANY';
+  const port  = document.getElementById('testPort').value.trim() || 'ANY';
+  const proto = document.getElementById('testProto').value;
+
+  const result = evaluateACL(src, dst, port, proto);
+  const box = document.getElementById('resultBox');
+  const verdict = document.getElementById('resultVerdict');
+  const trace = document.getElementById('resultTrace');
+
+  box.className = `result-box show ${result.verdict === 'PERMIT' ? 'permit' : 'deny'}`;
+  verdict.textContent = result.verdict === 'PERMIT' ? '✓ PERMITTED' : '✗ DENIED';
+
+  // Build trace
+  let traceHTML = `<div style="margin-bottom:4px; font-size:0.6rem; color:var(--text-dim);">Evaluating: ${src} → ${dst}:${port} [${proto}]</div>`;
+  result.trace.forEach(t => {
+    const icon = t.matched ? (t.implicit ? '🔒' : '→') : '✗';
+    const cls = t.matched ? 'trace-match' : '';
+    traceHTML += `<div class="trace-line ${cls}">
+      <span class="rule-ref">${t.implicit ? 'impl' : `R${t.ruleIndex+1}`}</span>
+      <span>${icon} ${t.rule.src}→${t.rule.dst}:${t.rule.port} [${t.rule.proto}] → ${t.rule.action}</span>
+      ${t.matched ? '<strong style="margin-left:4px;">&larr; MATCH</strong>' : ''}
+    </div>`;
+  });
+  trace.innerHTML = traceHTML;
+
+  // Highlight matched rule
+  if (!result.implicit) {
+    const rows = document.querySelectorAll('.rule-row:not(.implicit)');
+    rows.forEach((r, i) => { if (i === result.matchedIndex) { r.classList.add('rule-highlight'); setTimeout(() => r.classList.remove('rule-highlight'), 800); } });
+  }
+
+  consoleLog(`Test: ${src}→${dst}:${port}[${proto}] → ${result.verdict} (rule ${result.implicit ? 'implicit' : result.matchedIndex+1})`, result.verdict === 'PERMIT' ? 'ok' : 'err');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// VALIDATE ALL TESTS
+// ════════════════════════════════════════════════════════════════════════
+function validateAll() {
+  const scenario = SCENARIOS[currentScenario];
+  const tests = scenario.tests;
+
+  if (tests.length === 0) {
+    consoleLog('Free Build mode — no required tests. Use manual tester above.', 'info');
+    return;
+  }
+
+  let passed = 0;
+  const container = document.getElementById('trafficTests');
+  const items = container.querySelectorAll('.traffic-scenario');
+
+  tests.forEach((t, i) => {
+    const result = evaluateACL(t.src, t.dst, t.port, t.proto);
+    const ok = result.verdict === t.expect;
+    if (ok) passed++;
+
+    const el = items[i];
+    if (el) {
+      el.classList.remove('pass', 'fail');
+      el.classList.add(ok ? 'pass' : 'fail');
+      const statusEl = el.querySelector('.ts-status');
+      statusEl.textContent = ok ? '✓ PASS' : `✗ FAIL (got ${result.verdict})`;
+      statusEl.className = `ts-status ${ok ? 'pass' : 'fail'}`;
+    }
+  });
+
+  const total = tests.length;
+  const pct = Math.round((passed / total) * 100);
+
+  document.getElementById('scoreNum').textContent = `${passed}/${total}`;
+  document.getElementById('scoreBar').style.width = pct + '%';
+  document.getElementById('scoreBar').style.background = pct === 100 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
+
+  if (pct === 100) {
+    document.getElementById('scoreMsg').textContent = 'All tests passing! ✓';
+    consoleLog(`All ${total} tests passed! Scenario complete.`, 'ok');
+    completedScenarios.add(currentScenario);
+    updateTabStates();
+    setTimeout(() => showModal(true), 400);
+  } else {
+    document.getElementById('scoreMsg').textContent = `${passed}/${total} tests passing — ${total - passed} failing`;
+    consoleLog(`Validation: ${passed}/${total} passed. Check failing tests.`, 'warn');
+    if (passed === 0) {
+      showModal(false);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// LOAD SCENARIO
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentScenario = idx;
+  const s = SCENARIOS[idx];
+  rules = s.starter.map(r => ({ ...r }));
+
+  // Mission brief
+  const diffClass = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+  document.getElementById('missionBrief').innerHTML = `
+    <div class="mission-label">Mission Brief</div>
+    <div class="mission-title">${s.title} <span class="diff-badge ${diffClass}">${s.difficulty}</span></div>
+    <div class="mission-desc">${s.description}</div>
+    <div class="mission-goals">
+      ${s.goals.map(g => `<div class="goal"><span class="goal-icon">◈</span><span>${g}</span></div>`).join('')}
+    </div>
+    ${s.hint ? `<div style="margin-top:10px; padding:8px 12px; border-left:2px solid var(--amber); background:rgba(255,184,0,0.05); font-size:0.65rem; color:var(--amber);">💡 ${s.hint}</div>` : ''}
+  `;
+
+  // Traffic tests
+  const testsContainer = document.getElementById('trafficTests');
+  if (s.tests.length === 0) {
+    testsContainer.innerHTML = `<div style="padding:16px; text-align:center; color:var(--text-dim); font-size:0.68rem;">No required tests for this scenario.<br>Use the manual tester to experiment.</div>`;
+  } else {
+    testsContainer.innerHTML = s.tests.map((t, i) => `
+      <div class="traffic-scenario should-${t.expect.toLowerCase()}"
+           onclick="loadTest(${i})"
+           title="Click to load into tester">
+        <div class="ts-info">
+          <div style="color:var(--text); margin-bottom:2px;">${t.label}</div>
+          <div class="ts-label">${t.src} → ${t.dst}:${t.port} [${t.proto}]</div>
+          <div style="font-size:0.58rem; color:var(--text-dim); margin-top:1px;">Expected: <span style="color:${t.expect==='PERMIT'?'var(--green)':'var(--red)'};">${t.expect}</span></div>
+        </div>
+        <div class="ts-status pending">—</div>
+      </div>
+    `).join('');
+  }
+
+  // Score reset
+  document.getElementById('scoreNum').textContent = `0/${s.tests.length}`;
+  document.getElementById('scoreBar').style.width = '0%';
+  document.getElementById('scoreBar').style.background = 'var(--teal)';
+  document.getElementById('scoreMsg').textContent = 'Configure rules and validate.';
+  document.getElementById('resultBox').className = 'result-box';
+
+  renderRules();
+  updateTabStates();
+  hideAddRule();
+  consoleLog(`Scenario loaded: "${s.title}" [${s.difficulty}]`, 'info');
+}
+
+function loadTest(idx) {
+  const t = SCENARIOS[currentScenario].tests[idx];
+  document.getElementById('testSrc').value  = t.src;
+  document.getElementById('testDst').value  = t.dst;
+  document.getElementById('testPort').value = t.port;
+  document.getElementById('testProto').value = t.proto;
+  testTraffic();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════════════════════════
+function showModal(win) {
+  const s = SCENARIOS[currentScenario];
+  const modal = document.getElementById('modal');
+  const title = document.getElementById('modalTitle');
+  const body  = document.getElementById('modalBody');
+  const next  = document.getElementById('modalNext');
+
+  if (win) {
+    title.className = 'modal-title win';
+    title.textContent = '✓ Scenario Complete';
+    body.innerHTML = `
+      <strong style="color:var(--green);">"${s.title}"</strong> — all traffic tests passing.<br><br>
+      Key takeaway: <em>${s.hint || 'Well done applying ACL principles.'}</em><br><br>
+      ${currentScenario < SCENARIOS.length - 1 ? 'Ready for the next challenge?' : 'You have completed all scenarios!'}
+    `;
+    next.style.display = currentScenario < SCENARIOS.length - 1 ? 'block' : 'none';
+  } else {
+    title.className = 'modal-title lose';
+    title.textContent = '✗ No Tests Passing';
+    body.innerHTML = `
+      Review the scenario requirements and check your rule order.<br><br>
+      Remember: <strong style="color:var(--amber);">First-match wins.</strong> More specific rules must appear <em>above</em> broader ones, or they will never be evaluated.<br><br>
+      Tip: Click any traffic test in the sidebar to load it into the manual tester and see the full rule trace.
+    `;
+    next.style.display = 'none';
+  }
+
+  modal.classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+function nextScenario() {
+  closeModal();
+  loadScenario(currentScenario + 1);
+  document.querySelectorAll('.scenario-tab')[currentScenario].click();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CONSOLE
+// ════════════════════════════════════════════════════════════════════════
+function consoleLog(msg, type = 'info') {
+  const log = document.getElementById('consoleLog');
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const line = document.createElement('div');
+  line.className = `console-line ${type}`;
+  line.innerHTML = `<span class="console-prompt">[${ts}]</span> ${msg}`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+
+  // Keep max 50 lines
+  while (log.children.length > 50) log.removeChild(log.firstChild);
+}
+
+function updateTabStates() {
+  document.querySelectorAll('.scenario-tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === currentScenario);
+    tab.classList.toggle('completed', completedScenarios.has(i) && i !== currentScenario);
+    if (completedScenarios.has(i)) {
+      tab.querySelector('.tab-num').textContent = '✓';
+    } else {
+      tab.querySelector('.tab-num').textContent = String(i + 1).padStart(2, '0');
+    }
+  });
+}
+
+// Keyboard shortcut: Enter in add-rule inputs
+['newSrc','newDst','newPort'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') addRule();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+loadScenario(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AccessLab — Security+ Access Control Model Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Chivo+Mono:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #f5f3ee;
+  --surface:  #ffffff;
+  --panel:    #f0ede6;
+  --border:   #ddd8ce;
+  --border2:  #c8c2b4;
+  --ink:      #1a1714;
+  --ink2:     #3d3830;
+  --ink3:     #6b6358;
+
+  --rbac:     #1a56db;
+  --rbac-lt:  #e8f0ff;
+  --rbac-mid: #3d7af5;
+
+  --abac:     #7c3aed;
+  --abac-lt:  #f3eeff;
+  --abac-mid: #9d5ffa;
+
+  --mac:      #c2410c;
+  --mac-lt:   #fff2eb;
+  --mac-mid:  #ea580c;
+
+  --dac:      #047857;
+  --dac-lt:   #eafff5;
+  --dac-mid:  #059669;
+
+  --rule:     #0e7490;
+  --rule-lt:  #e8faff;
+  --rule-mid: #0891b2;
+
+  --cond:     #9d174d;
+  --cond-lt:  #fff0f6;
+  --cond-mid: #db2777;
+
+  --gold:     #d97706;
+  --green:    #16a34a;
+  --red:      #dc2626;
+
+  --sans:     'Cabinet Grotesk', sans-serif;
+  --mono:     'Chivo Mono', monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* Subtle dot grid */
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image: radial-gradient(circle, #c8c2b4 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.45;
+}
+
+.wrap { position:relative; z-index:1; max-width:1240px; margin:0 auto; padding:0 24px; }
+
+/* ── HEADER ── */
+header {
+  background: var(--ink);
+  padding: 0;
+  position: sticky; top:0; z-index:100;
+}
+.hinner {
+  display:flex; align-items:stretch;
+  max-width:1240px; margin:0 auto; padding:0 24px;
+  height:56px;
+}
+.logo {
+  display:flex; align-items:center; gap:12px;
+  padding-right:24px;
+  border-right:1px solid rgba(255,255,255,0.1);
+}
+.logo-icon {
+  width:30px; height:30px;
+  background: var(--rbac-mid);
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:900; color:white;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.logo-text {
+  font-size:1.05rem; font-weight:900;
+  color:white; letter-spacing:-0.01em;
+}
+.logo-sub { font-family:var(--mono); font-size:0.58rem; color:rgba(255,255,255,0.4); display:block; }
+
+.mode-nav {
+  display:flex; align-items:stretch; flex:1;
+  padding: 0 12px;
+}
+.mnav-btn {
+  display:flex; align-items:center; gap:7px;
+  padding:0 16px;
+  font-family:var(--sans); font-size:0.78rem; font-weight:700;
+  color:rgba(255,255,255,0.45); cursor:pointer;
+  border:none; background:none;
+  border-bottom:3px solid transparent;
+  transition:all 0.15s; letter-spacing:0.01em;
+  white-space:nowrap;
+}
+.mnav-btn:hover { color:rgba(255,255,255,0.8); }
+.mnav-btn.active { color:white; border-bottom-color:var(--rbac-mid); }
+.mnav-btn .mnav-icon { font-size:15px; }
+
+.hright {
+  display:flex; align-items:center; gap:16px;
+  padding-left:24px; border-left:1px solid rgba(255,255,255,0.1);
+}
+.hscore {
+  text-align:right;
+  font-family:var(--mono);
+}
+.hscore-val { font-size:1.1rem; font-weight:700; color:white; line-height:1; }
+.hscore-lbl { font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.08em; }
+
+/* ── MODEL COLOR SYSTEM ── */
+.model-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 10px;
+  font-family:var(--mono); font-size:0.65rem; font-weight:700;
+  letter-spacing:0.06em; text-transform:uppercase;
+  border:1.5px solid; border-radius:0;
+}
+.chip-rbac { color:var(--rbac); border-color:var(--rbac); background:var(--rbac-lt); }
+.chip-abac { color:var(--abac); border-color:var(--abac); background:var(--abac-lt); }
+.chip-mac  { color:var(--mac);  border-color:var(--mac);  background:var(--mac-lt);  }
+.chip-dac  { color:var(--dac);  border-color:var(--dac);  background:var(--dac-lt);  }
+.chip-rule { color:var(--rule); border-color:var(--rule); background:var(--rule-lt); }
+.chip-cond { color:var(--cond); border-color:var(--cond); background:var(--cond-lt); }
+
+/* ── GAME AREA ── */
+.game-area { padding:32px 0 48px; }
+
+/* ── MODE: CLASSIFY ── */
+.classify-layout {
+  display:grid; grid-template-columns:1fr 360px; gap:28px;
+}
+
+/* Scenario card */
+.scenario-card {
+  background:var(--surface);
+  border:2px solid var(--border);
+  padding:32px;
+  position:relative;
+  transition:border-color 0.2s;
+}
+.scenario-card::before {
+  content:''; position:absolute;
+  top:0; left:0; right:0; height:4px;
+  background: var(--ink);
+  transition:background 0.3s;
+}
+.scenario-card.correct::before { background:var(--green); }
+.scenario-card.wrong::before   { background:var(--red); }
+
+.sc-meta {
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:20px;
+}
+.sc-num {
+  font-family:var(--mono);
+  font-size:0.65rem; color:var(--ink3);
+  background:var(--panel);
+  border:1px solid var(--border);
+  padding:3px 8px;
+  letter-spacing:0.08em;
+}
+.sc-diff {
+  font-family:var(--mono); font-size:0.62rem; font-weight:700;
+  padding:3px 10px; letter-spacing:0.08em; text-transform:uppercase;
+  border:1px solid;
+}
+.diff-e { color:var(--green); border-color:rgba(22,163,74,0.3); background:rgba(22,163,74,0.06); }
+.diff-m { color:var(--gold);  border-color:rgba(217,119,6,0.3);  background:rgba(217,119,6,0.06); }
+.diff-h { color:var(--red);   border-color:rgba(220,38,38,0.3);  background:rgba(220,38,38,0.06); }
+.sc-cat {
+  font-family:var(--mono); font-size:0.6rem; color:var(--ink3);
+  margin-left:auto; letter-spacing:0.06em;
+}
+
+.scenario-text {
+  font-size:1.05rem; font-weight:500; line-height:1.7;
+  color:var(--ink); margin-bottom:20px;
+}
+.scenario-keywords {
+  display:flex; flex-wrap:wrap; gap:6px; margin-bottom:24px;
+}
+.kw-tag {
+  font-family:var(--mono); font-size:0.62rem;
+  padding:3px 9px;
+  background:var(--panel); border:1px solid var(--border);
+  color:var(--ink3);
+}
+
+/* Answer choices */
+.answer-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.answer-btn {
+  padding:14px 16px;
+  border:2px solid var(--border);
+  background:var(--surface);
+  cursor:pointer; transition:all 0.15s;
+  text-align:left;
+  display:flex; align-items:center; gap:12px;
+}
+.answer-btn:hover { border-color:var(--border2); background:var(--panel); }
+.answer-btn.selected { border-color:var(--ink); background:var(--panel); }
+.answer-btn.correct-ans {
+  border-color:var(--green) !important;
+  background:rgba(22,163,74,0.06) !important;
+  animation:correctPop 0.4s ease;
+}
+.answer-btn.wrong-ans {
+  border-color:var(--red) !important;
+  background:rgba(220,38,38,0.06) !important;
+  animation:wrongShake 0.3s ease;
+}
+@keyframes correctPop  { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+@keyframes wrongShake  { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+.answer-icon {
+  width:36px; height:36px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; font-weight:900; color:white;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.ai-rbac { background:var(--rbac-mid); }
+.ai-abac { background:var(--abac-mid); }
+.ai-mac  { background:var(--mac-mid); }
+.ai-dac  { background:var(--dac-mid); }
+.ai-rule { background:var(--rule-mid); }
+.ai-cond { background:var(--cond-mid); }
+
+.answer-name {
+  font-size:0.9rem; font-weight:800; display:block;
+  letter-spacing:-0.01em;
+}
+.answer-sub {
+  font-family:var(--mono); font-size:0.6rem; color:var(--ink3);
+  display:block; margin-top:1px;
+}
+
+/* Explanation card */
+.explanation-box {
+  display:none;
+  margin-top:20px;
+  padding:18px 20px;
+  border:2px solid;
+  animation:slideDown 0.2s ease;
+}
+.explanation-box.show { display:block; }
+.explanation-box.correct { border-color:var(--green); background:rgba(22,163,74,0.04); }
+.explanation-box.wrong   { border-color:var(--red);   background:rgba(220,38,38,0.04); }
+@keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+.exp-verdict {
+  font-size:0.95rem; font-weight:800;
+  margin-bottom:8px; letter-spacing:-0.01em;
+}
+.exp-verdict.correct { color:var(--green); }
+.exp-verdict.wrong   { color:var(--red); }
+.exp-body { font-size:0.82rem; line-height:1.65; color:var(--ink2); }
+.exp-body strong { color:var(--ink); }
+.exp-trap {
+  margin-top:10px; padding:8px 12px;
+  background:rgba(217,119,6,0.06); border-left:3px solid var(--gold);
+  font-size:0.75rem; color:var(--gold); line-height:1.6;
+}
+.exp-trap-label { font-weight:800; display:block; margin-bottom:2px; }
+
+/* Right sidebar */
+.sidebar { display:flex; flex-direction:column; gap:16px; }
+
+/* Model reference cards */
+.model-ref-card {
+  background:var(--surface);
+  border:2px solid var(--border);
+  padding:0; overflow:hidden;
+}
+.mrc-header {
+  padding:10px 14px;
+  display:flex; align-items:center; gap:10px;
+}
+.mrc-icon {
+  width:28px; height:28px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:900; color:white;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  flex-shrink:0;
+}
+.mrc-name {
+  font-size:0.85rem; font-weight:800;
+  letter-spacing:-0.01em;
+}
+.mrc-body { padding:10px 14px 12px; border-top:1px solid var(--border); }
+.mrc-trigger {
+  font-family:var(--mono); font-size:0.64rem;
+  color:var(--ink3); line-height:1.6; margin-bottom:6px;
+}
+.mrc-example {
+  font-size:0.72rem; color:var(--ink2);
+  font-style:italic; line-height:1.5;
+}
+
+/* Progress strip */
+.progress-strip {
+  background:var(--surface);
+  border:2px solid var(--border);
+  padding:14px 16px;
+}
+.ps-top {
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-bottom:10px;
+}
+.ps-title { font-size:0.72rem; font-weight:700; color:var(--ink3); letter-spacing:0.04em; text-transform:uppercase; }
+.ps-score { font-family:var(--mono); font-size:1rem; font-weight:700; color:var(--ink); }
+.ps-bar { height:5px; background:var(--panel); border:1px solid var(--border); }
+.ps-fill { height:100%; background:var(--rbac-mid); transition:width 0.4s ease; }
+.ps-dots { display:flex; gap:4px; margin-top:8px; flex-wrap:wrap; }
+.ps-dot { width:16px; height:16px; border:2px solid var(--border); transition:all 0.2s; }
+.ps-dot.win  { background:var(--green); border-color:var(--green); }
+.ps-dot.loss { background:var(--red);   border-color:var(--red); }
+
+/* Action bar */
+.action-bar {
+  display:flex; gap:10px; margin-top:20px;
+}
+.btn {
+  padding:11px 22px;
+  font-family:var(--sans); font-size:0.82rem; font-weight:800;
+  letter-spacing:0.01em; cursor:pointer;
+  border:2px solid; transition:all 0.15s;
+}
+.btn-ink  { border-color:var(--ink); color:var(--ink); background:transparent; }
+.btn-ink:hover { background:var(--ink); color:white; }
+.btn-green{ border-color:var(--green); color:var(--green); background:transparent; }
+.btn-green:hover{ background:var(--green); color:white; }
+.btn-ghost{ border-color:var(--border2); color:var(--ink3); background:transparent; }
+.btn-ghost:hover{ background:var(--panel); }
+.btn-solid { background:var(--ink); color:white; border-color:var(--ink); }
+.btn-solid:hover { background:var(--ink2); }
+
+/* ── MODE: DECISION TREE ── */
+.tree-layout {
+  display:grid; grid-template-columns:1fr 340px; gap:28px;
+}
+.tree-card {
+  background:var(--surface);
+  border:2px solid var(--border);
+  padding:32px;
+}
+.tree-title {
+  font-size:1.3rem; font-weight:900; letter-spacing:-0.02em;
+  margin-bottom:6px;
+}
+.tree-sub {
+  font-size:0.8rem; color:var(--ink3); margin-bottom:28px;
+  line-height:1.5;
+}
+
+/* Tree question nodes */
+.tree-node {
+  padding:18px 20px;
+  background:var(--panel);
+  border:2px solid var(--border2);
+  margin-bottom:12px;
+  position:relative;
+}
+.tree-q {
+  font-size:0.9rem; font-weight:700; margin-bottom:12px; color:var(--ink);
+}
+.tree-options { display:flex; gap:8px; flex-wrap:wrap; }
+.tree-opt {
+  padding:8px 16px;
+  font-size:0.8rem; font-weight:700;
+  border:2px solid var(--border2); background:var(--surface);
+  cursor:pointer; transition:all 0.15s;
+}
+.tree-opt:hover { border-color:var(--ink); }
+.tree-opt.selected-yes { border-color:var(--green); color:var(--green); background:rgba(22,163,74,0.06); }
+.tree-opt.selected-no  { border-color:var(--red);   color:var(--red);   background:rgba(220,38,38,0.06);  }
+
+/* Tree result */
+.tree-result {
+  display:none; margin-top:20px;
+  padding:24px; border:3px solid; text-align:center;
+}
+.tree-result.show { display:block; animation:slideDown 0.3s ease; }
+.tr-model-name {
+  font-size:2rem; font-weight:900; letter-spacing:-0.03em;
+  margin:10px 0 6px;
+}
+.tr-model-sub {
+  font-family:var(--mono); font-size:0.72rem;
+  margin-bottom:14px; letter-spacing:0.04em;
+}
+.tr-desc { font-size:0.82rem; color:var(--ink2); line-height:1.65; }
+.tr-examples {
+  margin-top:14px; padding:10px 14px;
+  background:var(--panel); border:1px solid var(--border);
+  font-family:var(--mono); font-size:0.68rem; color:var(--ink3);
+  text-align:left; line-height:1.7;
+}
+
+/* Tree path breadcrumb */
+.tree-path {
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding:10px 14px; background:var(--panel); border:1px solid var(--border);
+  margin-bottom:20px; font-family:var(--mono); font-size:0.65rem; color:var(--ink3);
+}
+.tp-step { padding:2px 7px; background:var(--surface); border:1px solid var(--border); }
+.tp-arrow { color:var(--border2); }
+
+/* ── MODE: POLICY BUILDER ── */
+.builder-layout {
+  display:grid; grid-template-columns:1fr 1fr; gap:24px;
+}
+.builder-card {
+  background:var(--surface); border:2px solid var(--border); padding:28px;
+}
+.builder-title {
+  font-size:1rem; font-weight:900; letter-spacing:-0.01em;
+  margin-bottom:6px;
+}
+.builder-desc {
+  font-size:0.75rem; color:var(--ink3); line-height:1.6; margin-bottom:20px;
+}
+
+/* Policy form */
+.field-group { margin-bottom:16px; }
+.field-label {
+  font-family:var(--mono); font-size:0.6rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.1em;
+  color:var(--ink3); display:block; margin-bottom:6px;
+}
+.field-select, .field-input {
+  width:100%; padding:9px 12px;
+  border:2px solid var(--border2);
+  background:var(--panel); color:var(--ink);
+  font-family:var(--sans); font-size:0.82rem;
+  outline:none; transition:border-color 0.15s; cursor:pointer;
+}
+.field-select:focus, .field-input:focus { border-color:var(--ink); }
+.field-select option { background:var(--surface); }
+
+.condition-row {
+  display:grid; grid-template-columns:1fr 1fr 1fr auto;
+  gap:8px; align-items:end; margin-bottom:8px;
+}
+.add-cond-btn {
+  width:100%; padding:8px; margin-top:4px;
+  font-family:var(--mono); font-size:0.68rem;
+  border:1.5px dashed var(--border2); color:var(--ink3);
+  background:transparent; cursor:pointer; transition:all 0.15s;
+}
+.add-cond-btn:hover { border-color:var(--ink); color:var(--ink); }
+
+.del-btn {
+  width:30px; height:36px;
+  border:1.5px solid var(--border2); background:transparent;
+  color:var(--ink3); cursor:pointer; font-size:14px;
+  transition:all 0.15s;
+}
+.del-btn:hover { border-color:var(--red); color:var(--red); }
+
+/* Policy preview */
+.policy-preview {
+  background:var(--panel); border:2px solid var(--border);
+  padding:16px; margin-top:16px; min-height:100px;
+  font-family:var(--mono); font-size:0.72rem; line-height:1.8; color:var(--ink2);
+}
+.pp-keyword { color:var(--rbac); font-weight:700; }
+.pp-attr    { color:var(--abac); }
+.pp-action  { color:var(--mac);  font-weight:700; }
+.pp-resource{ color:var(--dac);  }
+
+/* Model prediction */
+.model-prediction {
+  margin-top:16px; padding:16px;
+  border:2px solid;
+  display:flex; align-items:center; gap:14px;
+}
+.mp-icon {
+  width:44px; height:44px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; font-weight:900; color:white;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.mp-name { font-size:1.1rem; font-weight:900; letter-spacing:-0.02em; }
+.mp-reason { font-size:0.72rem; color:var(--ink3); margin-top:2px; line-height:1.5; }
+
+/* Comparison table in sidebar */
+.compare-table { width:100%; border-collapse:collapse; font-size:0.72rem; }
+.compare-table th {
+  padding:7px 10px;
+  background:var(--ink); color:white;
+  font-family:var(--mono); font-size:0.58rem; font-weight:700;
+  letter-spacing:0.08em; text-transform:uppercase;
+  text-align:left;
+}
+.compare-table td {
+  padding:7px 10px; border-bottom:1px solid var(--border);
+  vertical-align:top; line-height:1.4;
+}
+.compare-table tr:hover td { background:var(--panel); }
+.compare-table td:first-child { font-weight:800; font-size:0.78rem; }
+
+/* ── TABS INSIDE MODES ── */
+.sub-tabs {
+  display:flex; gap:0; margin-bottom:24px;
+  border-bottom:2px solid var(--border);
+}
+.stab {
+  padding:9px 18px;
+  font-family:var(--sans); font-size:0.78rem; font-weight:700;
+  color:var(--ink3); cursor:pointer; border:none; background:none;
+  border-bottom:3px solid transparent; margin-bottom:-2px;
+  transition:all 0.15s;
+}
+.stab:hover { color:var(--ink); }
+.stab.active { color:var(--ink); border-bottom-color:var(--ink); }
+
+/* Confuser warning */
+.confuser-banner {
+  padding:10px 14px; margin-bottom:20px;
+  background:rgba(217,119,6,0.07); border:1.5px solid rgba(217,119,6,0.3);
+  font-size:0.75rem; color:var(--gold); line-height:1.6;
+  display:flex; gap:10px; align-items:flex-start;
+}
+.cb-icon { flex-shrink:0; font-size:16px; }
+
+/* Toast */
+.toast {
+  position:fixed; bottom:24px; right:24px; z-index:999;
+  padding:12px 18px;
+  background:var(--ink); color:white;
+  font-family:var(--mono); font-size:0.72rem;
+  transform:translateY(60px); opacity:0;
+  transition:all 0.25s ease; pointer-events:none;
+  border-left:4px solid var(--rbac-mid);
+}
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.ok   { border-left-color:var(--green); }
+.toast.err  { border-left-color:var(--red); }
+
+/* Streak pips */
+.streak-row {
+  display:flex; align-items:center; gap:5px; margin-bottom:20px;
+}
+.streak-pip {
+  width:20px; height:6px;
+  background:var(--border); transition:background 0.3s;
+}
+.streak-pip.win  { background:var(--green); }
+.streak-pip.loss { background:var(--red); }
+.streak-label {
+  font-family:var(--mono); font-size:0.6rem; color:var(--ink3);
+  margin-left:8px; letter-spacing:0.04em;
+}
+
+/* Confuser mode banner */
+.mode-banner {
+  background:var(--ink); color:white;
+  padding:10px 16px; margin-bottom:24px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.mode-banner-text {
+  font-family:var(--mono); font-size:0.68rem; color:rgba(255,255,255,0.7);
+}
+.mode-banner-title {
+  font-size:0.85rem; font-weight:800; color:white;
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+<div class="hinner">
+  <div class="logo">
+    <div class="logo-icon">A</div>
+    <div>
+      <div class="logo-text">AccessLab</div>
+      <span class="logo-sub">Security+ Access Control Models</span>
+    </div>
+  </div>
+  <div class="mode-nav">
+    <button class="mnav-btn active" onclick="setMode('classify')" data-mode="classify">
+      <span class="mnav-icon">⬡</span> Classify Scenarios
+    </button>
+    <button class="mnav-btn" onclick="setMode('tree')" data-mode="tree">
+      <span class="mnav-icon">⊢</span> Decision Tree
+    </button>
+    <button class="mnav-btn" onclick="setMode('builder')" data-mode="builder">
+      <span class="mnav-icon">◈</span> Policy Builder
+    </button>
+    <button class="mnav-btn" onclick="setMode('compare')" data-mode="compare">
+      <span class="mnav-icon">≡</span> Compare Models
+    </button>
+  </div>
+  <div class="hright">
+    <div class="hscore">
+      <div class="hscore-val" id="hCorrect">0</div>
+      <div class="hscore-lbl">Correct</div>
+    </div>
+    <div class="hscore">
+      <div class="hscore-val" id="hStreak">0</div>
+      <div class="hscore-lbl">Streak</div>
+    </div>
+  </div>
+</div>
+</header>
+
+<div class="wrap">
+<div class="game-area" id="gameArea">
+  <!-- content injected by JS -->
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// MODEL DEFINITIONS
+// ════════════════════════════════════════════════════════════════════════
+const MODELS = {
+  RBAC: {
+    name:'RBAC', full:'Role-Based Access Control', color:'var(--rbac)', mid:'var(--rbac-mid)', lt:'var(--rbac-lt)',
+    icon:'R', cls:'chip-rbac', ai:'ai-rbac',
+    trigger:'Access based solely on the user\'s job role or title',
+    example:'"All Nurses can view patient charts"',
+    keywords:['role','job title','department','position','nurse','manager','employee role'],
+    description:'Access decisions are made based on the roles assigned to users. A role represents a job function. Users are assigned to roles, and roles have permissions. Most common enterprise model.',
+    distinguish:'RBAC uses ONLY the role. If the scenario adds conditions (time, location, device state) → it becomes ABAC.',
+    examples:['All HR staff can access the HR portal','Doctors can view patient records','Managers can approve expense reports','Sales team can access the CRM'],
+  },
+  ABAC: {
+    name:'ABAC', full:'Attribute-Based Access Control', color:'var(--abac)', mid:'var(--abac-mid)', lt:'var(--abac-lt)',
+    icon:'A', cls:'chip-abac', ai:'ai-abac',
+    trigger:'Multiple conditions AND\'d together — role + time + location + device state',
+    example:'"HR staff AND on-corp-network AND during business hours"',
+    keywords:['AND','multiple conditions','time of day','location','device state','context','attribute'],
+    description:'Access is granted based on evaluating multiple attributes simultaneously — user attributes (role, department, clearance), resource attributes (classification, type), and environmental attributes (time, location, device). Most flexible model.',
+    distinguish:'If a scenario stacks 2+ conditions with AND, it\'s ABAC. A single condition (role only) is RBAC.',
+    examples:['Access if: HR role AND corp network AND business hours','Grant access when: doctor AND assigned patient AND daytime','Allow if: employee AND completed training AND secure device'],
+  },
+  MAC: {
+    name:'MAC', full:'Mandatory Access Control', color:'var(--mac)', mid:'var(--mac-mid)', lt:'var(--mac-lt)',
+    icon:'M', cls:'chip-mac', ai:'ai-mac',
+    trigger:'Classification labels and clearance levels — enforced by the OS, users cannot override',
+    example:'"Top Secret data — only users with TS clearance"',
+    keywords:['clearance','classification','label','top secret','confidential','secret','mandatory','OS enforces','cannot override','military','government'],
+    description:'The OS or system enforces access based on security labels on objects and clearance levels on subjects. Users cannot change or override access decisions. Used in government, military, and high-security environments.',
+    distinguish:'Key: WHO enforces it. MAC = the SYSTEM enforces rigidly. Users have zero control. DAC = the OWNER controls it.',
+    examples:['Top Secret documents — only TS-cleared users','Classified data restricted by government policy','OS-enforced labels that users cannot modify','Need-to-know with mandatory clearance levels'],
+  },
+  DAC: {
+    name:'DAC', full:'Discretionary Access Control', color:'var(--dac)', mid:'var(--dac-mid)', lt:'var(--dac-lt)',
+    icon:'D', cls:'chip-dac', ai:'ai-dac',
+    trigger:'Resource OWNER controls access — can grant permissions to others',
+    example:'"The file owner can share it with anyone they choose"',
+    keywords:['owner','owner grants','owner controls','discretion','share file','user can grant','creator decides'],
+    description:'The owner of a resource has discretion over who can access it. Owners can grant and revoke permissions to other users. This is the most permissive model. Traditional Unix/Windows file systems use DAC.',
+    distinguish:'Key: the OWNER decides. If a user can share their own file/folder with others, that\'s DAC. No central policy — purely owner-driven.',
+    examples:['File owner shares document with colleagues','User grants read access to their folder','Creator allows team members to edit the file','Owner revokes a colleague\'s access'],
+  },
+  'Rule-Based': {
+    name:'Rule-Based', full:'Rule-Based Access Control', color:'var(--rule)', mid:'var(--rule-mid)', lt:'var(--rule-lt)',
+    icon:'⊢', cls:'chip-rule', ai:'ai-rule',
+    trigger:'If-then rules applied to all users equally — typically on network devices',
+    example:'"DENY all traffic from 192.168.1.0/24 on port 23"',
+    keywords:['if-then','rule','all users','firewall rule','ACL','network policy','applied to everyone','time-based rule'],
+    description:'Access is controlled by a set of if-then rules that apply uniformly to all users. Most commonly seen in firewall ACLs, router access lists, and time-of-day restrictions on network devices. Rules are system-wide, not per-user.',
+    distinguish:'Rule-Based = same rule for ALL users on a device. ABAC = per-user policy based on attributes. Don\'t confuse "rule" in RBAC terminology with Rule-Based AC.',
+    examples:['Firewall: deny all port 23 traffic','Router ACL: block subnet during maintenance','Network: no WiFi access between 11pm–6am for all','Switch: deny access from unauthorized VLANs'],
+  },
+  Conditional: {
+    name:'Conditional', full:'Conditional Access', color:'var(--cond)', mid:'var(--cond-mid)', lt:'var(--cond-lt)',
+    icon:'?', cls:'chip-cond', ai:'ai-cond',
+    trigger:'Modern cloud-native policy: identity + device compliance + MFA required',
+    example:'"Allow only if: user authenticated + MFA + compliant device + trusted location"',
+    keywords:['MFA required','conditional','device compliance','trusted location','Azure AD','cloud access','risk-based','sign-in risk'],
+    description:'Cloud-native access control (Azure AD Conditional Access, etc.) that evaluates identity, device health, location, and risk signals before granting access. Requires MFA as a condition. Modern zero-trust implementation.',
+    distinguish:'Conditional Access is a modern cloud implementation of ABAC principles but specifically cloud-native and often includes MFA enforcement as a core condition.',
+    examples:['Allow if: MFA passed AND device compliant AND trusted IP','Require MFA when sign-in risk is medium or high','Block access from non-compliant or unmanaged devices','Grant access only from approved countries'],
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO BANK
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+  // RBAC
+  { id:'s1', model:'RBAC', difficulty:'e', category:'Healthcare',
+    text:'All registered nurses at Memorial Hospital can view patient charts and medication records. Physicians can view charts and write prescriptions. Billing staff can only access financial records, not clinical data.',
+    keywords:['role-based access','job function determines access','no additional conditions'],
+    explanation:'Access is determined purely by job title (nurse, physician, billing). No additional conditions like time or location are applied — this is classic RBAC.',
+    trap:'If the scenario had added "...only during their assigned shift" or "only from hospital terminals," it would become ABAC.',
+    distractor:'ABAC' },
+
+  { id:'s2', model:'RBAC', difficulty:'e', category:'Corporate',
+    text:'Employees assigned the "IT Administrator" role can access the server management console. Users with the "Help Desk" role can reset passwords but cannot access servers directly.',
+    keywords:['role assignment','permissions follow the role','IT admin role','help desk role'],
+    explanation:'Permissions are assigned to roles, and users inherit permissions by being placed in a role. No additional context needed — pure RBAC.',
+    trap:'RBAC is the simplest case — one attribute (role) determines access. The moment the scenario stacks conditions, escalate to ABAC.',
+    distractor:'ABAC' },
+
+  { id:'s3', model:'RBAC', difficulty:'m', category:'Finance',
+    text:'A financial institution assigns employees to one of four roles: Teller, Supervisor, Auditor, or Executive. Each role has a predefined set of transactions they can initiate. A Teller cannot approve a transaction above $5,000 — only Supervisors and Executives can.',
+    keywords:['predefined roles','permissions per role','transaction limits by role'],
+    explanation:'Despite the complexity, access is still determined by a single attribute — role. The $5,000 limit is a role permission, not a separate condition evaluated at access time.',
+    trap:'This might look like Rule-Based because of the $5,000 rule, but that limit is baked into the Teller role\'s permissions, not a separate system-wide rule.',
+    distractor:'Rule-Based' },
+
+  // ABAC
+  { id:'s4', model:'ABAC', difficulty:'m', category:'Healthcare',
+    text:'A hospital system grants doctors access to patient records ONLY if: the doctor is assigned to that patient AND the access occurs during daytime hours AND the device is a hospital-issued workstation.',
+    keywords:['multiple AND conditions','doctor assigned to patient','daytime hours','hospital device'],
+    explanation:'Three attributes are evaluated simultaneously: role (doctor), relationship (assigned patient), time (daytime), and device (hospital-issued). This is ABAC — multiple attributes ANDed together.',
+    trap:'RBAC alone cannot handle "assigned to that patient" or "daytime hours." Those are attributes, not just roles.',
+    distractor:'RBAC' },
+
+  { id:'s5', model:'ABAC', difficulty:'h', category:'Government',
+    text:'An analyst can access a classified document only when their department matches the document\'s owning department, their clearance level is sufficient, they are physically present on-premises (verified by badge reader), and the access occurs during working hours.',
+    keywords:['department match','clearance level','physical location','working hours','four conditions'],
+    explanation:'Four attributes checked simultaneously: department match, clearance level, physical location, and time. This is a sophisticated ABAC policy — no single attribute alone grants access.',
+    trap:'This has clearance levels (MAC territory?) but the multi-attribute AND evaluation is ABAC. MAC would use labels enforced by the OS with no additional conditions.',
+    distractor:'MAC' },
+
+  { id:'s6', model:'ABAC', difficulty:'h', category:'Cloud',
+    text:'A cloud storage policy grants access to financial reports if the requester\'s job title is Finance Manager OR VP, the request originates from a corporate IP, the file is not marked as archived, and the current date is within the current fiscal year.',
+    keywords:['job title OR VP','corporate IP','file not archived','fiscal year','multiple attributes'],
+    explanation:'Multiple attributes from different categories are evaluated: user attributes (job title), network attributes (IP), resource attributes (archive status), and time attributes (fiscal year). Classic ABAC.',
+    trap:'The OR between Finance Manager and VP might suggest Rule-Based, but this is a per-user policy based on attributes — not a network-device ACL applied to all traffic.',
+    distractor:'Rule-Based' },
+
+  // MAC
+  { id:'s7', model:'MAC', difficulty:'e', category:'Military',
+    text:'A defense contractor\'s system enforces document access based on classification labels: Unclassified, Confidential, Secret, and Top Secret. Users have corresponding clearance levels. The operating system prevents any user from accessing documents above their clearance level — even system administrators cannot override this.',
+    keywords:['classification labels','clearance levels','OS enforces','cannot override','admin cannot override'],
+    explanation:'The defining characteristics of MAC are present: classification labels on objects, clearance levels on subjects, and OS-level enforcement that cannot be bypassed. Even admins cannot override — this is MAC.',
+    trap:'The "even admins cannot override" is the critical MAC signal. In DAC, the owner (or admin) CAN override. In MAC, nobody can.',
+    distractor:'DAC' },
+
+  { id:'s8', model:'MAC', difficulty:'m', category:'Intelligence',
+    text:'Intelligence agency documents are tagged with sensitivity labels by the originating agency. Users receive clearances through a formal vetting process. No user — including the document author — can grant access to a document above another user\'s clearance level.',
+    keywords:['sensitivity labels','formal clearance','author cannot grant access','no user can override'],
+    explanation:'The author cannot grant access — this eliminates DAC. The system enforces labels that no individual can bypass — this is MAC. The government/intelligence context strongly hints at MAC.',
+    trap:'DAC would allow the document author to share it. MAC prevents even the creator from granting access above someone\'s clearance.',
+    distractor:'DAC' },
+
+  // DAC
+  { id:'s9', model:'DAC', difficulty:'e', category:'Office',
+    text:'An employee creates a shared folder on the corporate file server. She decides which colleagues can access it and sets different permission levels — some get read-only, others get read-write. She can also revoke access at any time.',
+    keywords:['owner decides','grants to colleagues','different permission levels','owner can revoke'],
+    explanation:'The resource owner has full discretion over access decisions. She created it, she controls who can access it and at what level. This is DAC — discretionary, owner-driven.',
+    trap:'This looks like a normal scenario but specifically highlights owner control. Any time "the user decides who can access their resource" appears, it\'s DAC.',
+    distractor:'RBAC' },
+
+  { id:'s10', model:'DAC', difficulty:'m', category:'OS',
+    text:'A developer on a Linux workstation uses chmod to grant read access on their source code directory to two contractors. Later, she runs chmod again to remove one contractor\'s access while keeping the other\'s.',
+    keywords:['chmod','file owner','grant to specific users','revoke access','Linux permissions'],
+    explanation:'Unix/Linux chmod is a classic DAC mechanism. The file owner uses discretion to grant and revoke access. The OS provides the mechanism, but the owner makes the decisions.',
+    trap:'Linux permissions ENFORCE DAC, but the concept is that the OWNER decides. Rule-Based would be a system-wide policy, not per-owner decisions.',
+    distractor:'Rule-Based' },
+
+  // Rule-Based
+  { id:'s11', model:'Rule-Based', difficulty:'m', category:'Network',
+    text:'A network switch is configured so that NO user or device on VLAN 10 can communicate with VLAN 20 between 11pm and 6am, regardless of their identity or role. This maintenance window restriction applies to everyone on the network without exception.',
+    keywords:['regardless of identity','all users','time restriction','applies to everyone','VLAN restriction'],
+    explanation:'The rule applies universally — it doesn\'t check who the user is. "Regardless of identity" is a Rule-Based signal. The time restriction in an ACL/switch config is a system-wide rule, not an ABAC attribute.',
+    trap:'Time-based restrictions can appear in both ABAC and Rule-Based. The key difference: ABAC evaluates per-user attributes. Rule-Based applies the same rule to everyone regardless of identity.',
+    distractor:'ABAC' },
+
+  { id:'s12', model:'Rule-Based', difficulty:'m', category:'Network',
+    text:'A perimeter firewall\'s ACL denies all traffic from IP range 198.51.100.0/24 on port 23 (Telnet). This rule was added after a threat intelligence feed identified that range as malicious. The rule applies to all traffic from that range, with no exceptions.',
+    keywords:['firewall ACL','IP range blocked','all traffic','port 23','no exceptions','threat intel block'],
+    explanation:'A firewall ACL rule is the textbook example of Rule-Based access control. The same rule applies to all traffic matching the criteria, with no per-user evaluation.',
+    trap:'ABAC includes network attributes, but ABAC evaluates those for individual users. A blanket firewall rule blocking an entire IP range is Rule-Based.',
+    distractor:'ABAC' },
+
+  // Conditional Access
+  { id:'s13', model:'Conditional', difficulty:'m', category:'Cloud',
+    text:'An organization uses Azure AD Conditional Access policies. Users connecting from outside the corporate network are required to complete multi-factor authentication. Users connecting from unmanaged or non-compliant devices are blocked entirely, regardless of credentials.',
+    keywords:['Azure AD','conditional access','MFA required','non-compliant device blocked','outside network'],
+    explanation:'Azure AD Conditional Access is the exam\'s primary example of modern conditional access control. MFA enforcement based on location and device compliance are defining features.',
+    trap:'This could look like ABAC (multiple attributes: location + device). Conditional Access is a specific cloud-native implementation of ABAC principles, but on the exam, "MFA required + device compliance + cloud" = Conditional Access.',
+    distractor:'ABAC' },
+
+  // Confuser pairs
+  { id:'s14', model:'ABAC', difficulty:'h', category:'CONFUSER: RBAC vs ABAC',
+    text:'Employees in the Finance department can access quarterly reports — but ONLY during business hours AND ONLY when connected to the VPN. Finance employees who are remote but not on VPN are denied access.',
+    keywords:['Finance department = role','business hours = time attribute','VPN = network attribute','three conditions'],
+    explanation:'The base rule sounds like RBAC (Finance department), but two additional conditions are ANDed: business hours AND VPN. Once you add conditions beyond the role, it becomes ABAC.',
+    trap:'This is the most common exam trap. "Finance department can access X" alone = RBAC. "Finance department can access X IF on VPN AND during business hours" = ABAC. The AND conditions promote it.',
+    distractor:'RBAC' },
+
+  { id:'s15', model:'MAC', difficulty:'h', category:'CONFUSER: MAC vs DAC',
+    text:'A secure government system labels all documents as Unclassified, Secret, or Top Secret. Analyst A has a Secret clearance and creates a document she labels as Secret. She wants to share it with Analyst B who has only an Unclassified clearance. The system prevents the share — even though Analyst A is the document\'s creator.',
+    keywords:['creator cannot share','OS prevents the action','clearance mismatch','system enforced'],
+    explanation:'The creator WANTS to share but CANNOT — the system enforces the policy, overriding the owner\'s wishes. This is the defining characteristic of MAC: no user, including the owner, can grant access above the recipient\'s clearance.',
+    trap:'DAC would allow Analyst A (the owner) to share it. MAC prevents her. "Creator cannot override the policy" = MAC every time.',
+    distractor:'DAC' },
+
+  { id:'s16', model:'Rule-Based', difficulty:'h', category:'CONFUSER: Rule-Based vs ABAC',
+    text:'A hospital network switch is programmed to block all devices in the guest Wi-Fi VLAN from accessing the medical device subnet. This policy applies to every device on guest Wi-Fi — there are no exceptions based on who the device belongs to.',
+    keywords:['every device','no exceptions','same rule for all','VLAN block','network device policy'],
+    explanation:'"Every device... no exceptions based on who the device belongs to" is pure Rule-Based. ABAC would evaluate per-device attributes and might have exceptions. Rule-Based is a blanket policy on a network device.',
+    trap:'ABAC can also use network/VLAN attributes, but ABAC has per-entity evaluation. "No exceptions for anyone" = Rule-Based. The moment individual attributes matter, it becomes ABAC.',
+    distractor:'ABAC' },
+
+  { id:'s17', model:'RBAC', difficulty:'m', category:'CONFUSER: RBAC vs DAC',
+    text:'A content management system assigns users to one of three groups: Viewer, Editor, or Administrator. Viewers can only read content. Editors can create and modify content. Administrators have full control. Users cannot change their own permissions or share access with others.',
+    keywords:['three groups','predefined permissions','cannot change own permissions','cannot share'],
+    explanation:'"Users cannot change their own permissions or share access with others" is the key phrase. This eliminates DAC. Predefined groups with fixed permissions and no user discretion = RBAC.',
+    trap:'CMS user groups often look like DAC, but if users have no ability to change their own permissions or grant access to others, it\'s RBAC. Owner control = DAC; Fixed group permissions = RBAC.',
+    distractor:'DAC' },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let ST = {
+  mode: 'classify',
+  subMode: 'all',
+  qIdx: 0,
+  answered: false,
+  correct: 0,
+  streak: 0,
+  bestStreak: 0,
+  history: [],
+  // Tree state
+  treeAnswers: {},
+  // Builder state
+  conditions: [{ attr:'', op:'equals', val:'' }],
+  builderEffect: 'ALLOW',
+  builderSubject: '',
+  builderResource: '',
+  // Shuffle
+  shuffled: [],
+};
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+// ════════════════════════════════════════════════════════════════════════
+// MODE SWITCHING
+// ════════════════════════════════════════════════════════════════════════
+function setMode(mode) {
+  ST.mode = mode;
+  document.querySelectorAll('.mnav-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  render();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MAIN RENDER
+// ════════════════════════════════════════════════════════════════════════
+function render() {
+  const g = document.getElementById('gameArea');
+  if (ST.mode === 'classify') renderClassify(g);
+  else if (ST.mode === 'tree')    renderTree(g);
+  else if (ST.mode === 'builder') renderBuilder(g);
+  else if (ST.mode === 'compare') renderCompare(g);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CLASSIFY MODE
+// ════════════════════════════════════════════════════════════════════════
+function getFilteredScenarios() {
+  if (ST.subMode === 'confusers') return SCENARIOS.filter(s => s.category.includes('CONFUSER'));
+  if (ST.subMode === 'all') return SCENARIOS;
+  return SCENARIOS.filter(s => s.model === ST.subMode);
+}
+
+function renderClassify(g) {
+  if (ST.shuffled.length === 0 || ST.qIdx >= ST.shuffled.length) {
+    ST.shuffled = shuffle(getFilteredScenarios());
+    ST.qIdx = 0;
+  }
+  const sc = ST.shuffled[ST.qIdx];
+  const modelKeys = ['RBAC','ABAC','MAC','DAC','Rule-Based','Conditional'];
+
+  const streakPips = ST.history.slice(-10).map(h =>
+    `<div class="streak-pip ${h}"></div>`).join('');
+
+  const isConfuser = sc.category.includes('CONFUSER');
+  const confuserBanner = isConfuser ? `
+    <div class="confuser-banner">
+      <span class="cb-icon">⚠</span>
+      <div><strong>Confuser Scenario</strong> — ${sc.category.replace('CONFUSER: ','')}. These scenarios are designed to test the specific distinction that commonly trips students up on the exam.</div>
+    </div>` : '';
+
+  g.innerHTML = `
+    <div class="streak-row">${streakPips}${ST.history.length > 0 ? `<span class="streak-label">Last ${ST.history.length}</span>` : ''}</div>
+
+    <div class="sub-tabs" id="subTabs">
+      ${['all','RBAC','ABAC','MAC','DAC','Rule-Based','Conditional','confusers'].map(m => `
+        <button class="stab ${ST.subMode===m?'active':''}" onclick="setSubMode('${m}')">${
+          m === 'all' ? 'All Models' : m === 'confusers' ? '⚠ Confusers' : m
+        }</button>`).join('')}
+    </div>
+
+    ${confuserBanner}
+
+    <div class="classify-layout">
+      <div>
+        <div class="scenario-card" id="scCard">
+          <div class="sc-meta">
+            <div class="sc-num">Q ${ST.qIdx + 1} / ${ST.shuffled.length}</div>
+            <div class="sc-diff diff-${sc.difficulty}">${{e:'Easy',m:'Medium',h:'Hard'}[sc.difficulty]}</div>
+            <div class="sc-cat">${sc.category}</div>
+          </div>
+
+          <div class="scenario-text">${sc.text}</div>
+
+          <div class="scenario-keywords">
+            ${sc.keywords.map(k => `<div class="kw-tag">${k}</div>`).join('')}
+          </div>
+
+          <div class="answer-grid" id="answerGrid">
+            ${modelKeys.map(m => {
+              const md = MODELS[m];
+              return `<button class="answer-btn" onclick="selectAnswer('${m}', '${sc.model}')" data-model="${m}">
+                <div class="answer-icon ${md.ai}">${md.icon}</div>
+                <div>
+                  <span class="answer-name">${md.name}</span>
+                  <span class="answer-sub">${md.full}</span>
+                </div>
+              </button>`;
+            }).join('')}
+          </div>
+
+          <div class="explanation-box" id="expBox">
+            <div class="exp-verdict" id="expVerdict"></div>
+            <div class="exp-body" id="expBody"></div>
+            <div class="exp-trap" id="expTrap" style="display:none;">
+              <span class="exp-trap-label">⚠ Exam Trap</span>
+              <span id="expTrapText"></span>
+            </div>
+          </div>
+
+          <div class="action-bar" id="actionBar" style="display:none;">
+            <button class="btn btn-solid" onclick="nextQuestion()">Next Question →</button>
+            <button class="btn btn-ghost" onclick="newRound()">New Round ↻</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar">
+        <div class="progress-strip">
+          <div class="ps-top">
+            <div class="ps-title">Session Progress</div>
+            <div class="ps-score" id="psScore">${ST.correct} correct</div>
+          </div>
+          <div class="ps-bar"><div class="ps-fill" id="psFill" style="width:${ST.correct + (ST.correct+ST.history.length) > 0 ? (ST.correct/(ST.correct + ST.history.filter(h=>h==='loss').length)||0)*100 : 0}%"></div></div>
+          <div class="ps-dots" id="psDots">
+            ${ST.history.slice(-12).map(h => `<div class="ps-dot ${h}"></div>`).join('')}
+          </div>
+        </div>
+
+        ${Object.entries(MODELS).map(([key, m]) => `
+          <div class="model-ref-card">
+            <div class="mrc-header" style="background:${m.lt}; border-bottom:1px solid ${m.lt};">
+              <div class="mrc-icon" style="background:${m.mid};">${m.icon}</div>
+              <div>
+                <div class="mrc-name" style="color:${m.color};">${m.name}</div>
+                <div style="font-family:var(--mono);font-size:0.58rem;color:var(--ink3);">${m.full}</div>
+              </div>
+            </div>
+            <div class="mrc-body">
+              <div class="mrc-trigger">🔑 ${m.trigger}</div>
+              <div class="mrc-example">${m.example}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function setSubMode(mode) {
+  ST.subMode = mode;
+  ST.shuffled = shuffle(getFilteredScenarios());
+  ST.qIdx = 0;
+  ST.answered = false;
+  renderClassify(document.getElementById('gameArea'));
+}
+
+function selectAnswer(chosen, correct) {
+  if (ST.answered) return;
+  ST.answered = true;
+
+  const isCorrect = chosen === correct;
+  const sc = ST.shuffled[ST.qIdx];
+  const md = MODELS[correct];
+
+  if (isCorrect) {
+    ST.correct++; ST.streak++;
+    ST.bestStreak = Math.max(ST.bestStreak, ST.streak);
+    ST.history.push('win');
+    document.getElementById('hCorrect').textContent = ST.correct;
+    document.getElementById('hStreak').textContent = ST.streak;
+    showToast('Correct! ' + md.name, 'ok');
+  } else {
+    ST.streak = 0;
+    ST.history.push('loss');
+    document.getElementById('hStreak').textContent = 0;
+    showToast('Incorrect — answer is ' + correct, 'err');
+  }
+
+  // Style buttons
+  document.querySelectorAll('.answer-btn').forEach(btn => {
+    const m = btn.dataset.model;
+    if (m === correct) btn.classList.add('correct-ans');
+    else if (m === chosen && !isCorrect) btn.classList.add('wrong-ans');
+    btn.onclick = null;
+  });
+
+  // Card top bar
+  document.getElementById('scCard').classList.add(isCorrect ? 'correct' : 'wrong');
+
+  // Explanation
+  const expBox = document.getElementById('expBox');
+  const verdict = document.getElementById('expVerdict');
+  const body = document.getElementById('expBody');
+  const trap = document.getElementById('expTrap');
+  const trapText = document.getElementById('expTrapText');
+
+  expBox.className = `explanation-box show ${isCorrect ? 'correct' : 'wrong'}`;
+  verdict.className = `exp-verdict ${isCorrect ? 'correct' : 'wrong'}`;
+  verdict.textContent = isCorrect
+    ? `✓ Correct — ${md.name} (${md.full})`
+    : `✗ Incorrect — The answer is ${correct} (${MODELS[correct].full})`;
+  body.innerHTML = `<strong>Why:</strong> ${sc.explanation}<br><br><strong>Key signal:</strong> ${md.distinguish}`;
+
+  if (sc.trap) {
+    trap.style.display = 'block';
+    trapText.textContent = sc.trap;
+  }
+
+  document.getElementById('actionBar').style.display = 'flex';
+
+  // Update progress dots
+  const dots = document.getElementById('psDots');
+  if (dots) {
+    const pip = document.createElement('div');
+    pip.className = `ps-dot ${isCorrect ? 'win' : 'loss'}`;
+    dots.appendChild(pip);
+  }
+  const fill = document.getElementById('psFill');
+  if (fill) {
+    const total = ST.history.length;
+    const wins = ST.history.filter(h => h==='win').length;
+    fill.style.width = total ? (wins/total*100)+'%' : '0%';
+  }
+  const ps = document.getElementById('psScore');
+  if (ps) ps.textContent = `${ST.correct} correct`;
+}
+
+function nextQuestion() {
+  ST.qIdx++;
+  ST.answered = false;
+  if (ST.qIdx >= ST.shuffled.length) {
+    ST.shuffled = shuffle(getFilteredScenarios());
+    ST.qIdx = 0;
+    showToast('New round started!', 'ok');
+  }
+  renderClassify(document.getElementById('gameArea'));
+}
+
+function newRound() {
+  ST.shuffled = shuffle(getFilteredScenarios());
+  ST.qIdx = 0;
+  ST.answered = false;
+  renderClassify(document.getElementById('gameArea'));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// DECISION TREE MODE
+// ════════════════════════════════════════════════════════════════════════
+const TREE_QUESTIONS = [
+  { id:'q1', text:'Are classification LABELS (Top Secret, Secret, Confidential) and formal clearance levels used?', yes:'mac', no:'q2' },
+  { id:'q2', text:'Can the RESOURCE OWNER grant or revoke access to their own files/folders at their discretion?', yes:'dac', no:'q3' },
+  { id:'q3', text:'Is this a network device rule (firewall ACL, switch policy) that applies EQUALLY to ALL users with no per-user evaluation?', yes:'rule', no:'q4' },
+  { id:'q4', text:'Is MFA enforcement and/or device compliance checking a core part of the access decision (cloud/Azure AD policy)?', yes:'cond', no:'q5' },
+  { id:'q5', text:'Are there MULTIPLE conditions ANDed together beyond just the user\'s role? (e.g., role AND time AND location AND device state)', yes:'abac', no:'rbac' },
+];
+
+const TREE_RESULTS = {
+  rbac:{ model:'RBAC', color:'var(--rbac)', bg:'var(--rbac-lt)', sub:'Role-Based Access Control', desc:'Access is determined solely by the user\'s assigned role or job title. No additional conditions are evaluated.', examples:'• All nurses can view patient charts\n• IT admins can access the server console\n• Managers can approve expense reports' },
+  abac:{ model:'ABAC', color:'var(--abac)', bg:'var(--abac-lt)', sub:'Attribute-Based Access Control', desc:'Multiple attributes are AND\'d together: user attributes (role, dept), resource attributes (classification), and environmental attributes (time, location, device).', examples:'• Doctor AND assigned patient AND daytime hours\n• Finance staff AND on VPN AND business hours\n• HR role AND corp network AND completed training' },
+  mac: { model:'MAC',  color:'var(--mac)',  bg:'var(--mac-lt)',  sub:'Mandatory Access Control', desc:'The OS/system enforces access based on security labels and clearance levels. No individual — including the resource owner — can override the system\'s access decision.', examples:'• Top Secret docs → only TS-cleared users\n• Even the creator cannot share above recipient clearance\n• OS enforces labels, admins cannot bypass' },
+  dac: { model:'DAC',  color:'var(--dac)',  bg:'var(--dac-lt)',  sub:'Discretionary Access Control', desc:'The resource owner has discretion over who can access the resource. Owners can grant and revoke permissions to other users at will.', examples:'• File owner shares folder with colleagues\n• Unix chmod by the file owner\n• User grants read access to their document' },
+  rule:{ model:'Rule-Based', color:'var(--rule)', bg:'var(--rule-lt)', sub:'Rule-Based Access Control', desc:'System-wide if-then rules applied uniformly to all users on a network device. No per-user evaluation — the same rule applies to everyone.', examples:'• Firewall: deny all from 192.168.1.0/24:23\n• Switch: block VLAN 10 → VLAN 20 after 11pm\n• Router ACL: deny all Telnet traffic' },
+  cond:{ model:'Conditional', color:'var(--cond)', bg:'var(--cond-lt)', sub:'Conditional Access', desc:'Cloud-native (Azure AD / Entra ID) access policy requiring MFA and/or device compliance checks. Modern zero-trust implementation.', examples:'• MFA required outside corp network\n• Block non-compliant devices regardless of credentials\n• Require MFA when sign-in risk is medium/high' },
+};
+
+function renderTree(g) {
+  const current = getCurrentTreeNode();
+  const isResult = typeof current === 'string' && TREE_RESULTS[current];
+  const pathSteps = buildTreePath();
+
+  g.innerHTML = `
+    <div class="tree-layout">
+      <div class="tree-card">
+        <div class="tree-title">Access Model Decision Tree</div>
+        <div class="tree-sub">Answer each yes/no question to identify the correct access control model for any scenario. This replicates the mental process you should use on the exam.</div>
+
+        ${pathSteps.length > 0 ? `
+          <div class="tree-path">
+            ${pathSteps.map((p, i) => `
+              <span class="tp-step">${p}</span>
+              ${i < pathSteps.length - 1 ? '<span class="tp-arrow">→</span>' : ''}
+            `).join('')}
+          </div>
+        ` : ''}
+
+        ${TREE_QUESTIONS.map((q, qi) => {
+          const answered = ST.treeAnswers[q.id];
+          const isCurrent = !isResult && current && current.id === q.id;
+          if (!isCurrent && !answered) return '';
+          return `
+            <div class="tree-node" style="${answered ? 'opacity:0.6;' : ''}">
+              <div class="tree-q">${qi+1}. ${q.text}</div>
+              ${answered ? `
+                <div class="tree-options">
+                  <div class="tree-opt ${answered==='yes'?'selected-yes':''}">YES</div>
+                  <div class="tree-opt ${answered==='no'?'selected-no':''}">NO</div>
+                </div>
+              ` : `
+                <div class="tree-options">
+                  <div class="tree-opt" onclick="treeAnswer('${q.id}','yes')">YES</div>
+                  <div class="tree-opt" onclick="treeAnswer('${q.id}','no')">NO</div>
+                </div>
+              `}
+            </div>`;
+        }).join('')}
+
+        ${isResult ? `
+          <div class="tree-result show" style="border-color:${TREE_RESULTS[current].color}; background:${TREE_RESULTS[current].bg};">
+            <div style="font-family:var(--mono);font-size:0.65rem;color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;">Result</div>
+            <div class="tr-model-name" style="color:${TREE_RESULTS[current].color};">${TREE_RESULTS[current].model}</div>
+            <div class="tr-model-sub" style="color:var(--ink3);">${TREE_RESULTS[current].sub}</div>
+            <div class="tr-desc">${TREE_RESULTS[current].desc}</div>
+            <div class="tr-examples">${TREE_RESULTS[current].examples.replace(/\n/g,'<br>')}</div>
+            <div style="margin-top:16px; display:flex; gap:10px; justify-content:center;">
+              <button class="btn btn-solid" onclick="resetTree()">Try Another Scenario ↻</button>
+            </div>
+          </div>
+        ` : ''}
+
+        ${!isResult && !current ? `<div style="padding:24px;text-align:center;color:var(--ink3);">Answer the questions above to identify the model.</div>` : ''}
+      </div>
+
+      <div class="sidebar">
+        <div style="background:var(--surface);border:2px solid var(--border);padding:20px;">
+          <div class="rp-title" style="font-size:0.68rem;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;display:flex;align-items:center;gap:6px;"><span style="width:3px;height:14px;background:var(--rbac-mid);display:block;"></span>How to Use the Tree</div>
+          <div style="font-size:0.78rem;color:var(--ink2);line-height:1.7;">
+            <strong>When you see a scenario on the exam:</strong><br>
+            1. Check for clearance labels (MAC first)<br>
+            2. Check if the owner can grant access (DAC)<br>
+            3. Check if it's a network device rule (Rule-Based)<br>
+            4. Check for cloud/MFA enforcement (Conditional)<br>
+            5. Count the conditions — one = RBAC, multiple ANDs = ABAC
+          </div>
+        </div>
+        ${Object.entries(MODELS).map(([key, m]) => `
+          <div class="model-ref-card">
+            <div class="mrc-header" style="background:${m.lt};">
+              <div class="mrc-icon" style="background:${m.mid};">${m.icon}</div>
+              <div><div class="mrc-name" style="color:${m.color};">${m.name}</div><div style="font-family:var(--mono);font-size:0.58rem;color:var(--ink3);">${m.full}</div></div>
+            </div>
+            <div class="mrc-body">
+              <div class="mrc-trigger" style="font-size:0.63rem;">🔑 ${m.trigger}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function getCurrentTreeNode() {
+  let node = TREE_QUESTIONS[0];
+  while (true) {
+    const ans = ST.treeAnswers[node.id];
+    if (!ans) return node;
+    const next = ans === 'yes' ? node.yes : node.no;
+    if (TREE_RESULTS[next]) return next;
+    const nextNode = TREE_QUESTIONS.find(q => q.id === next);
+    if (!nextNode) return null;
+    node = nextNode;
+  }
+}
+
+function buildTreePath() {
+  const steps = [];
+  let node = TREE_QUESTIONS[0];
+  while (true) {
+    const ans = ST.treeAnswers[node.id];
+    if (!ans) break;
+    steps.push(ans === 'yes' ? 'YES' : 'NO');
+    const next = ans === 'yes' ? node.yes : node.no;
+    if (TREE_RESULTS[next]) { steps.push(TREE_RESULTS[next].model); break; }
+    const nextNode = TREE_QUESTIONS.find(q => q.id === next);
+    if (!nextNode) break;
+    node = nextNode;
+  }
+  return steps;
+}
+
+function treeAnswer(qid, ans) {
+  ST.treeAnswers[qid] = ans;
+  // Clear any answers after this point
+  let found = false;
+  TREE_QUESTIONS.forEach(q => {
+    if (q.id === qid) { found = true; return; }
+    if (found) delete ST.treeAnswers[q.id];
+  });
+  renderTree(document.getElementById('gameArea'));
+}
+
+function resetTree() {
+  ST.treeAnswers = {};
+  renderTree(document.getElementById('gameArea'));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// POLICY BUILDER MODE
+// ════════════════════════════════════════════════════════════════════════
+function renderBuilder(g) {
+  const conditions = ST.conditions;
+  const prediction = predictModel();
+
+  g.innerHTML = `
+    <div class="builder-layout">
+      <div class="builder-card">
+        <div class="builder-title">Policy Statement Builder</div>
+        <div class="builder-desc">Build a real access policy by filling in the fields. The simulator will predict which access control model your policy implements — and explain why.</div>
+
+        <div class="field-group">
+          <label class="field-label">Effect (what happens)</label>
+          <select class="field-select" onchange="ST.builderEffect=this.value; rerenderBuilder();">
+            <option value="ALLOW" ${ST.builderEffect==='ALLOW'?'selected':''}>ALLOW</option>
+            <option value="DENY"  ${ST.builderEffect==='DENY'?'selected':''}>DENY</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Subject / Who</label>
+          <input type="text" class="field-input" placeholder='e.g. "nurses", "users with clearance=Secret", "IP 10.0.0.0/8"'
+            value="${ST.builderSubject}" oninput="ST.builderSubject=this.value; rerenderBuilder();">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Resource / What</label>
+          <input type="text" class="field-input" placeholder='e.g. "patient charts", "files labeled TS", "server console"'
+            value="${ST.builderResource}" oninput="ST.builderResource=this.value; rerenderBuilder();">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Conditions (add multiple to see ABAC emerge)</label>
+          ${conditions.map((c, i) => `
+            <div class="condition-row">
+              <select class="field-select" style="font-size:0.75rem;" onchange="ST.conditions[${i}].attr=this.value; rerenderBuilder();">
+                <option value="" ${c.attr===''?'selected':''}>-- attribute --</option>
+                <option value="role"       ${c.attr==='role'?'selected':''}>role</option>
+                <option value="department" ${c.attr==='department'?'selected':''}>department</option>
+                <option value="clearance"  ${c.attr==='clearance'?'selected':''}>clearance level</option>
+                <option value="time"       ${c.attr==='time'?'selected':''}>time of day</option>
+                <option value="location"   ${c.attr==='location'?'selected':''}>location / network</option>
+                <option value="device"     ${c.attr==='device'?'selected':''}>device state</option>
+                <option value="mfa"        ${c.attr==='mfa'?'selected':''}>MFA completed</option>
+                <option value="owner"      ${c.attr==='owner'?'selected':''}>resource owner</option>
+                <option value="ip_range"   ${c.attr==='ip_range'?'selected':''}>IP range / VLAN</option>
+              </select>
+              <select class="field-select" style="font-size:0.75rem;" onchange="ST.conditions[${i}].op=this.value; rerenderBuilder();">
+                <option value="equals"  ${c.op==='equals'?'selected':''}>equals</option>
+                <option value="matches" ${c.op==='matches'?'selected':''}>matches</option>
+                <option value="greater" ${c.op==='greater'?'selected':''}>≥ level</option>
+                <option value="is"      ${c.op==='is'?'selected':''}>is</option>
+                <option value="not"     ${c.op==='not'?'selected':''}>is not</option>
+              </select>
+              <input type="text" class="field-input" style="font-size:0.75rem;"
+                placeholder="value" value="${c.val}"
+                oninput="ST.conditions[${i}].val=this.value; rerenderBuilder();">
+              <button class="del-btn" onclick="ST.conditions.splice(${i},1); if(ST.conditions.length===0) ST.conditions.push({attr:'',op:'equals',val:''}); rerenderBuilder();">✕</button>
+            </div>
+          `).join('')}
+          <button class="add-cond-btn" onclick="ST.conditions.push({attr:'',op:'equals',val:''}); rerenderBuilder();">+ Add condition</button>
+        </div>
+
+        <label class="field-label" style="margin-top:8px;">Policy Preview</label>
+        <div class="policy-preview" id="policyPreview">${buildPolicyText()}</div>
+      </div>
+
+      <div>
+        <div class="builder-card">
+          <div class="builder-title">Model Prediction</div>
+          <div class="builder-desc" style="margin-bottom:0;">Based on your policy structure, this is the most likely access control model:</div>
+          ${prediction ? `
+            <div class="model-prediction" style="border-color:${MODELS[prediction.model]?.color||'var(--border2)'}; background:${MODELS[prediction.model]?.lt||'var(--panel)'}; margin-top:14px;">
+              <div class="mp-icon" style="background:${MODELS[prediction.model]?.mid||'var(--ink3)'};">${MODELS[prediction.model]?.icon||'?'}</div>
+              <div>
+                <div class="mp-name" style="color:${MODELS[prediction.model]?.color||'var(--ink)'};">${prediction.model}</div>
+                <div class="mp-reason">${prediction.reason}</div>
+              </div>
+            </div>
+            <div style="margin-top:14px; padding:12px 14px; background:var(--panel); border:1px solid var(--border); font-size:0.72rem; color:var(--ink2); line-height:1.65;">
+              <strong>Why ${prediction.model}:</strong><br>${prediction.detail}
+              ${prediction.escalate ? `<br><br><span style="color:var(--gold);">⚠ ${prediction.escalate}</span>` : ''}
+            </div>
+          ` : `<div style="padding:20px; text-align:center; color:var(--ink3); font-size:0.78rem;">Fill in the fields above to get a prediction.</div>`}
+        </div>
+
+        <div class="builder-card" style="margin-top:16px;">
+          <div class="builder-title" style="margin-bottom:12px;">Try These Policies</div>
+          ${[
+            {label:'Simple role policy → RBAC', sub:'One role condition, no extras',
+              action: () => { ST.builderEffect='ALLOW'; ST.builderSubject='nurses'; ST.builderResource='patient charts'; ST.conditions=[{attr:'role',op:'equals',val:'nurse'}]; rerenderBuilder(); }},
+            {label:'Multi-condition policy → ABAC', sub:'Role + time + network',
+              action: () => { ST.builderEffect='ALLOW'; ST.builderSubject='finance staff'; ST.builderResource='financial reports'; ST.conditions=[{attr:'role',op:'equals',val:'finance'},{attr:'time',op:'matches',val:'business hours'},{attr:'location',op:'is',val:'corporate VPN'}]; rerenderBuilder(); }},
+            {label:'Owner control → DAC', sub:'Owner grants access',
+              action: () => { ST.builderEffect='ALLOW'; ST.builderSubject='file owner'; ST.builderResource='shared folder'; ST.conditions=[{attr:'owner',op:'is',val:'resource creator'}]; rerenderBuilder(); }},
+            {label:'Clearance labels → MAC', sub:'OS-enforced classification',
+              action: () => { ST.builderEffect='ALLOW'; ST.builderSubject='analysts'; ST.builderResource='classified documents'; ST.conditions=[{attr:'clearance',op:'greater',val:'Secret'}]; rerenderBuilder(); }},
+            {label:'Cloud MFA policy → Conditional', sub:'Device + MFA enforcement',
+              action: () => { ST.builderEffect='ALLOW'; ST.builderSubject='remote employees'; ST.builderResource='cloud apps'; ST.conditions=[{attr:'mfa',op:'is',val:'completed'},{attr:'device',op:'is',val:'compliant'}]; rerenderBuilder(); }},
+          ].map((ex, i) => `
+            <div style="padding:10px 12px; border:1px solid var(--border); margin-bottom:6px; cursor:pointer; transition:background 0.15s;"
+              onclick="presetBuilderExample(${i})"
+              onmouseover="this.style.background='var(--panel)'" onmouseout="this.style.background=''">
+              <div style="font-size:0.8rem; font-weight:700;">${ex.label}</div>
+              <div style="font-family:var(--mono); font-size:0.6rem; color:var(--ink3);">${ex.sub}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+const BUILDER_PRESETS = [
+  { effect:'ALLOW', subject:'nurses', resource:'patient charts', conditions:[{attr:'role',op:'equals',val:'nurse'}] },
+  { effect:'ALLOW', subject:'finance staff', resource:'financial reports', conditions:[{attr:'role',op:'equals',val:'finance'},{attr:'time',op:'matches',val:'business hours'},{attr:'location',op:'is',val:'corporate VPN'}] },
+  { effect:'ALLOW', subject:'file owner', resource:'shared folder', conditions:[{attr:'owner',op:'is',val:'resource creator'}] },
+  { effect:'ALLOW', subject:'analysts', resource:'classified documents', conditions:[{attr:'clearance',op:'greater',val:'Secret'}] },
+  { effect:'ALLOW', subject:'remote employees', resource:'cloud apps', conditions:[{attr:'mfa',op:'is',val:'completed'},{attr:'device',op:'is',val:'compliant'}] },
+];
+
+function presetBuilderExample(i) {
+  const p = BUILDER_PRESETS[i];
+  ST.builderEffect = p.effect;
+  ST.builderSubject = p.subject;
+  ST.builderResource = p.resource;
+  ST.conditions = p.conditions.map(c => ({...c}));
+  rerenderBuilder();
+}
+
+function rerenderBuilder() { renderBuilder(document.getElementById('gameArea')); }
+
+function buildPolicyText() {
+  const c = ST.conditions.filter(c => c.attr);
+  if (!ST.builderSubject && !ST.builderResource && c.length === 0)
+    return '<span style="color:var(--ink3);">Policy will appear here as you fill in the fields above...</span>';
+
+  let parts = [];
+  parts.push(`<span class="pp-action">${ST.builderEffect}</span>`);
+  if (ST.builderSubject) parts.push(`<span class="pp-keyword">SUBJECT</span> <span class="pp-attr">${ST.builderSubject}</span>`);
+  if (ST.builderResource) parts.push(`<span class="pp-keyword">ACCESS</span> <span class="pp-resource">${ST.builderResource}</span>`);
+  if (c.length > 0) {
+    parts.push(`<span class="pp-keyword">WHEN</span>`);
+    const condStrs = c.map(cd => `<span class="pp-attr">${cd.attr}</span> ${cd.op} <span class="pp-resource">${cd.val||'...'}</span>`);
+    parts.push(condStrs.join(` <span class="pp-keyword">AND</span> `));
+  }
+  return parts.join(' &nbsp;·&nbsp; ');
+}
+
+function predictModel() {
+  const c = ST.conditions.filter(cd => cd.attr);
+  if (!ST.builderSubject && c.length === 0) return null;
+
+  const attrs = c.map(cd => cd.attr);
+
+  if (attrs.includes('clearance')) return {
+    model:'MAC',
+    reason:'Clearance level attribute detected',
+    detail:'Clearance levels and classification labels are the primary indicator of MAC. The OS enforces access based on these labels — no user can override.'
+  };
+
+  if (attrs.includes('owner')) return {
+    model:'DAC',
+    reason:'Owner/creator attribute detected',
+    detail:'When the resource owner controls access decisions, that\'s Discretionary Access Control. The owner has discretion over who can access their resource.'
+  };
+
+  if (attrs.includes('mfa') || attrs.includes('device')) {
+    const hasMfa = attrs.includes('mfa');
+    const hasDevice = attrs.includes('device');
+    return {
+      model:'Conditional',
+      reason:`${hasMfa?'MFA':'Device compliance'} condition detected`,
+      detail:'MFA enforcement and device compliance checking are defining features of cloud Conditional Access policies (Azure AD / Entra ID).',
+      escalate: hasMfa && hasDevice ? null : 'If this is not a cloud/Azure AD policy, ABAC could also apply.'
+    };
+  }
+
+  if (attrs.includes('ip_range') && c.length === 1) return {
+    model:'Rule-Based',
+    reason:'IP range/VLAN rule with single condition',
+    detail:'A policy based solely on IP range or VLAN, applied to all traffic, is a Rule-Based network ACL. It applies uniformly without per-user evaluation.'
+  };
+
+  if (c.length > 1 || attrs.includes('time') || attrs.includes('location') || attrs.includes('device')) return {
+    model:'ABAC',
+    reason:`${c.length} attribute condition${c.length>1?'s':''} detected`,
+    detail:`Multiple conditions AND'd together (${attrs.join(', ')}) require evaluating multiple attributes simultaneously. This is the defining characteristic of ABAC.`,
+    escalate: c.length === 1 ? 'A single non-role attribute could still be ABAC depending on context.' : null
+  };
+
+  if (attrs.includes('role') || attrs.includes('department')) return {
+    model:'RBAC',
+    reason:'Single role/department condition',
+    detail:'A policy based solely on the user\'s role or department is Role-Based Access Control. No additional conditions are evaluated beyond group membership.',
+    escalate: 'Add time, location, or device conditions to see how this escalates to ABAC.'
+  };
+
+  return {
+    model:'RBAC',
+    reason:'Simple subject-based policy',
+    detail:'A basic allow/deny based on who the subject is, without multiple conditions, is most consistent with RBAC.',
+    escalate: 'Add attribute conditions to see the model change.'
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// COMPARE MODE
+// ════════════════════════════════════════════════════════════════════════
+function renderCompare(g) {
+  const rows = [
+    ['Who enforces access?', 'System admin assigns roles', 'Policy engine evaluates attributes', 'The OS / system itself', 'The resource owner', 'Network device (FW/switch)', 'Cloud identity platform'],
+    ['Can the resource owner override?', '✗ No (role controls)', '✗ No (policy controls)', '✗ No (system enforces)', '✓ Yes — by definition', '✗ No (global rule)', '✗ No'],
+    ['Number of conditions', 'One (role only)', 'Two or more (ANDed)', 'One (clearance ≥ label)', 'One (owner decision)', 'One (rule match)', 'Two+ (identity + device/MFA)'],
+    ['Government / military use?', '★ Common', '★★ Common', '★★★ Primary', 'Limited', 'Some', 'Rare'],
+    ['Flexibility', 'Medium', 'Very High', 'Low (rigid)', 'High per owner', 'Low (blanket)', 'High'],
+    ['Complexity', 'Low', 'High', 'Medium', 'Low', 'Low', 'Medium'],
+    ['Exam keyword trigger', '"role" / "job title"', '"AND" + 2+ conditions', '"clearance" / "label" / "OS enforces"', '"owner grants" / "creator controls"', '"all users" / "regardless of identity"', '"MFA required" + "device compliant"'],
+    ['Real-world examples', 'Active Directory groups', 'AWS IAM policies', 'SELinux, MLS systems', 'Unix chmod, NTFS ACLs', 'Firewall ACLs, router ACLs', 'Azure AD Conditional Access'],
+  ];
+
+  const modelNames = ['RBAC','ABAC','MAC','DAC','Rule-Based','Conditional'];
+
+  g.innerHTML = `
+    <div style="background:var(--surface); border:2px solid var(--border); overflow:auto; margin-bottom:24px;">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th style="width:200px;">Characteristic</th>
+            ${modelNames.map(m => `<th style="color:${MODELS[m].mid}; background:${MODELS[m].lt};">${m}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              ${row.map((cell, i) => i===0
+                ? `<td style="font-weight:700; background:var(--panel); font-size:0.73rem;">${cell}</td>`
+                : `<td style="font-size:0.72rem;">${cell}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px;">
+      ${modelNames.map(m => {
+        const md = MODELS[m];
+        return `
+          <div style="background:var(--surface); border:2px solid ${md.color}20; border-top:4px solid ${md.color}; padding:20px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+              <div style="width:32px;height:32px;background:${md.mid};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:white;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);">${md.icon}</div>
+              <div>
+                <div style="font-size:0.95rem;font-weight:900;color:${md.color};">${md.name}</div>
+                <div style="font-family:var(--mono);font-size:0.6rem;color:var(--ink3);">${md.full}</div>
+              </div>
+            </div>
+            <div style="font-size:0.75rem;color:var(--ink2);line-height:1.65; margin-bottom:10px;">${md.description}</div>
+            <div style="padding:8px 10px; background:${md.lt}; border-left:3px solid ${md.color}; font-size:0.7rem; color:${md.color}; line-height:1.55;">
+              <strong>Distinguisher:</strong> ${md.distinguish}
+            </div>
+            <div style="margin-top:10px; font-family:var(--mono); font-size:0.62rem; color:var(--ink3); line-height:1.7;">
+              ${md.examples.map(e => '• '+e).join('<br>')}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <div style="background:rgba(217,119,6,0.06); border:2px solid rgba(217,119,6,0.25); padding:20px;">
+      <div style="font-size:0.9rem;font-weight:900;color:var(--gold);margin-bottom:12px;">⚠ The 4 Most-Tested Confuser Pairs</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        ${[
+          {pair:'RBAC vs ABAC', trap:'RBAC = role ONLY. The moment you add AND conditions (time, location, device) to the role, it becomes ABAC. "Finance staff can access reports" = RBAC. "Finance staff can access reports IF on VPN AND during business hours" = ABAC.'},
+          {pair:'MAC vs DAC', trap:'MAC = SYSTEM enforces, owner CANNOT override. DAC = OWNER controls. If the creator/owner of the resource can share it → DAC. If the system prevents even the owner from sharing above another\'s clearance → MAC.'},
+          {pair:'ABAC vs Rule-Based', trap:'Rule-Based = same rule for ALL users on a network device with NO per-user evaluation. ABAC = policy evaluates individual user attributes. "Block all from VLAN 10" = Rule-Based. "Block users who lack role=finance" = ABAC.'},
+          {pair:'RBAC vs DAC', trap:'RBAC = centrally defined role permissions, users cannot change. DAC = users can share/grant access to their own resources. If users cannot modify their own permissions → RBAC. If the file owner can grant access → DAC.'},
+        ].map(cp => `
+          <div style="padding:14px; background:var(--surface); border:1px solid var(--border);">
+            <div style="font-weight:800; font-size:0.85rem; margin-bottom:6px;">${cp.pair}</div>
+            <div style="font-size:0.72rem; color:var(--ink2); line-height:1.6;">${cp.trap}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════════════════
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+ST.shuffled = shuffle(SCENARIOS);
+render();
+</script>
+</body>
+</html>

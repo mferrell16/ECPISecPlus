@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetDiagram Lab — Security+ Topology Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0b0f14;
+  --surface:   #111820;
+  --panel:     #141c26;
+  --panel2:    #0e1520;
+  --border:    #1e2d3d;
+  --border2:   #243348;
+  --blue:      #4f9cf9;
+  --blue-dim:  #1a3a6b;
+  --cyan:      #00d4ff;
+  --cyan-dim:  #083a4a;
+  --green:     #34d399;
+  --green-dim: #0a3328;
+  --red:       #f87171;
+  --red-dim:   #3d1515;
+  --amber:     #fbbf24;
+  --amber-dim: #3d2a05;
+  --purple:    #a78bfa;
+  --gray:      #4b6080;
+  --text:      #d4e4f7;
+  --text-dim:  #526880;
+  --text-muted:#3a5068;
+
+  /* Zone colors */
+  --zone-internet: rgba(248,113,113,0.08);
+  --zone-dmz:      rgba(251,191,36,0.07);
+  --zone-internal: rgba(52,211,153,0.06);
+  --zone-mgmt:     rgba(167,139,250,0.07);
+
+  --zone-internet-border: rgba(248,113,113,0.35);
+  --zone-dmz-border:      rgba(251,191,36,0.35);
+  --zone-internal-border: rgba(52,211,153,0.3);
+  --zone-mgmt-border:     rgba(167,139,250,0.3);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Blueprint grid overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(79,156,249,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,156,249,0.03) 1px, transparent 1px),
+    linear-gradient(rgba(79,156,249,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,156,249,0.015) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ── HEADER ── */
+header {
+  position: relative; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  display: flex; align-items: center; gap: 0;
+  height: 52px; flex-shrink: 0;
+}
+.logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.2rem; font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+}
+.logo svg { width: 24px; height: 24px; }
+.scenario-tabs {
+  display: flex; overflow-x: auto; flex: 1;
+  padding: 0 4px;
+}
+.stab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 16px; height: 52px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+.stab.done   { color: var(--green); border-bottom-color: var(--green); }
+.stab .snum  {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  background: var(--border);
+  color: var(--text-dim);
+  padding: 1px 5px;
+}
+.stab.active .snum { background: var(--cyan-dim); color: var(--cyan); }
+.stab.done   .snum { background: var(--green-dim); color: var(--green); }
+
+.header-right {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center;
+}
+.hbtn {
+  padding: 5px 12px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.75rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-cyan  { border-color: var(--cyan);  color: var(--cyan);  background: rgba(0,212,255,0.07); }
+.hbtn-cyan:hover  { background: rgba(0,212,255,0.18); }
+.hbtn-green { border-color: var(--green); color: var(--green); background: rgba(52,211,153,0.07); }
+.hbtn-green:hover { background: rgba(52,211,153,0.18); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover  { color: var(--text); }
+
+/* ── MAIN LAYOUT ── */
+.workspace {
+  display: flex; flex: 1; overflow: hidden;
+  position: relative; z-index: 1;
+}
+
+/* ── LEFT SIDEBAR: Palette ── */
+.palette {
+  width: 200px; flex-shrink: 0;
+  background: var(--panel2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.palette-section { padding: 12px; border-bottom: 1px solid var(--border); }
+.palette-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; color: var(--text-muted);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.palette-label::before { content:''; display:block; width:12px; height:1px; background:var(--text-muted); }
+.palette-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; margin-bottom: 4px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  cursor: grab; user-select: none;
+  transition: all 0.15s;
+}
+.palette-item:hover { border-color: var(--cyan); background: var(--cyan-dim); }
+.palette-item:active { cursor: grabbing; }
+.palette-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.palette-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.75rem; font-weight: 600;
+  color: var(--text); line-height: 1.2;
+}
+.palette-sub {
+  font-size: 0.58rem; color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
+}
+.palette-count {
+  margin-left: auto;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; color: var(--text-muted);
+  background: var(--border);
+  padding: 1px 5px;
+}
+
+/* ── CANVAS ── */
+.canvas-wrap {
+  flex: 1; position: relative; overflow: hidden;
+}
+#canvas {
+  width: 100%; height: 100%;
+  position: relative;
+  cursor: default;
+}
+#svgLayer {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Zones on canvas */
+.zone {
+  position: absolute;
+  border: 1px dashed;
+  pointer-events: none;
+  z-index: 0;
+}
+.zone-label {
+  position: absolute;
+  top: 6px; left: 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  pointer-events: none;
+}
+.zone-internet { background: var(--zone-internet); border-color: var(--zone-internet-border); }
+.zone-internet .zone-label { color: var(--red); }
+.zone-dmz      { background: var(--zone-dmz);      border-color: var(--zone-dmz-border);      }
+.zone-dmz      .zone-label { color: var(--amber); }
+.zone-internal { background: var(--zone-internal);  border-color: var(--zone-internal-border);  }
+.zone-internal .zone-label { color: var(--green); }
+.zone-mgmt     { background: var(--zone-mgmt);      border-color: var(--zone-mgmt-border);      }
+.zone-mgmt     .zone-label { color: var(--purple); }
+
+/* Placed device nodes */
+.device-node {
+  position: absolute; z-index: 10;
+  display: flex; flex-direction: column; align-items: center;
+  cursor: move; user-select: none;
+  transition: filter 0.15s;
+}
+.device-node:hover { filter: brightness(1.15); }
+.device-node.selected .node-box { border-color: var(--cyan) !important; box-shadow: 0 0 0 2px rgba(0,212,255,0.3); }
+.device-node.correct .node-box  { border-color: var(--green) !important; box-shadow: 0 0 0 2px rgba(52,211,153,0.4); animation: correctPulse 0.6s ease; }
+.device-node.wrong   .node-box  { border-color: var(--red)   !important; box-shadow: 0 0 0 2px rgba(248,113,113,0.4); animation: wrongShake 0.4s ease; }
+
+@keyframes correctPulse {
+  0%,100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+@keyframes wrongShake {
+  0%,100% { transform: translateX(0); }
+  25%     { transform: translateX(-5px); }
+  75%     { transform: translateX(5px); }
+}
+
+.node-box {
+  width: 72px; height: 72px;
+  border: 1.5px solid var(--border2);
+  background: var(--panel);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px;
+  transition: border-color 0.15s;
+  position: relative;
+}
+.node-icon  { font-size: 26px; line-height: 1; }
+.node-type  {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem; color: var(--text-dim);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.node-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.68rem; font-weight: 600;
+  color: var(--text); margin-top: 4px;
+  text-align: center; max-width: 90px;
+  line-height: 1.2;
+}
+.node-ip {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.55rem; color: var(--text-dim);
+  text-align: center;
+}
+.node-delete {
+  position: absolute; top: -8px; right: -8px;
+  width: 18px; height: 18px;
+  background: var(--red-dim); border: 1px solid var(--red);
+  color: var(--red); font-size: 10px;
+  display: none; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 20;
+  border-radius: 50%;
+}
+.device-node:hover .node-delete { display: flex; }
+.node-delete:hover { background: var(--red); color: white; }
+
+/* Drop zones hint */
+.drop-hint {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 0;
+  opacity: 0; transition: opacity 0.2s;
+}
+.drop-hint.visible { opacity: 1; }
+.drop-hint-text {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.1rem; font-weight: 700;
+  color: var(--text-muted); letter-spacing: 0.1em;
+  text-transform: uppercase; text-align: center;
+  border: 2px dashed var(--border);
+  padding: 24px 48px;
+}
+
+/* ── RIGHT SIDEBAR ── */
+.right-panel {
+  width: 280px; flex-shrink: 0;
+  background: var(--panel2);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.rpanel-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rpanel-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.rpanel-title::before { content:''; display:block; width:3px; height:14px; background: var(--cyan); }
+
+/* Scenario brief */
+.brief-title {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.9rem; font-weight: 700;
+  color: var(--text); margin-bottom: 6px; line-height: 1.3;
+}
+.diff-pill {
+  display: inline-block; padding: 2px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.diff-easy   { color: var(--green);  border: 1px solid var(--green-dim);  background: rgba(52,211,153,0.08); }
+.diff-medium { color: var(--amber);  border: 1px solid var(--amber-dim);  background: rgba(251,191,36,0.08); }
+.diff-hard   { color: var(--red);    border: 1px solid var(--red-dim);    background: rgba(248,113,113,0.08); }
+.brief-desc {
+  font-size: 0.72rem; color: var(--text-dim);
+  line-height: 1.65; margin-bottom: 10px;
+}
+
+/* Requirements */
+.req-list { display: flex; flex-direction: column; gap: 5px; }
+.req-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 0.68rem; color: var(--text-dim);
+  line-height: 1.4;
+}
+.req-icon { flex-shrink: 0; margin-top: 1px; font-size: 12px; }
+.req-item.met    { background: rgba(52,211,153,0.06); border-color: rgba(52,211,153,0.25); color: var(--text); }
+.req-item.unmet  { background: rgba(248,113,113,0.06); border-color: rgba(248,113,113,0.2); }
+.req-item.met    .req-icon { color: var(--green); }
+.req-item.unmet  .req-icon { color: var(--red); }
+.req-item:not(.met):not(.unmet) .req-icon { color: var(--text-muted); }
+
+/* Score */
+.score-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.8rem; font-weight: 900;
+  color: var(--cyan); line-height: 1;
+}
+.score-info { flex: 1; }
+.score-label { font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+.score-bar { height: 3px; background: var(--border); margin-top: 4px; }
+.score-fill { height: 100%; background: var(--cyan); transition: width 0.4s ease; }
+
+/* Hint */
+.hint-box {
+  padding: 10px 12px;
+  border: 1px solid var(--amber-dim);
+  background: rgba(251,191,36,0.04);
+  font-size: 0.65rem; color: var(--amber);
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+.hint-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* Answer reveal */
+.answer-section {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Connection mode */
+.connect-bar {
+  position: absolute; bottom: 12px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  padding: 8px 16px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 0.68rem; color: var(--text-dim);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+}
+.connect-bar.visible { opacity: 1; pointer-events: all; }
+.connect-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--cyan); animation: pulse 1s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* Legend */
+.legend {
+  position: absolute; bottom: 12px; left: 12px; z-index: 20;
+  display: flex; flex-direction: column; gap: 4px;
+  background: rgba(11,15,20,0.9);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.58rem; color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
+}
+.legend-line { width: 24px; height: 2px; }
+.legend-dash { width: 24px; height: 0; border-top: 2px dashed; }
+
+/* Modal */
+.modal-bg {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  padding: 32px; max-width: 500px; width: 90%;
+  transform: translateY(16px); transition: transform 0.2s;
+  position: relative;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.5rem; font-weight: 900;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.modal-title.win  { color: var(--green); }
+.modal-title.hint { color: var(--amber); }
+.modal-body { font-size: 0.75rem; color: var(--text-dim); line-height: 1.7; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; }
+.modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px; }
+.modal-close:hover { color: var(--text); }
+
+/* Answer diagram overlay */
+.answer-overlay {
+  position: absolute; inset: 0; z-index: 15;
+  pointer-events: none; display: none;
+}
+.answer-overlay.show { display: block; }
+.answer-node {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center;
+  pointer-events: none;
+}
+.answer-box {
+  width: 70px; height: 60px;
+  border: 2px solid var(--green);
+  background: rgba(52,211,153,0.1);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px;
+}
+.answer-icon { font-size: 22px; }
+.answer-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.65rem; font-weight: 600;
+  color: var(--green); text-align: center;
+  max-width: 88px; line-height: 1.2; margin-top: 3px;
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="2" y="2" width="8" height="6" rx="1"/><rect x="14" y="2" width="8" height="6" rx="1"/>
+      <rect x="8" y="16" width="8" height="6" rx="1"/>
+      <line x1="6" y1="8" x2="6" y2="13"/><line x1="18" y1="8" x2="18" y2="13"/>
+      <line x1="6" y1="13" x2="12" y2="13"/><line x1="18" y1="13" x2="12" y2="13"/>
+      <line x1="12" y1="13" x2="12" y2="16"/>
+    </svg>
+    NetDiagram Lab
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-right">
+    <button class="hbtn hbtn-gray" onclick="resetCanvas()">↺ Reset</button>
+    <button class="hbtn hbtn-cyan" onclick="toggleConnectMode()" id="connectBtn">⟶ Connect</button>
+    <button class="hbtn hbtn-green" onclick="checkAnswer()">✓ Check</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Device Palette -->
+  <div class="palette" id="palette">
+    <div class="palette-section">
+      <div class="palette-label">Security Devices</div>
+    </div>
+    <div class="palette-section" id="paletteItems" style="border:none; padding-top:8px;"></div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <div id="canvas">
+      <!-- Zones rendered here -->
+      <div class="drop-hint" id="dropHint">
+        <div class="drop-hint-text">Drag devices from the left panel<br>onto the network diagram</div>
+      </div>
+
+      <!-- SVG for connection lines -->
+      <svg id="svgLayer" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#4b6080"/>
+          </marker>
+          <marker id="arrowCyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#00d4ff"/>
+          </marker>
+          <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#34d399"/>
+          </marker>
+        </defs>
+      </svg>
+
+      <!-- Answer overlay -->
+      <div class="answer-overlay" id="answerOverlay"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-line" style="background:var(--gray);"></div> Connection</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--cyan);"></div> Selected path</div>
+      <div class="legend-item" style="color:var(--red);">▪ Internet / Untrusted</div>
+      <div class="legend-item" style="color:var(--amber);">▪ DMZ</div>
+      <div class="legend-item" style="color:var(--green);">▪ Trusted / Internal</div>
+      <div class="legend-item" style="color:var(--purple);">▪ Management</div>
+    </div>
+
+    <!-- Connect mode bar -->
+    <div class="connect-bar" id="connectBar">
+      <div class="connect-dot"></div>
+      <span id="connectStatus">Click a device to start a connection</span>
+      <button class="hbtn hbtn-gray" style="padding:3px 10px; font-size:0.65rem;" onclick="cancelConnect()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <div class="rpanel-section" id="briefSection">
+      <!-- Scenario brief injected here -->
+    </div>
+
+    <div class="score-row">
+      <div class="score-num" id="scoreNum">—</div>
+      <div class="score-info">
+        <div class="score-label">Requirements Met</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="rpanel-section" style="flex:1; overflow-y:auto;">
+      <div class="rpanel-title">Requirements</div>
+      <div class="req-list" id="reqList"></div>
+    </div>
+
+    <div class="rpanel-section hint-box" id="hintBox">
+      <div class="hint-label">💡 Hint</div>
+      <div id="hintText"></div>
+    </div>
+
+    <div class="answer-section">
+      <button class="hbtn hbtn-gray" style="width:100%; padding:8px; font-size:0.72rem; margin-bottom:8px;" onclick="showAnswer()">
+        👁 Show Correct Answer
+      </button>
+      <button class="hbtn hbtn-green" style="width:100%; padding:8px; font-size:0.72rem;" onclick="checkAnswer()">
+        ✓ Check My Diagram
+      </button>
+    </div>
+  </div>
+
+</div><!-- /workspace -->
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// DEVICE TYPES
+// ════════════════════════════════════════════════════════════════════════
+const DEVICE_TYPES = {
+  ngfw:        { icon:'🔥', label:'NGFW',          sub:'Next-Gen Firewall' },
+  waf:         { icon:'🛡️', label:'WAF',           sub:'Web App Firewall'  },
+  utm:         { icon:'🏰', label:'UTM',            sub:'Unified Threat Mgmt'},
+  ids:         { icon:'👁️', label:'IDS Sensor',    sub:'Passive / Tap'    },
+  ips:         { icon:'⚡', label:'IPS',            sub:'Inline / Active'   },
+  lb:          { icon:'⚖️', label:'Load Balancer',  sub:'Active/Active'     },
+  proxy:       { icon:'🔀', label:'Proxy Server',   sub:'Forward/Reverse'  },
+  jump:        { icon:'🖥️', label:'Jump Server',   sub:'Privileged Access' },
+  webserver:   { icon:'🌐', label:'Web Server',     sub:'HTTP/HTTPS'        },
+  mailserver:  { icon:'📧', label:'Mail Server',    sub:'SMTP / Relay'      },
+  dns:         { icon:'🔍', label:'DNS Server',     sub:'Domain Resolution' },
+  dbserver:    { icon:'🗄️', label:'DB Server',     sub:'Database'          },
+  switch:      { icon:'🔌', label:'Core Switch',    sub:'L2/L3'             },
+  router:      { icon:'📡', label:'Router',         sub:'Gateway'           },
+  workstation: { icon:'💻', label:'Workstation',    sub:'End User'          },
+  internet:    { icon:'🌍', label:'Internet',       sub:'External/WAN'      },
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIOS
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+  {
+    id: 0,
+    title: "Standard DMZ Architecture",
+    difficulty: "easy",
+    desc: "Build a standard enterprise DMZ. Place the perimeter firewall between the internet and DMZ, put the web server in the DMZ, and add a second firewall between the DMZ and the internal network. Place an IDS sensor on a tap port inside the internal network.",
+    hint: "Remember: two firewalls, one on each side of the DMZ. The WAF sits directly in front of the web server. The IDS goes INSIDE the network on a tap — not inline.",
+    zones: [
+      { id:'internet', label:'Internet / Untrusted', cls:'zone-internet', x:2,   y:8,  w:14, h:84 },
+      { id:'dmz',      label:'DMZ',                  cls:'zone-dmz',      x:18,  y:8,  w:26, h:84 },
+      { id:'internal', label:'Trusted / Internal',   cls:'zone-internal', x:46,  y:8,  w:52, h:84 },
+    ],
+    availableDevices: ['internet','ngfw','waf','webserver','ids','workstation','switch','jump'],
+    requirements: [
+      { id:'r1', text: 'Internet node placed in Internet zone',          check: s => s.hasDeviceInZone('internet','internet') },
+      { id:'r2', text: 'NGFW placed between Internet and DMZ',           check: s => s.hasDeviceNearZoneBorder('ngfw','internet','dmz') },
+      { id:'r3', text: 'Web Server placed in DMZ zone',                  check: s => s.hasDeviceInZone('webserver','dmz') },
+      { id:'r4', text: 'WAF placed in DMZ (in front of Web Server)',     check: s => s.hasDeviceInZone('waf','dmz') },
+      { id:'r5', text: 'Internal firewall (NGFW) in Internal zone',      check: s => s.countDeviceType('ngfw') >= 2 },
+      { id:'r6', text: 'IDS Sensor placed in Internal zone',             check: s => s.hasDeviceInZone('ids','internal') },
+      { id:'r7', text: 'Core Switch placed in Internal zone',            check: s => s.hasDeviceInZone('switch','internal') },
+    ],
+    answerNodes: [
+      { type:'internet',   x:4,   y:30, label:'Internet' },
+      { type:'ngfw',       x:20,  y:28, label:'Perimeter NGFW' },
+      { type:'waf',        x:22,  y:52, label:'WAF' },
+      { type:'webserver',  x:33,  y:52, label:'Web Server' },
+      { type:'ngfw',       x:47,  y:28, label:'Internal FW' },
+      { type:'ids',        x:60,  y:52, label:'IDS (tap)' },
+      { type:'switch',     x:72,  y:28, label:'Core Switch' },
+      { type:'workstation',x:80,  y:52, label:'Workstations' },
+    ],
+    answerConnections: [
+      [0,1],[1,2],[2,3],[1,4],[4,5],[4,6],[6,7]
+    ]
+  },
+  {
+    id: 1,
+    title: "Block the Attack Path",
+    difficulty: "medium",
+    desc: "A web application has been receiving SQL injection attacks. Place a WAF in front of the web server. Attackers are also scanning internal systems — add an IPS inline between the internal switch and the servers. Place a jump server as the only path to admin access.",
+    hint: "IPS must be INLINE (in the traffic path between zones). IDS is passive and sits on a tap. The jump server should sit at the boundary before internal servers — not in the DMZ.",
+    zones: [
+      { id:'internet', label:'Internet',           cls:'zone-internet', x:2,  y:8,  w:14, h:84 },
+      { id:'dmz',      label:'DMZ',                cls:'zone-dmz',      x:18, y:8,  w:22, h:84 },
+      { id:'internal', label:'Internal Network',   cls:'zone-internal', x:42, y:8,  w:36, h:84 },
+      { id:'mgmt',     label:'Management Zone',    cls:'zone-mgmt',     x:80, y:8,  w:18, h:84 },
+    ],
+    availableDevices: ['internet','ngfw','waf','webserver','ips','ids','switch','jump','workstation','dbserver'],
+    requirements: [
+      { id:'r1', text: 'WAF placed in DMZ zone',                           check: s => s.hasDeviceInZone('waf','dmz') },
+      { id:'r2', text: 'Web Server placed in DMZ zone',                    check: s => s.hasDeviceInZone('webserver','dmz') },
+      { id:'r3', text: 'WAF placed before Web Server (left of it)',        check: s => s.deviceLeftOf('waf','webserver') },
+      { id:'r4', text: 'IPS placed in Internal zone (inline)',             check: s => s.hasDeviceInZone('ips','internal') },
+      { id:'r5', text: 'IPS placed before DB Server (inline)',             check: s => s.deviceLeftOf('ips','dbserver') },
+      { id:'r6', text: 'Jump Server placed in Management zone',            check: s => s.hasDeviceInZone('jump','mgmt') },
+      { id:'r7', text: 'DB Server placed in Internal zone',                check: s => s.hasDeviceInZone('dbserver','internal') },
+    ],
+    answerNodes: [
+      { type:'internet',   x:4,   y:30, label:'Internet' },
+      { type:'ngfw',       x:20,  y:28, label:'Perimeter FW' },
+      { type:'waf',        x:22,  y:52, label:'WAF' },
+      { type:'webserver',  x:32,  y:52, label:'Web Server' },
+      { type:'ips',        x:50,  y:28, label:'IPS (inline)' },
+      { type:'switch',     x:62,  y:28, label:'Switch' },
+      { type:'dbserver',   x:62,  y:52, label:'DB Server' },
+      { type:'jump',       x:83,  y:28, label:'Jump Server' },
+    ],
+    answerConnections: [
+      [0,1],[1,2],[2,3],[1,4],[4,5],[5,6],[4,7]
+    ]
+  },
+  {
+    id: 2,
+    title: "Fail-Open vs Fail-Closed",
+    difficulty: "medium",
+    desc: "Place two firewalls: one protecting a life-safety medical device (must be FAIL-CLOSED — block traffic on failure) and one protecting a high-availability web cluster (must be FAIL-OPEN — allow traffic on failure). Label them correctly. Also place a load balancer in front of the web cluster.",
+    hint: "Fail-CLOSED = security priority (medical devices, critical infrastructure). Fail-OPEN = availability priority (web services where downtime is worse than risk). Use UTM for fail-closed and NGFW for fail-open in this scenario.",
+    zones: [
+      { id:'internet', label:'Internet',             cls:'zone-internet', x:2,  y:8,  w:12, h:84 },
+      { id:'dmz',      label:'High-Avail Web Zone',  cls:'zone-dmz',      x:16, y:8,  w:32, h:84 },
+      { id:'internal', label:'Internal Network',     cls:'zone-internal', x:50, y:8,  w:26, h:84 },
+      { id:'mgmt',     label:'Medical Device Zone',  cls:'zone-mgmt',     x:78, y:8,  w:20, h:84 },
+    ],
+    availableDevices: ['internet','ngfw','utm','lb','webserver','switch','workstation'],
+    requirements: [
+      { id:'r1', text: 'NGFW (fail-open) protecting the web zone',   check: s => s.hasDeviceInZone('ngfw','dmz') || s.hasDeviceNearZoneBorder('ngfw','internet','dmz') },
+      { id:'r2', text: 'Load Balancer placed in High-Avail Web Zone',check: s => s.hasDeviceInZone('lb','dmz') },
+      { id:'r3', text: 'Web Server(s) placed in High-Avail Web Zone', check: s => s.hasDeviceInZone('webserver','dmz') },
+      { id:'r4', text: 'UTM (fail-closed) protecting Medical zone',   check: s => s.hasDeviceInZone('utm','mgmt') || s.hasDeviceNearZoneBorder('utm','internal','mgmt') },
+      { id:'r5', text: 'Core Switch placed in Internal zone',         check: s => s.hasDeviceInZone('switch','internal') },
+    ],
+    answerNodes: [
+      { type:'internet',  x:4,  y:30, label:'Internet' },
+      { type:'ngfw',      x:17, y:28, label:'NGFW\n(Fail-Open)' },
+      { type:'lb',        x:25, y:28, label:'Load Balancer' },
+      { type:'webserver', x:30, y:50, label:'Web Server 1' },
+      { type:'webserver', x:40, y:50, label:'Web Server 2' },
+      { type:'switch',    x:55, y:28, label:'Core Switch' },
+      { type:'workstation',x:55,y:52, label:'Workstations' },
+      { type:'utm',       x:79, y:28, label:'UTM\n(Fail-Closed)' },
+    ],
+    answerConnections: [
+      [0,1],[1,2],[2,3],[2,4],[1,5],[5,6],[5,7]
+    ]
+  },
+  {
+    id: 3,
+    title: "IDS vs IPS Placement",
+    difficulty: "hard",
+    desc: "You must place both an IDS and an IPS in this network. The IPS must be INLINE (in the traffic path) between the internet-facing router and the internal switch. The IDS must be PASSIVE (on a tap/span port off the main path). Also place the correct firewall type to inspect application-layer traffic.",
+    hint: "IPS is INLINE — traffic physically passes through it. IDS is on a branch/tap — it receives a COPY of traffic but never sits in the main path. A NGFW or WAF handles Layer 7 inspection. The IDS should branch off a switch, not sit between two devices.",
+    zones: [
+      { id:'internet', label:'Internet / WAN',      cls:'zone-internet', x:2,  y:8,  w:14, h:84 },
+      { id:'dmz',      label:'DMZ / Perimeter',     cls:'zone-dmz',      x:18, y:8,  w:22, h:84 },
+      { id:'internal', label:'Internal Network',    cls:'zone-internal', x:42, y:8,  w:56, h:84 },
+    ],
+    availableDevices: ['internet','router','ngfw','ips','ids','switch','webserver','workstation','jump'],
+    requirements: [
+      { id:'r1', text: 'Router placed in Internet zone',               check: s => s.hasDeviceInZone('router','internet') },
+      { id:'r2', text: 'IPS placed in DMZ/Perimeter zone (inline)',    check: s => s.hasDeviceInZone('ips','dmz') },
+      { id:'r3', text: 'IPS is on the main traffic path (inline)',     check: s => s.hasDeviceInZone('ips','dmz') },
+      { id:'r4', text: 'NGFW placed between DMZ and Internal',         check: s => s.hasDeviceNearZoneBorder('ngfw','dmz','internal') || s.hasDeviceInZone('ngfw','dmz') },
+      { id:'r5', text: 'Core Switch placed in Internal zone',          check: s => s.hasDeviceInZone('switch','internal') },
+      { id:'r6', text: 'IDS placed in Internal zone (tap/passive)',    check: s => s.hasDeviceInZone('ids','internal') },
+      { id:'r7', text: 'Jump Server in Internal zone',                 check: s => s.hasDeviceInZone('jump','internal') },
+    ],
+    answerNodes: [
+      { type:'internet',   x:4,  y:30, label:'Internet' },
+      { type:'router',     x:6,  y:50, label:'Router/Gateway' },
+      { type:'ips',        x:22, y:30, label:'IPS (INLINE)' },
+      { type:'ngfw',       x:35, y:28, label:'NGFW (L7)' },
+      { type:'switch',     x:55, y:28, label:'Core Switch' },
+      { type:'ids',        x:65, y:52, label:'IDS (tap)' },
+      { type:'workstation',x:72, y:28, label:'Workstations' },
+      { type:'jump',       x:82, y:28, label:'Jump Server' },
+    ],
+    answerConnections: [
+      [0,1],[1,2],[2,3],[3,4],[4,5],[4,6],[4,7]
+    ]
+  },
+  {
+    id: 4,
+    title: "Zero Trust Segmentation",
+    difficulty: "hard",
+    desc: "Design a Zero Trust network. Every zone must have its own firewall — internal users cannot freely reach servers. A jump server is the ONLY path to privileged access. A proxy server must sit between internal users and the internet. Place sensors to monitor east-west traffic between internal segments.",
+    hint: "Zero Trust = never trust, always verify. Microsegmentation means firewalls between INTERNAL zones too — not just at the perimeter. The proxy enforces inspection of all outbound web traffic. East-west monitoring requires IDS sensors between internal segments.",
+    zones: [
+      { id:'internet', label:'Internet',              cls:'zone-internet', x:2,  y:8,  w:12, h:84 },
+      { id:'dmz',      label:'DMZ / Services',        cls:'zone-dmz',      x:16, y:8,  w:22, h:84 },
+      { id:'internal', label:'User Segment',          cls:'zone-internal', x:40, y:8,  w:24, h:84 },
+      { id:'mgmt',     label:'Server / Admin Segment',cls:'zone-mgmt',     x:66, y:8,  w:32, h:84 },
+    ],
+    availableDevices: ['internet','ngfw','proxy','waf','webserver','workstation','switch','ids','jump','dbserver'],
+    requirements: [
+      { id:'r1', text: 'Perimeter NGFW between Internet and DMZ',        check: s => s.hasDeviceNearZoneBorder('ngfw','internet','dmz') },
+      { id:'r2', text: 'WAF in DMZ protecting web services',             check: s => s.hasDeviceInZone('waf','dmz') },
+      { id:'r3', text: 'Proxy server in User Segment for outbound web',  check: s => s.hasDeviceInZone('proxy','internal') },
+      { id:'r4', text: 'NGFW between User Segment and Server Segment',   check: s => s.hasDeviceNearZoneBorder('ngfw','internal','mgmt') || s.countDeviceType('ngfw') >= 2 },
+      { id:'r5', text: 'IDS sensor monitoring east-west traffic',        check: s => s.hasDeviceInZone('ids','internal') || s.hasDeviceInZone('ids','mgmt') },
+      { id:'r6', text: 'Jump Server in Server/Admin segment',            check: s => s.hasDeviceInZone('jump','mgmt') },
+      { id:'r7', text: 'DB Server in Server/Admin segment',              check: s => s.hasDeviceInZone('dbserver','mgmt') },
+    ],
+    answerNodes: [
+      { type:'internet',   x:4,  y:30, label:'Internet' },
+      { type:'ngfw',       x:17, y:28, label:'Perimeter FW' },
+      { type:'waf',        x:22, y:50, label:'WAF' },
+      { type:'webserver',  x:30, y:50, label:'Web Server' },
+      { type:'proxy',      x:46, y:28, label:'Proxy (outbound)' },
+      { type:'workstation',x:46, y:50, label:'Users' },
+      { type:'ids',        x:55, y:38, label:'IDS (E-W)' },
+      { type:'ngfw',       x:65, y:28, label:'Internal FW' },
+      { type:'jump',       x:72, y:28, label:'Jump Server' },
+      { type:'dbserver',   x:80, y:28, label:'DB Server' },
+    ],
+    answerConnections: [
+      [0,1],[1,2],[2,3],[1,4],[4,5],[4,6],[4,7],[7,8],[7,9]
+    ]
+  }
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentScenario = 0;
+let placedDevices = [];   // { id, type, x, y, el, labelText }
+let connections = [];     // { from, to, el }
+let nextId = 1;
+let connectMode = false;
+let connectFrom = null;
+let dragging = null;
+let dragOffset = { x:0, y:0 };
+let completedScenarios = new Set();
+let showingAnswer = false;
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO CHECKING HELPERS (passed as `s`)
+// ════════════════════════════════════════════════════════════════════════
+function buildChecker() {
+  const scenario = SCENARIOS[currentScenario];
+
+  function getZone(deviceType) {
+    const instances = placedDevices.filter(d => d.type === deviceType);
+    const zones = [];
+    const canvas = document.getElementById('canvas');
+    const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+
+    for (const inst of instances) {
+      const cx = inst.x + 36, cy = inst.y + 36; // center of 72px box
+      const cxPct = (cx / cw) * 100;
+      const cyPct = (cy / ch) * 100;
+      for (const z of scenario.zones) {
+        if (cxPct >= z.x && cxPct <= z.x + z.w && cyPct >= z.y && cyPct <= z.y + z.h) {
+          zones.push(z.id);
+          break;
+        }
+      }
+    }
+    return zones;
+  }
+
+  function getDeviceZone(device) {
+    const canvas = document.getElementById('canvas');
+    const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+    const cx = (device.x + 36) / cw * 100;
+    const cy = (device.y + 36) / ch * 100;
+    for (const z of scenario.zones) {
+      if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) return z.id;
+    }
+    return null;
+  }
+
+  return {
+    hasDeviceInZone(type, zoneId) {
+      return placedDevices.filter(d => d.type === type).some(d => getDeviceZone(d) === zoneId);
+    },
+    hasDeviceNearZoneBorder(type, zone1, zone2) {
+      // Device is within 15% x of the border between two zones
+      const z1 = scenario.zones.find(z => z.id === zone1);
+      const z2 = scenario.zones.find(z => z.id === zone2);
+      if (!z1 || !z2) return false;
+      const border = Math.max(z1.x + z1.w, z2.x + z2.w) - Math.max(0, z2.x - z1.x - z1.w);
+      const borderX = Math.min(z1.x + z1.w, z2.x);
+      const canvas = document.getElementById('canvas');
+      const cw = canvas.offsetWidth;
+      return placedDevices.filter(d => d.type === type).some(d => {
+        const dxPct = (d.x + 36) / cw * 100;
+        return Math.abs(dxPct - borderX) < 12;
+      });
+    },
+    deviceLeftOf(typeA, typeB) {
+      const devA = placedDevices.filter(d => d.type === typeA);
+      const devB = placedDevices.filter(d => d.type === typeB);
+      if (!devA.length || !devB.length) return false;
+      const maxAx = Math.max(...devA.map(d => d.x));
+      const minBx = Math.min(...devB.map(d => d.x));
+      return maxAx < minBx + 40; // allow some tolerance
+    },
+    countDeviceType(type) {
+      return placedDevices.filter(d => d.type === type).length;
+    },
+    hasConnection(typeA, typeB) {
+      return connections.some(c => {
+        const fa = placedDevices.find(d => d.id === c.from);
+        const fb = placedDevices.find(d => d.id === c.to);
+        return fa && fb && (
+          (fa.type === typeA && fb.type === typeB) ||
+          (fa.type === typeB && fb.type === typeA)
+        );
+      });
+    }
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER ZONES
+// ════════════════════════════════════════════════════════════════════════
+function renderZones() {
+  const canvas = document.getElementById('canvas');
+  canvas.querySelectorAll('.zone').forEach(el => el.remove());
+  const s = SCENARIOS[currentScenario];
+  s.zones.forEach(z => {
+    const el = document.createElement('div');
+    el.className = `zone ${z.cls}`;
+    el.style.cssText = `left:${z.x}%; top:${z.y}%; width:${z.w}%; height:${z.h}%;`;
+    el.innerHTML = `<div class="zone-label">${z.label}</div>`;
+    canvas.insertBefore(el, canvas.firstChild);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER PALETTE
+// ════════════════════════════════════════════════════════════════════════
+function renderPalette() {
+  const s = SCENARIOS[currentScenario];
+  const container = document.getElementById('paletteItems');
+  container.innerHTML = '';
+  s.availableDevices.forEach(type => {
+    const def = DEVICE_TYPES[type];
+    const el = document.createElement('div');
+    el.className = 'palette-item';
+    el.draggable = true;
+    el.dataset.type = type;
+    el.innerHTML = `
+      <div class="palette-icon">${def.icon}</div>
+      <div>
+        <div class="palette-name">${def.label}</div>
+        <div class="palette-sub">${def.sub}</div>
+      </div>
+    `;
+    el.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('deviceType', type);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    container.appendChild(el);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PLACE DEVICE ON CANVAS
+// ════════════════════════════════════════════════════════════════════════
+function placeDevice(type, x, y) {
+  const def = DEVICE_TYPES[type];
+  const id = nextId++;
+  const canvas = document.getElementById('canvas');
+
+  const el = document.createElement('div');
+  el.className = 'device-node';
+  el.style.cssText = `left:${x}px; top:${y}px;`;
+  el.dataset.id = id;
+  el.innerHTML = `
+    <div class="node-box">
+      <div class="node-icon">${def.icon}</div>
+      <div class="node-type">${def.label}</div>
+      <button class="node-delete" onclick="deleteDevice(${id})">✕</button>
+    </div>
+    <div class="node-label">${def.label}</div>
+  `;
+
+  // Click to connect
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('node-delete')) return;
+    if (connectMode) {
+      handleConnectClick(id);
+      return;
+    }
+    // Start drag
+    e.preventDefault();
+    const dev = placedDevices.find(d => d.id === id);
+    const rect = canvas.getBoundingClientRect();
+    dragOffset.x = e.clientX - rect.left - dev.x;
+    dragOffset.y = e.clientY - rect.top  - dev.y;
+    dragging = id;
+    el.style.zIndex = 100;
+  });
+
+  el.addEventListener('click', e => {
+    if (connectMode) { e.stopPropagation(); handleConnectClick(id); }
+  });
+
+  canvas.appendChild(el);
+
+  const device = { id, type, x, y, el };
+  placedDevices.push(device);
+
+  // Hide drop hint
+  document.getElementById('dropHint').classList.remove('visible');
+  updateSVG();
+  return device;
+}
+
+function deleteDevice(id) {
+  const dev = placedDevices.find(d => d.id === id);
+  if (!dev) return;
+  dev.el.remove();
+  placedDevices = placedDevices.filter(d => d.id !== id);
+  connections = connections.filter(c => {
+    if (c.from === id || c.to === id) { if (c.el) c.el.remove(); return false; }
+    return true;
+  });
+  updateSVG();
+  if (placedDevices.length === 0) document.getElementById('dropHint').classList.add('visible');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// DRAG DEVICES ON CANVAS
+// ════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+
+canvas.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const dev = placedDevices.find(d => d.id === dragging);
+  if (!dev) return;
+  dev.x = Math.max(0, Math.min(e.clientX - rect.left - dragOffset.x, canvas.offsetWidth - 72));
+  dev.y = Math.max(0, Math.min(e.clientY - rect.top  - dragOffset.y, canvas.offsetHeight - 72));
+  dev.el.style.left = dev.x + 'px';
+  dev.el.style.top  = dev.y + 'px';
+  updateSVG();
+});
+
+canvas.addEventListener('mouseup', () => {
+  if (dragging) {
+    const dev = placedDevices.find(d => d.id === dragging);
+    if (dev) dev.el.style.zIndex = 10;
+    dragging = null;
+  }
+});
+canvas.addEventListener('mouseleave', () => { dragging = null; });
+
+// Drop from palette
+canvas.addEventListener('dragover', e => e.preventDefault());
+canvas.addEventListener('drop', e => {
+  e.preventDefault();
+  const type = e.dataTransfer.getData('deviceType');
+  if (!type) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left - 36;
+  const y = e.clientY - rect.top  - 36;
+  placeDevice(type, Math.max(0, x), Math.max(0, y));
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// CONNECTION MODE
+// ════════════════════════════════════════════════════════════════════════
+function toggleConnectMode() {
+  connectMode = !connectMode;
+  connectFrom = null;
+  const bar = document.getElementById('connectBar');
+  const btn = document.getElementById('connectBtn');
+  if (connectMode) {
+    bar.classList.add('visible');
+    btn.style.background = 'rgba(0,212,255,0.25)';
+    document.getElementById('connectStatus').textContent = 'Click a device to start a connection';
+  } else {
+    bar.classList.remove('visible');
+    btn.style.background = '';
+  }
+  placedDevices.forEach(d => d.el.classList.remove('selected'));
+}
+
+function cancelConnect() {
+  connectMode = false;
+  connectFrom = null;
+  document.getElementById('connectBar').classList.remove('visible');
+  document.getElementById('connectBtn').style.background = '';
+  placedDevices.forEach(d => d.el.classList.remove('selected'));
+}
+
+function handleConnectClick(id) {
+  if (!connectFrom) {
+    connectFrom = id;
+    const dev = placedDevices.find(d => d.id === id);
+    if (dev) dev.el.classList.add('selected');
+    document.getElementById('connectStatus').textContent = 'Now click a second device to connect';
+  } else {
+    if (connectFrom === id) { cancelConnect(); return; }
+    // Check duplicate
+    const exists = connections.some(c =>
+      (c.from === connectFrom && c.to === id) ||
+      (c.from === id && c.to === connectFrom)
+    );
+    if (!exists) {
+      connections.push({ from: connectFrom, to: id });
+      updateSVG();
+    }
+    cancelConnect();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SVG CONNECTIONS
+// ════════════════════════════════════════════════════════════════════════
+function updateSVG() {
+  const svg = document.getElementById('svgLayer');
+  svg.querySelectorAll('line, path').forEach(el => el.remove());
+
+  connections.forEach(c => {
+    const fa = placedDevices.find(d => d.id === c.from);
+    const fb = placedDevices.find(d => d.id === c.to);
+    if (!fa || !fb) return;
+
+    const x1 = fa.x + 36, y1 = fa.y + 36;
+    const x2 = fb.x + 36, y2 = fb.y + 36;
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', '#2a4060');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('marker-end', 'url(#arrow)');
+    svg.appendChild(line);
+  });
+}
+
+// Answer SVG connections
+function updateAnswerSVG(nodes) {
+  const overlay = document.getElementById('answerOverlay');
+  overlay.querySelectorAll('svg').forEach(el => el.remove());
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+  svg.innerHTML = `<defs>
+    <marker id="ag" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="rgba(52,211,153,0.7)"/>
+    </marker></defs>`;
+
+  const s = SCENARIOS[currentScenario];
+  const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+
+  (s.answerConnections || []).forEach(([ai, bi]) => {
+    const a = nodes[ai], b = nodes[bi];
+    if (!a || !b) return;
+    const x1 = (a.x / 100) * cw + 35, y1 = (a.y / 100) * ch + 35;
+    const x2 = (b.x / 100) * cw + 35, y2 = (b.y / 100) * ch + 35;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', 'rgba(52,211,153,0.5)');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '6,4');
+    line.setAttribute('marker-end', 'url(#ag)');
+    svg.appendChild(line);
+  });
+  overlay.appendChild(svg);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CHECK ANSWER
+// ════════════════════════════════════════════════════════════════════════
+function checkAnswer() {
+  if (placedDevices.length === 0) {
+    showModalMsg('No Devices Placed', 'Place devices from the palette onto the diagram first, then check your answer.', false);
+    return;
+  }
+
+  const checker = buildChecker();
+  const s = SCENARIOS[currentScenario];
+  let passed = 0;
+  const reqList = document.getElementById('reqList');
+  const items = reqList.querySelectorAll('.req-item');
+
+  s.requirements.forEach((req, i) => {
+    const met = req.check(checker);
+    if (met) passed++;
+    const el = items[i];
+    if (el) {
+      el.classList.remove('met', 'unmet');
+      el.classList.add(met ? 'met' : 'unmet');
+      el.querySelector('.req-icon').textContent = met ? '✓' : '✗';
+    }
+    // Highlight on canvas
+    // (visual feedback already from req colors)
+  });
+
+  const total = s.requirements.length;
+  const pct = Math.round((passed / total) * 100);
+  document.getElementById('scoreNum').textContent = `${passed}/${total}`;
+  document.getElementById('scoreFill').style.width = pct + '%';
+  document.getElementById('scoreFill').style.background =
+    pct === 100 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
+
+  if (pct === 100) {
+    completedScenarios.add(currentScenario);
+    updateTabStates();
+    setTimeout(() => {
+      showModalMsg(
+        '✓ Diagram Correct!',
+        `All ${total} requirements met for "${s.title}".<br><br><em>${s.hint}</em><br><br>${currentScenario < SCENARIOS.length - 1 ? 'Ready for the next challenge?' : 'All scenarios complete!'}`,
+        true
+      );
+    }, 300);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SHOW ANSWER
+// ════════════════════════════════════════════════════════════════════════
+function showAnswer() {
+  const s = SCENARIOS[currentScenario];
+  const overlay = document.getElementById('answerOverlay');
+  overlay.innerHTML = '';
+  showingAnswer = !showingAnswer;
+
+  if (showingAnswer) {
+    overlay.classList.add('show');
+    const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+    const nodeEls = [];
+
+    s.answerNodes.forEach(n => {
+      const def = DEVICE_TYPES[n.type];
+      const el = document.createElement('div');
+      el.className = 'answer-node';
+      el.style.cssText = `left:${(n.x / 100) * cw}px; top:${(n.y / 100) * ch}px;`;
+      el.innerHTML = `
+        <div class="answer-box">
+          <div class="answer-icon">${def.icon}</div>
+        </div>
+        <div class="answer-label">${n.label || def.label}</div>
+      `;
+      overlay.appendChild(el);
+      nodeEls.push(n);
+    });
+
+    updateAnswerSVG(s.answerNodes);
+  } else {
+    overlay.classList.remove('show');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// LOAD SCENARIO
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentScenario = idx;
+  const s = SCENARIOS[idx];
+  showingAnswer = false;
+  document.getElementById('answerOverlay').classList.remove('show');
+  document.getElementById('answerOverlay').innerHTML = '';
+
+  // Clear canvas devices
+  placedDevices.forEach(d => d.el.remove());
+  placedDevices = [];
+  connections = [];
+  nextId = 1;
+  updateSVG();
+
+  document.getElementById('dropHint').classList.add('visible');
+
+  renderZones();
+  renderPalette();
+
+  // Brief
+  const diffClass = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+  document.getElementById('briefSection').innerHTML = `
+    <div class="rpanel-title">Scenario Brief</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffClass}">${s.difficulty}</span>
+    <div class="brief-desc">${s.desc}</div>
+  `;
+
+  // Requirements
+  const reqList = document.getElementById('reqList');
+  reqList.innerHTML = s.requirements.map(r => `
+    <div class="req-item">
+      <span class="req-icon">◈</span>
+      <span>${r.text}</span>
+    </div>
+  `).join('');
+
+  // Hint
+  document.getElementById('hintText').textContent = s.hint;
+
+  // Score reset
+  document.getElementById('scoreNum').textContent = `0/${s.requirements.length}`;
+  document.getElementById('scoreFill').style.width = '0%';
+  document.getElementById('scoreFill').style.background = 'var(--cyan)';
+
+  cancelConnect();
+  updateTabStates();
+}
+
+function resetCanvas() {
+  loadScenario(currentScenario);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════════════════════════
+function showModalMsg(title, body, isWin) {
+  document.getElementById('modalTitle').className = `modal-title ${isWin ? 'win' : 'hint'}`;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalNext').style.display =
+    (isWin && currentScenario < SCENARIOS.length - 1) ? 'block' : 'none';
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+function nextScenario() {
+  closeModal();
+  currentScenario++;
+  loadScenario(currentScenario);
+  document.querySelectorAll('.stab')[currentScenario].click();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function buildTabs() {
+  const container = document.getElementById('scenarioTabs');
+  container.innerHTML = '';
+  SCENARIOS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = `stab${i === 0 ? ' active' : ''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active', j===i));
+    });
+    container.appendChild(btn);
+  });
+}
+
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === currentScenario);
+    tab.classList.toggle('done', completedScenarios.has(i) && i !== currentScenario);
+    const snum = tab.querySelector('.snum');
+    if (completedScenarios.has(i)) snum.textContent = '✓';
+    else snum.textContent = String(i+1).padStart(2,'0');
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildTabs();
+loadScenario(0);
+document.getElementById('dropHint').classList.add('visible');
+
+// Redraw SVG on window resize
+window.addEventListener('resize', () => {
+  updateSVG();
+  if (showingAnswer) {
+    showAnswer(); showAnswer(); // toggle off then back on to reposition
+  }
+});
+</script>
+</body>
+</html>

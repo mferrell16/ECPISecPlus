@@ -66,6 +66,16 @@
       letter-spacing: 0.02em;
     }
 
+    .module {
+      margin-bottom: 40px;
+    }
+
+    .module-title {
+      margin: 0 0 18px;
+      font-size: 1.5rem;
+      letter-spacing: 0.01em;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -155,7 +165,9 @@
       </p>
     </section>
 
-    <section class="grid" aria-label="Simulation links">
+    <section class="module">
+      <h2 class="module-title">Module 2</h2>
+      <div class="grid" aria-label="Module 2 simulation links">
       <a class="card" href="buffer_overflow_simulator.html">
         <div class="icon">💾</div>
         <h2>Buffer Overflow</h2>
@@ -245,7 +257,62 @@
         <div class="cta">Open simulator →</div>
       </a>
 
-     
+          </div>
+    </section>
+
+    <section class="module">
+      <h2 class="module-title">Module 3</h2>
+      <div class="grid" aria-label="Module 3 lab links">
+        <a class="card" href="network_diagram_lab.html">
+          <div class="icon">🗺️</div>
+          <h2>Network Diagrams</h2>
+          <p>
+            Practice reading and interpreting network layouts, trust boundaries,
+            segmentation, and common enterprise components.
+          </p>
+          <div class="cta">Open lab →</div>
+        </a>
+
+        <a class="card" href="protocol_match.html">
+          <div class="icon">🔌</div>
+          <h2>Protocol Matching</h2>
+          <p>
+            Match common protocols to their purposes, ports, and secure alternatives
+            to strengthen foundational networking knowledge.
+          </p>
+          <div class="cta">Open lab →</div>
+        </a>
+
+        <a class="card" href="access_control_lab.html">
+          <div class="icon">🪪</div>
+          <h2>Access Control Models</h2>
+          <p>
+            Compare DAC, MAC, RBAC, and ABAC through interactive scenarios that show
+            how permissions are assigned and enforced.
+          </p>
+          <div class="cta">Open lab →</div>
+        </a>
+
+        <a class="card" href="firewall_sim.html">
+          <div class="icon">🔥</div>
+          <h2>Firewall Rules</h2>
+          <p>
+            Build and evaluate firewall rules to understand how traffic is allowed,
+            denied, and filtered across a network.
+          </p>
+          <div class="cta">Open lab →</div>
+        </a>
+
+        <a class="card" href="hardenlab.html">
+          <div class="icon">🛡️</div>
+          <h2>Hardening &amp; Log Analysis</h2>
+          <p>
+            Explore secure configuration practices and interpret log activity to spot
+            suspicious behavior and improve system defenses.
+          </p>
+          <div class="cta">Open lab →</div>
+        </a>
+      </div>
     </section>
 
     <div class="footer">

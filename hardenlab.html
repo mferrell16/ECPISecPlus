@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HardenLab — Security+ Hardening & Log Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@300;400;500;700;900&family=Exo+2:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:         #07090d;
+  --term:       #0a0e14;
+  --panel:      #0d1219;
+  --panel2:     #111827;
+  --border:     #1a2535;
+  --border2:    #243040;
+  --glow:       #00ff41;
+  --glow-dim:   rgba(0,255,65,0.12);
+  --glow-faint: rgba(0,255,65,0.05);
+  --amber:      #ffb700;
+  --amber-dim:  rgba(255,183,0,0.12);
+  --red:        #ff3b3b;
+  --red-dim:    rgba(255,59,59,0.12);
+  --blue:       #3b9eff;
+  --blue-dim:   rgba(59,158,255,0.1);
+  --purple:     #b87eff;
+  --cyan:       #00d4ff;
+  --white:      #e8f0e8;
+  --dim:        #3d5040;
+  --dimmer:     #243028;
+  --mono:       'Inconsolata', 'Courier New', monospace;
+  --display:    'Exo 2', sans-serif;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* CRT scanline */
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:9999;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(0,255,65,0.008) 3px, rgba(0,255,65,0.008) 4px
+  );
+}
+
+/* Ambient glow top */
+body::after {
+  content:''; position:fixed; top:0; left:0; right:0; height:2px;
+  background: var(--glow); z-index:9998;
+  box-shadow: 0 0 40px 8px rgba(0,255,65,0.3);
+}
+
+.container { max-width:1280px; margin:0 auto; padding:0 20px; }
+
+/* ── HEADER ── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+  background: rgba(7,9,13,0.97);
+  position: sticky; top:0; z-index:100;
+  backdrop-filter: blur(8px);
+}
+.hinner {
+  display:flex; align-items:center; justify-content:space-between;
+  max-width:1280px; margin:0 auto; padding:0 20px;
+}
+.logo {
+  display:flex; align-items:center; gap:12px;
+}
+.logo-mark {
+  width:34px; height:34px;
+  border: 1px solid var(--glow);
+  display:flex; align-items:center; justify-content:center;
+  color: var(--glow); font-size:16px; font-weight:900;
+  box-shadow: 0 0 12px rgba(0,255,65,0.3);
+  position:relative;
+}
+.logo-mark::after {
+  content:''; position:absolute; inset:3px;
+  border: 1px solid rgba(0,255,65,0.2);
+}
+.logo-text {
+  font-family: var(--display);
+  font-size:1.2rem; font-weight:900;
+  color: var(--glow);
+  letter-spacing:0.04em;
+  text-shadow: 0 0 20px rgba(0,255,65,0.5);
+}
+.logo-sub {
+  font-size:0.6rem; color:var(--dim);
+  letter-spacing:0.12em; text-transform:uppercase;
+  display:block; margin-top:-2px;
+}
+.header-nav { display:flex; gap:0; }
+.nav-btn {
+  padding:8px 18px;
+  font-family:var(--mono); font-size:0.7rem;
+  letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--dim); cursor:pointer;
+  border:none; background:none;
+  border-bottom: 2px solid transparent;
+  transition:all 0.15s; white-space:nowrap;
+}
+.nav-btn:hover { color:var(--white); }
+.nav-btn.active { color:var(--glow); border-bottom-color:var(--glow); text-shadow:0 0 10px rgba(0,255,65,0.4); }
+.header-score {
+  display:flex; gap:20px; align-items:center;
+}
+.hscore {
+  text-align:right;
+  font-family:var(--display);
+}
+.hscore-val { font-size:1.3rem; font-weight:900; color:var(--glow); line-height:1; }
+.hscore-lbl { font-size:0.55rem; color:var(--dim); letter-spacing:0.1em; text-transform:uppercase; }
+
+/* ── LAYOUT ── */
+.main-layout { display:grid; grid-template-columns:1fr 340px; min-height:calc(100vh - 60px); }
+
+/* ── TERMINAL PANE ── */
+.terminal-pane {
+  border-right: 1px solid var(--border);
+  display:flex; flex-direction:column;
+}
+
+.term-titlebar {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 16px;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.term-dot { width:10px; height:10px; border-radius:50%; }
+.term-dot.red    { background:#ff5f57; }
+.term-dot.yellow { background:#febc2e; }
+.term-dot.green  { background:#28c840; }
+.term-path {
+  font-size:0.65rem; color:var(--dim);
+  letter-spacing:0.06em; margin-left:6px;
+}
+.term-status {
+  margin-left:auto; font-size:0.62rem;
+  padding:2px 8px;
+  border:1px solid;
+}
+.term-status.scanning { border-color:var(--amber); color:var(--amber); animation:blink 1s infinite; }
+.term-status.clean    { border-color:var(--glow); color:var(--glow); }
+.term-status.threat   { border-color:var(--red); color:var(--red); }
+@keyframes blink { 50%{opacity:0.4} }
+
+/* Terminal content */
+.term-content {
+  flex:1; padding:16px; overflow-y:auto;
+  background:var(--term);
+  font-size:0.78rem; line-height:1.7;
+  color:var(--white);
+}
+.term-content::-webkit-scrollbar { width:4px; }
+.term-content::-webkit-scrollbar-thumb { background:var(--border2); }
+
+/* Log lines */
+.log-line {
+  display:block; padding:1px 0;
+  transition:background 0.1s;
+  border-left:3px solid transparent;
+  padding-left:8px;
+  cursor:default;
+  position:relative;
+}
+.log-line.clickable {
+  cursor:pointer;
+}
+.log-line.clickable:hover {
+  background: rgba(255,183,0,0.06);
+  border-left-color: var(--amber);
+}
+.log-line.selected-vuln {
+  background: rgba(255,59,59,0.1) !important;
+  border-left-color: var(--red) !important;
+}
+.log-line.selected-correct {
+  background: rgba(0,255,65,0.08) !important;
+  border-left-color: var(--glow) !important;
+}
+.log-line.selected-wrong {
+  background: rgba(255,59,59,0.12) !important;
+  border-left-color: var(--red) !important;
+  animation: wrongShake 0.3s ease;
+}
+.log-line.revealed-vuln {
+  background: rgba(255,183,0,0.08);
+  border-left-color:var(--amber);
+}
+.log-line.revealed-safe {
+  opacity:0.4;
+}
+.log-line.missed-vuln {
+  background:rgba(255,59,59,0.15);
+  border-left-color:var(--red);
+  animation:missedPulse 0.8s ease;
+}
+@keyframes wrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+@keyframes missedPulse { 0%{background:rgba(255,59,59,0.4)} 100%{background:rgba(255,59,59,0.15)} }
+
+/* Log colors */
+.c-green   { color:var(--glow); }
+.c-dim     { color:var(--dim); }
+.c-amber   { color:var(--amber); }
+.c-red     { color:var(--red); }
+.c-blue    { color:var(--blue); }
+.c-purple  { color:var(--purple); }
+.c-cyan    { color:var(--cyan); }
+.c-white   { color:var(--white); }
+.c-gray    { color:#607080; }
+
+/* Inline badges on lines */
+.vuln-badge {
+  display:inline-block; margin-left:8px;
+  padding:1px 6px;
+  font-size:0.6rem; font-weight:700;
+  letter-spacing:0.08em; text-transform:uppercase;
+  vertical-align:middle;
+}
+.badge-vuln    { background:rgba(255,59,59,0.2); border:1px solid var(--red); color:var(--red); }
+.badge-correct { background:rgba(0,255,65,0.15); border:1px solid var(--glow); color:var(--glow); }
+.badge-safe    { background:rgba(96,112,128,0.2); border:1px solid #607080; color:#607080; }
+.badge-missed  { background:rgba(255,183,0,0.2); border:1px solid var(--amber); color:var(--amber); }
+
+.prompt { color:var(--glow); }
+.prompt-user { color:var(--cyan); }
+
+/* Section header in terminal */
+.term-section {
+  margin:12px 0 6px;
+  padding:4px 8px;
+  background:var(--panel);
+  border-left:3px solid var(--glow);
+  font-size:0.7rem; color:var(--glow);
+  letter-spacing:0.08em; text-transform:uppercase;
+}
+
+/* Config line tags */
+.tag-key   { color:var(--blue); }
+.tag-val   { color:var(--amber); }
+.tag-comment { color:#405050; font-style:italic; }
+.tag-bad   { color:var(--red); text-decoration:underline dotted var(--red); }
+
+/* ── RIGHT PANEL ── */
+.right-panel {
+  background:var(--panel);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+
+.rp-section {
+  padding:16px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.rp-title {
+  font-family:var(--display);
+  font-size:0.65rem; font-weight:700;
+  letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--dim); margin-bottom:10px;
+  display:flex; align-items:center; gap:6px;
+}
+.rp-title::before {
+  content:''; display:block;
+  width:14px; height:1px; background:var(--glow);
+  box-shadow:0 0 6px var(--glow);
+}
+
+/* Scenario info */
+.scenario-name {
+  font-family:var(--display);
+  font-size:1rem; font-weight:700;
+  color:var(--white); margin-bottom:6px; line-height:1.3;
+}
+.scenario-desc {
+  font-size:0.7rem; color:#607080;
+  line-height:1.6; margin-bottom:10px;
+}
+.diff-pill {
+  display:inline-block; padding:2px 10px;
+  font-size:0.6rem; font-weight:700;
+  letter-spacing:0.1em; text-transform:uppercase;
+  border:1px solid; margin-bottom:8px;
+}
+.diff-easy   { color:var(--glow);  border-color:rgba(0,255,65,0.35);  background:var(--glow-faint); }
+.diff-medium { color:var(--amber); border-color:rgba(255,183,0,0.35); background:var(--amber-dim); }
+.diff-hard   { color:var(--red);   border-color:rgba(255,59,59,0.35); background:var(--red-dim); }
+
+.task-box {
+  padding:10px 12px;
+  background:var(--term);
+  border:1px solid var(--border2);
+  border-left:3px solid var(--amber);
+  font-size:0.7rem; color:var(--amber);
+  line-height:1.6;
+}
+.task-label {
+  font-size:0.58rem; letter-spacing:0.12em;
+  text-transform:uppercase; color:var(--dim);
+  margin-bottom:4px;
+}
+
+/* Find counter */
+.find-counter {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px;
+  background:var(--term);
+  border:1px solid var(--border2);
+}
+.find-num {
+  font-family:var(--display);
+  font-size:1.8rem; font-weight:900;
+  color:var(--glow); line-height:1;
+}
+.find-info { font-size:0.6rem; color:var(--dim); letter-spacing:0.08em; text-transform:uppercase; }
+.find-progress { flex:1; height:3px; background:var(--border); margin:0 12px; }
+.find-fill { height:100%; background:var(--glow); transition:width 0.3s; box-shadow:0 0 6px var(--glow); }
+
+/* Findings list */
+.findings-list {
+  flex:1; overflow-y:auto; padding:10px;
+}
+.findings-list::-webkit-scrollbar { width:3px; }
+.findings-list::-webkit-scrollbar-thumb { background:var(--border2); }
+
+.finding-item {
+  padding:8px 10px; margin-bottom:6px;
+  background:var(--term); border:1px solid var(--border);
+  border-left:3px solid;
+  font-size:0.68rem; line-height:1.5;
+  animation:slideIn 0.2s ease;
+}
+@keyframes slideIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+.finding-item.correct  { border-left-color:var(--glow); }
+.finding-item.wrong    { border-left-color:var(--red);   opacity:0.6; }
+.finding-item.missed   { border-left-color:var(--amber); }
+.finding-title { font-weight:700; margin-bottom:2px; }
+.finding-item.correct  .finding-title { color:var(--glow); }
+.finding-item.wrong    .finding-title { color:var(--red); text-decoration:line-through; }
+.finding-item.missed   .finding-title { color:var(--amber); }
+.finding-detail { color:#607080; font-size:0.62rem; }
+
+.empty-findings {
+  padding:24px; text-align:center;
+  color:var(--dimmer);
+  font-size:0.7rem; line-height:1.8;
+  border:1px dashed var(--border);
+}
+
+/* Action buttons */
+.action-row {
+  padding:12px 16px;
+  border-top:1px solid var(--border);
+  display:flex; flex-direction:column; gap:8px;
+  flex-shrink:0;
+}
+.abtn {
+  width:100%; padding:10px;
+  font-family:var(--mono); font-size:0.68rem;
+  letter-spacing:0.08em; text-transform:uppercase;
+  cursor:pointer; border:1px solid; transition:all 0.15s;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.abtn-green { border-color:var(--glow); color:var(--glow); background:var(--glow-faint); }
+.abtn-green:hover { background:rgba(0,255,65,0.2); box-shadow:0 0 16px rgba(0,255,65,0.2); }
+.abtn-amber { border-color:var(--amber); color:var(--amber); background:var(--amber-dim); }
+.abtn-amber:hover { background:rgba(255,183,0,0.22); }
+.abtn-ghost { border-color:var(--border2); color:var(--dim); background:transparent; }
+.abtn-ghost:hover { color:var(--white); }
+.abtn-red   { border-color:var(--red); color:var(--red); background:var(--red-dim); }
+.abtn-red:hover { background:rgba(255,59,59,0.22); }
+
+/* ── Results overlay ── */
+.results-overlay {
+  position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,0,0.88);
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(6px);
+  opacity:0; pointer-events:none; transition:opacity 0.2s;
+}
+.results-overlay.show { opacity:1; pointer-events:all; }
+.results-card {
+  background:var(--panel);
+  border:1px solid var(--border2);
+  padding:32px; max-width:560px; width:90%;
+  transform:translateY(20px); transition:transform 0.25s;
+  position:relative;
+}
+.results-overlay.show .results-card { transform:translateY(0); }
+.results-title {
+  font-family:var(--display);
+  font-size:1.6rem; font-weight:900;
+  letter-spacing:0.04em; margin-bottom:6px;
+}
+.results-title.perfect { color:var(--glow); text-shadow:0 0 20px rgba(0,255,65,0.5); }
+.results-title.good    { color:var(--amber); }
+.results-title.poor    { color:var(--red); }
+.results-score {
+  display:flex; align-items:baseline; gap:10px;
+  margin:14px 0;
+}
+.rs-num {
+  font-family:var(--display);
+  font-size:3.5rem; font-weight:900; color:var(--white); line-height:1;
+}
+.rs-denom { font-size:1.2rem; color:var(--dim); }
+.rs-pct   { font-size:0.8rem; color:var(--glow); font-family:var(--mono); }
+.results-breakdown {
+  display:grid; grid-template-columns:1fr 1fr 1fr;
+  gap:8px; margin:16px 0;
+}
+.rb-item {
+  padding:10px; background:var(--term);
+  border:1px solid var(--border);
+  text-align:center;
+}
+.rb-val { font-family:var(--display); font-size:1.4rem; font-weight:900; }
+.rb-lbl { font-size:0.58rem; color:var(--dim); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
+.results-explanation {
+  font-size:0.7rem; color:#607080;
+  line-height:1.7; margin:12px 0;
+  padding:10px 12px;
+  background:var(--term);
+  border-left:3px solid var(--border2);
+}
+.results-actions { display:flex; gap:10px; margin-top:16px; }
+.rclose { position:absolute; top:14px; right:16px; background:none; border:none; color:var(--dim); cursor:pointer; font-size:16px; }
+.rclose:hover { color:var(--white); }
+
+/* Log type chips in header */
+.type-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.type-chip {
+  padding:3px 10px;
+  font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase;
+  border:1px solid var(--border2); color:var(--dim);
+  cursor:pointer; transition:all 0.15s; background:transparent;
+  font-family:var(--mono);
+}
+.type-chip:hover { color:var(--white); }
+.type-chip.active { border-color:var(--glow); color:var(--glow); background:var(--glow-faint); }
+
+/* Scenario nav */
+.scenario-nav {
+  display:flex; gap:6px; flex-wrap:wrap;
+  padding:10px 16px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel2);
+}
+.snav-btn {
+  padding:4px 10px;
+  font-family:var(--mono); font-size:0.62rem;
+  border:1px solid var(--border2); color:var(--dim);
+  cursor:pointer; background:transparent; transition:all 0.15s;
+}
+.snav-btn:hover { color:var(--white); }
+.snav-btn.active { border-color:var(--glow); color:var(--glow); background:var(--glow-faint); }
+.snav-btn.done   { border-color:rgba(0,255,65,0.3); color:var(--glow); opacity:0.5; }
+.snav-btn.mode-log   { border-color:rgba(59,158,255,0.3); }
+.snav-btn.mode-log.active { border-color:var(--blue); color:var(--blue); background:var(--blue-dim); }
+
+/* Instruction banner */
+.instruction-banner {
+  padding:8px 16px;
+  background:rgba(255,183,0,0.06);
+  border-bottom:1px solid rgba(255,183,0,0.2);
+  font-size:0.68rem; color:var(--amber);
+  display:flex; align-items:center; gap:10px;
+  flex-shrink:0;
+}
+.instruction-banner span { color:var(--dim); }
+</style>
+</head>
+<body>
+
+<header>
+<div class="hinner">
+  <div class="logo">
+    <div class="logo-mark">⚑</div>
+    <div>
+      <div class="logo-text">HardenLab</div>
+      <span class="logo-sub">Security+ · Hardening & Log Analysis</span>
+    </div>
+  </div>
+  <div class="header-nav">
+    <button class="nav-btn active" onclick="setMode('hardening')" data-mode="hardening">⚙ Config Hardening</button>
+    <button class="nav-btn" onclick="setMode('log')" data-mode="log">📋 Log Analysis</button>
+  </div>
+  <div class="header-score">
+    <div class="hscore">
+      <div class="hscore-val" id="hScoreCorrect">0</div>
+      <div class="hscore-lbl">Found</div>
+    </div>
+    <div class="hscore">
+      <div class="hscore-val" id="hScoreMissed">0</div>
+      <div class="hscore-lbl">Missed</div>
+    </div>
+    <div class="hscore">
+      <div class="hscore-val" id="hScenarioNum">1</div>
+      <div class="hscore-lbl">Scenario</div>
+    </div>
+  </div>
+</div>
+</header>
+
+<!-- Scenario nav -->
+<div class="scenario-nav" id="scenarioNav"></div>
+
+<div class="main-layout">
+
+  <!-- Terminal Pane -->
+  <div class="terminal-pane">
+    <div class="term-titlebar">
+      <div class="term-dot red"></div>
+      <div class="term-dot yellow"></div>
+      <div class="term-dot green"></div>
+      <div class="term-path" id="termPath">root@hardenlab:~#</div>
+      <div class="term-status scanning" id="termStatus">SCANNING</div>
+    </div>
+    <div class="instruction-banner" id="instrBanner">
+      <strong>▶ TASK:</strong>
+      <span id="instrText">Click on vulnerable or suspicious lines to flag them.</span>
+    </div>
+    <div class="term-content" id="termContent"></div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-title">Scenario</div>
+      <div class="scenario-name" id="rpName"></div>
+      <div class="diff-pill" id="rpDiff"></div>
+      <div class="scenario-desc" id="rpDesc"></div>
+      <div class="task-label">Your Task</div>
+      <div class="task-box" id="rpTask"></div>
+    </div>
+
+    <div class="rp-section" style="flex-shrink:0;">
+      <div class="find-counter">
+        <div>
+          <div class="find-num" id="findNum">0</div>
+          <div class="find-info">identified</div>
+        </div>
+        <div class="find-progress"><div class="find-fill" id="findFill" style="width:0%"></div></div>
+        <div style="text-align:right;">
+          <div class="find-num" id="findTotal" style="color:var(--dim)">0</div>
+          <div class="find-info">total issues</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rp-section" style="padding:10px 16px; flex-shrink:0;">
+      <div class="rp-title" style="margin-bottom:6px;">Your Findings</div>
+    </div>
+    <div class="findings-list" id="findingsList">
+      <div class="empty-findings">
+        No findings yet.<br>
+        Click suspicious lines<br>in the terminal to flag them.
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="abtn abtn-green" onclick="submitFindings()">▶ Submit Findings</button>
+      <div style="display:flex; gap:8px;">
+        <button class="abtn abtn-amber" onclick="showHint()" style="flex:1;">💡 Hint</button>
+        <button class="abtn abtn-ghost" onclick="resetScenario()" style="flex:1;">↺ Reset</button>
+        <button class="abtn abtn-ghost" onclick="nextScenario()" style="flex:1;">Next →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Results overlay -->
+<div class="results-overlay" id="resultsOverlay">
+  <div class="results-card">
+    <button class="rclose" onclick="closeResults()">✕</button>
+    <div class="results-title" id="resTitle">Analysis Complete</div>
+    <div class="results-score">
+      <div class="rs-num" id="resNum">0</div>
+      <div class="rs-denom" id="resDenom">/5</div>
+      <div class="rs-pct" id="resPct">0%</div>
+    </div>
+    <div class="results-breakdown">
+      <div class="rb-item">
+        <div class="rb-val" id="resCorrect" style="color:var(--glow)">0</div>
+        <div class="rb-lbl">Correct</div>
+      </div>
+      <div class="rb-item">
+        <div class="rb-val" id="resFalsePos" style="color:var(--amber)">0</div>
+        <div class="rb-lbl">False Pos.</div>
+      </div>
+      <div class="rb-item">
+        <div class="rb-val" id="resMissed" style="color:var(--red)">0</div>
+        <div class="rb-lbl">Missed</div>
+      </div>
+    </div>
+    <div class="results-explanation" id="resExplanation"></div>
+    <div class="results-actions">
+      <button class="abtn abtn-green" onclick="nextScenario(); closeResults();" style="flex:1;">Next Scenario →</button>
+      <button class="abtn abtn-ghost" onclick="closeResults()" style="flex:1;">Review</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO DATABASE
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+
+// ── HARDENING SCENARIOS ─────────────────────────────────────────────────
+{
+  id:'h1', mode:'hardening', difficulty:'easy',
+  name:'Linux SSH & Services Audit',
+  desc:'A web server has just been provisioned. Audit the configuration files and identify every misconfiguration that violates hardening best practices.',
+  task:'Click every line that contains a security vulnerability or misconfiguration. Avoid flagging lines that are correctly configured.',
+  hint:'Look for: insecure protocols enabled, root login allowed, empty passwords permitted, unnecessary services, default credentials, and unencrypted configurations.',
+  path:'root@webserver-01:/etc/ssh/sshd_config',
+  vulnerabilities: ['l_rootlogin','l_emptypass','l_telnet','l_x11','l_proto1'],
+  lines:[
+    {id:'l_head1', text:'# /etc/ssh/sshd_config — SSH Daemon Configuration', cls:'c-dim tag-comment'},
+    {id:'l_head2', text:'# Last modified: 2024-01-15 by admin', cls:'c-dim tag-comment'},
+    {id:'l_blank1', text:''},
+    {id:'l_port', text:'Port 22', cls:'c-white', safe:true},
+    {id:'l_proto1', text:'Protocol 1,2', cls:'', vuln:true, vulnName:'SSHv1 Enabled', explanation:'Protocol 1 is cryptographically broken. Only Protocol 2 should be listed. SSHv1 is vulnerable to a man-in-the-middle attack during key exchange.'},
+    {id:'l_rootlogin', text:'PermitRootLogin yes', cls:'c-amber tag-bad', vuln:true, vulnName:'Root Login Permitted', explanation:'PermitRootLogin should be "no" or "without-password". Direct root SSH access bypasses the audit trail and violates least privilege. If compromised, the attacker immediately has full root access.'},
+    {id:'l_maxauth', text:'MaxAuthTries 6', cls:'c-white', safe:true},
+    {id:'l_pubkey', text:'PubkeyAuthentication yes', cls:'c-white', safe:true},
+    {id:'l_emptypass', text:'PermitEmptyPasswords yes', cls:'c-red tag-bad', vuln:true, vulnName:'Empty Passwords Allowed', explanation:'PermitEmptyPasswords yes allows accounts with no password to authenticate via SSH. This is a critical misconfiguration — any account without a password becomes a trivial entry point.'},
+    {id:'l_passauth', text:'PasswordAuthentication yes', cls:'c-white', safe:true},
+    {id:'l_x11', text:'X11Forwarding yes', cls:'c-amber', vuln:true, vulnName:'X11 Forwarding Enabled', explanation:'X11Forwarding enables tunneling of graphical sessions. On a headless server this is unnecessary and creates an attack surface. It should be set to "no" on production servers.'},
+    {id:'l_allowusers', text:'AllowUsers deploy webadmin', cls:'c-white', safe:true},
+    {id:'l_blank2', text:''},
+    {id:'l_sect2', text:'# ── Installed Services ──', cls:'c-dim tag-comment'},
+    {id:'l_http', text:'apache2.service    active  running   Apache HTTP Server', cls:'c-green', safe:true},
+    {id:'l_ssh', text:'sshd.service       active  running   OpenSSH Daemon', cls:'c-green', safe:true},
+    {id:'l_telnet', text:'telnet.service     active  running   Telnet Server', cls:'c-red tag-bad', vuln:true, vulnName:'Telnet Service Running', explanation:'Telnet transmits all data including credentials in plaintext. A running Telnet server is a critical vulnerability. It should be stopped and disabled immediately, replaced with SSH.'},
+    {id:'l_ftp', text:'vsftpd.service     inactive  stopped   FTP Daemon', cls:'c-dim', safe:true},
+    {id:'l_ntp', text:'ntpd.service       active  running   NTP Daemon', cls:'c-green', safe:true},
+    {id:'l_snmp1', text:'snmpd.service      active  running   Net-SNMP Agent', cls:'c-amber', safe:true, note:'(verify version)'},
+  ]
+},
+
+{
+  id:'h2', mode:'hardening', difficulty:'medium',
+  name:'Windows Registry & Policy Audit',
+  desc:'Review a Windows Server security audit export. Identify policy settings that violate CIS Benchmarks and security hardening standards.',
+  task:'Flag every registry value or policy setting that is insecure, too permissive, or violates least privilege.',
+  hint:'Focus on: SMB version, NTLM version, AutoRun, audit policy gaps, default share access, and account lockout settings.',
+  path:'C:\\Windows\\System32\\> secedit /export + reg query',
+  vulnerabilities:['w_smb1','w_autoadmin','w_ntlm1','w_autorun','w_nullsession','w_lockout'],
+  lines:[
+    {id:'w_head', text:'[Security Configuration Export — WIN-SERVER-2022]', cls:'c-cyan'},
+    {id:'w_date', text:'Exported: 2024-02-08 09:14:32 UTC', cls:'c-dim'},
+    {id:'w_blank1', text:''},
+    {id:'w_sect1', text:'[ NETWORK PROTOCOLS ]', cls:'c-blue'},
+    {id:'w_smb1', text:'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\\SMB1 = 1', cls:'c-red', vuln:true, vulnName:'SMBv1 Enabled', explanation:'SMBv1 is the protocol exploited by EternalBlue/WannaCry. Value should be 0 (disabled). SMBv1 has numerous known critical vulnerabilities with no patches planned.'},
+    {id:'w_smb2', text:'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\\SMB2 = 1', cls:'c-green', safe:true},
+    {id:'w_ntlm1', text:'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\LmCompatibilityLevel = 2', cls:'c-amber tag-bad', vuln:true, vulnName:'NTLMv1 Not Disabled', explanation:'LmCompatibilityLevel = 2 still permits NTLMv1 authentication. It should be 5 (Send NTLMv2 response only, refuse LM & NTLM). NTLMv1 is easily cracked with rainbow tables.'},
+    {id:'w_kerberos', text:'Kerberos AES256 encryption: ENABLED', cls:'c-green', safe:true},
+    {id:'w_blank2', text:''},
+    {id:'w_sect2', text:'[ LOCAL ACCOUNTS ]', cls:'c-blue'},
+    {id:'w_admin', text:'Administrator account: ENABLED (rename recommended)', cls:'c-amber', safe:true},
+    {id:'w_guest', text:'Guest account: DISABLED', cls:'c-green', safe:true},
+    {id:'w_autoadmin', text:'AutoAdminLogon = 1  DefaultPassword = Admin123!', cls:'c-red', vuln:true, vulnName:'Auto Admin Login with Stored Password', explanation:'AutoAdminLogon stores the admin password in the registry in cleartext. Anyone with registry access obtains domain admin credentials. This is a critical misconfiguration that must be disabled immediately.'},
+    {id:'w_blank3', text:''},
+    {id:'w_sect3', text:'[ SECURITY POLICIES ]', cls:'c-blue'},
+    {id:'w_passlen', text:'MinimumPasswordLength = 12', cls:'c-green', safe:true},
+    {id:'w_passcomplex', text:'PasswordComplexity = ENABLED', cls:'c-green', safe:true},
+    {id:'w_lockout', text:'AccountLockoutThreshold = 0', cls:'c-red', vuln:true, vulnName:'Account Lockout Disabled', explanation:'Lockout threshold of 0 means accounts never lock out regardless of failed attempts. This enables unlimited brute force attacks against domain accounts. CIS recommends 5-10 failed attempts maximum.'},
+    {id:'w_auditlogon', text:'AuditLogonEvents = Success, Failure', cls:'c-green', safe:true},
+    {id:'w_blank4', text:''},
+    {id:'w_sect4', text:'[ SHARES & AUTORUN ]', cls:'c-blue'},
+    {id:'w_nullsession', text:'RestrictNullSessions = 0', cls:'c-red', vuln:true, vulnName:'Null Sessions Permitted', explanation:'RestrictNullSessions = 0 allows unauthenticated connection to IPC$. Attackers can enumerate users, groups, and shares without any credentials. Should be set to 1.'},
+    {id:'w_adminshare', text:'Administrative shares (C$, ADMIN$): ENABLED', cls:'c-amber', safe:true},
+    {id:'w_autorun', text:'NoDriveTypeAutoRun = 0x91  (USB autorun: ENABLED)', cls:'c-red', vuln:true, vulnName:'USB AutoRun Enabled', explanation:'AutoRun on USB allows malware to execute automatically when a USB device is inserted. This is a primary vector for BadUSB and similar attacks. NoDriveTypeAutoRun should be 0xFF to disable all AutoRun.'},
+  ]
+},
+
+{
+  id:'h3', mode:'hardening', difficulty:'medium',
+  name:'Web Application Config Audit',
+  desc:'Review an Apache web server and PHP configuration. The app handles user data — identify every setting that creates security risk.',
+  task:'Click lines that expose the application to attack, information disclosure, or privilege escalation.',
+  hint:'Watch for: directory listing, error display, dangerous PHP functions, version exposure, default pages, and weak TLS settings.',
+  path:'root@webserver:/etc/apache2/apache2.conf + /etc/php/php.ini',
+  vulnerabilities:['wa_dirlist','wa_servtok','wa_phperr','wa_execfunc','wa_ssl2','wa_headers'],
+  lines:[
+    {id:'wa_head1', text:'### Apache2 Configuration Audit ###', cls:'c-cyan'},
+    {id:'wa_blank1', text:''},
+    {id:'wa_sect1', text:'[ apache2.conf ]', cls:'c-blue'},
+    {id:'wa_user', text:'User www-data', cls:'c-green', safe:true},
+    {id:'wa_group', text:'Group www-data', cls:'c-green', safe:true},
+    {id:'wa_dirlist', text:'Options Indexes FollowSymLinks', cls:'c-red', vuln:true, vulnName:'Directory Listing Enabled', explanation:'"Options Indexes" enables directory listing — if no index.html exists, the web server shows a full file listing of the directory. Attackers can browse source code, config files, and backup files. Remove "Indexes" from Options.'},
+    {id:'wa_allowover', text:'AllowOverride All', cls:'c-amber', safe:true},
+    {id:'wa_servtok', text:'ServerTokens Full', cls:'c-amber tag-bad', vuln:true, vulnName:'Full Server Version Disclosed', explanation:'"ServerTokens Full" exposes the exact Apache version and OS in HTTP response headers. Attackers use this to target known CVEs. Set to "Prod" to return only "Apache" without version information.'},
+    {id:'wa_servsig', text:'ServerSignature On', cls:'c-amber', vuln:true, vulnName:'Server Signature in Error Pages', explanation:'ServerSignature On appends Apache version info to error pages. Combined with ServerTokens, this gives attackers precise version details. Set to Off.'},
+    {id:'wa_blank2', text:''},
+    {id:'wa_sect2', text:'[ SSL/TLS Configuration ]', cls:'c-blue'},
+    {id:'wa_ssl2', text:'SSLProtocol all -SSLv3', cls:'c-red', vuln:true, vulnName:'TLSv1.0 and TLSv1.1 Enabled', explanation:'"all -SSLv3" still allows TLSv1.0 and TLSv1.1 which are deprecated and vulnerable (POODLE, BEAST). Should be: "TLSv1.2 TLSv1.3" to explicitly allow only modern protocols.'},
+    {id:'wa_cipher', text:'SSLCipherSuite HIGH:!aNULL:!MD5:!3DES', cls:'c-green', safe:true},
+    {id:'wa_headers', text:'# Header always set X-Frame-Options "ALLOWALL"', cls:'c-red', vuln:true, vulnName:'Clickjacking Protection Disabled', explanation:'X-Frame-Options: ALLOWALL means any website can embed your page in an iframe — enabling clickjacking attacks. Should be "DENY" or "SAMEORIGIN". Note the comment (#) also means this header is not being sent at all.'},
+    {id:'wa_hsts', text:'Header always set Strict-Transport-Security "max-age=31536000"', cls:'c-green', safe:true},
+    {id:'wa_blank3', text:''},
+    {id:'wa_sect3', text:'[ php.ini Security Settings ]', cls:'c-blue'},
+    {id:'wa_phperr', text:'display_errors = On', cls:'c-red', vuln:true, vulnName:'PHP Errors Displayed to Users', explanation:'"display_errors = On" on a production server exposes stack traces, file paths, SQL queries, and application logic to any user who triggers an error. Set to Off in production and log errors to a file instead.'},
+    {id:'wa_logerr', text:'log_errors = On', cls:'c-green', safe:true},
+    {id:'wa_execfunc', text:'disable_functions =', cls:'c-red', vuln:true, vulnName:'Dangerous PHP Functions Not Disabled', explanation:'disable_functions is empty, meaning exec(), system(), shell_exec(), passthru() and other shell-execution functions are available to PHP scripts. These enable remote code execution if the application has an injection vulnerability.'},
+    {id:'wa_upload', text:'file_uploads = On', cls:'c-amber', safe:true},
+    {id:'wa_maxup', text:'upload_max_filesize = 2M', cls:'c-green', safe:true},
+    {id:'wa_expose', text:'expose_php = On', cls:'c-amber', vuln:true, vulnName:'PHP Version Exposed in Headers', explanation:'"expose_php = On" adds a X-Powered-By: PHP/x.x.x header to every response, disclosing the exact PHP version. Set to Off to prevent version fingerprinting.'},
+  ]
+},
+
+// ── LOG ANALYSIS SCENARIOS ───────────────────────────────────────────────
+{
+  id:'l1', mode:'log', difficulty:'easy',
+  name:'Brute Force Login Detection',
+  desc:'Review the authentication log from a Linux server. Multiple login attempts have been recorded. Identify the lines that indicate a brute force attack in progress.',
+  task:'Click on log lines that are part of the brute force attack pattern. Look for repeated failed authentication and the eventual successful login from the same source.',
+  hint:'Brute force signature: many FAILED logins in rapid succession from the same source IP, often followed by a SUCCESS. The final SUCCESS is also suspicious and should be flagged.',
+  path:'/var/log/auth.log — authentication events',
+  vulnerabilities:['ll1_f1','ll1_f2','ll1_f3','ll1_f4','ll1_f5','ll1_f6','ll1_f7','ll1_success'],
+  lines:[
+    {id:'ll1_head', text:'=== /var/log/auth.log (last 25 entries) ===', cls:'c-cyan'},
+    {id:'ll1_norm1', text:'Feb 12 08:14:22 srv01 sshd[1201]: Accepted publickey for deploy from 10.0.0.15 port 54221', cls:'c-green', safe:true},
+    {id:'ll1_norm2', text:'Feb 12 08:22:11 srv01 sshd[1204]: Accepted publickey for webadmin from 10.0.0.20 port 48832', cls:'c-green', safe:true},
+    {id:'ll1_norm3', text:'Feb 12 09:01:44 srv01 sudo[1208]: webadmin : TTY=pts/0 ; PWD=/var/www ; USER=root ; COMMAND=/bin/systemctl restart apache2', cls:'c-white', safe:true},
+    {id:'ll1_blank1', text:''},
+    {id:'ll1_f1', text:'Feb 12 22:47:01 srv01 sshd[2891]: Failed password for root from 185.220.101.45 port 52341 ssh2', cls:'c-red', vuln:true, vulnName:'Brute Force: Failed Login #1', explanation:'First failed root login from external IP 185.220.101.45. This begins the brute force sequence.'},
+    {id:'ll1_f2', text:'Feb 12 22:47:03 srv01 sshd[2892]: Failed password for root from 185.220.101.45 port 52342 ssh2', cls:'c-red', vuln:true, vulnName:'Brute Force: Failed Login #2', explanation:'Second failed attempt in 2 seconds. The 2-second interval suggests automated tooling (Hydra, Medusa, etc.).'},
+    {id:'ll1_norm4', text:'Feb 12 22:47:02 srv01 sshd[2893]: Accepted publickey for deploy from 10.0.1.5 port 33291', cls:'c-green', safe:true},
+    {id:'ll1_f3', text:'Feb 12 22:47:05 srv01 sshd[2894]: Failed password for admin from 185.220.101.45 port 52343 ssh2', cls:'c-red', vuln:true, vulnName:'Brute Force: Username Enumeration', explanation:'Attacker is now trying the "admin" username — common brute force tools cycle through username wordlists simultaneously.'},
+    {id:'ll1_f4', text:'Feb 12 22:47:07 srv01 sshd[2895]: Failed password for root from 185.220.101.45 port 52344 ssh2', cls:'c-red', vuln:true, vulnName:'Brute Force: Continued Attack', explanation:'Continued rapid failed attempts. 4 attempts in 6 seconds from the same IP is clearly automated.'},
+    {id:'ll1_f5', text:'Feb 12 22:47:09 srv01 sshd[2896]: Failed password for root from 185.220.101.45 port 52345 ssh2', cls:'c-red', vuln:true, vulnName:'Brute Force: Failed Login #5', explanation:'5th attempt in 8 seconds. This pattern should trigger IDS alerts and account lockout if configured.'},
+    {id:'ll1_f6', text:'Feb 12 22:47:11 srv01 sshd[2897]: Failed password for ubuntu from 185.220.101.45 port 52346 ssh2', cls:'c-red', vuln:true, vulnName:'Brute Force: Default Username Attempt', explanation:'Trying "ubuntu" — default username on Ubuntu cloud images. Attacker is cycling through common default usernames.'},
+    {id:'ll1_f7', text:'Feb 12 22:47:14 srv01 sshd[2898]: Failed password for root from 185.220.101.45 port 52347 ssh2', cls:'c-red', vuln:true, vulnName:'Brute Force: Failed Login #7', explanation:'7 failed attempts from the same IP — definitively automated brute force. Account lockout should have triggered at attempt 3-5.'},
+    {id:'ll1_norm5', text:'Feb 12 22:47:15 srv01 sshd[2899]: error: maximum authentication attempts exceeded for root from 185.220.101.45', cls:'c-amber', safe:true},
+    {id:'ll1_success', text:'Feb 12 22:52:43 srv01 sshd[2901]: Accepted password for root from 185.220.101.45 port 52391 ssh2', cls:'c-red', vuln:true, vulnName:'Successful Login After Brute Force', explanation:'The attacker successfully authenticated as root 5 minutes after the failed attempts. This indicates the brute force succeeded. The successful login from the same malicious IP is the compromise event.'},
+    {id:'ll1_comp1', text:'Feb 12 22:52:44 srv01 sshd[2901]: pam_unix(sshd:session): session opened for user root', cls:'c-red', safe:true},
+    {id:'ll1_norm6', text:'Feb 12 23:10:01 srv01 CRON[2940]: pam_unix(cron:session): session opened for user root', cls:'c-white', safe:true},
+  ]
+},
+
+{
+  id:'l2', mode:'log', difficulty:'medium',
+  name:'Network Port Scan Identification',
+  desc:'Review firewall and IDS logs. A threat actor has been performing reconnaissance on the network. Identify all log lines associated with the active port scan.',
+  task:'Flag log lines that show port scan behavior — look for sequential port probing, SYN packets without completion, and probe patterns from suspicious IPs.',
+  hint:'Port scan signature: one source IP hitting many destination ports in rapid succession, especially sequential port numbers, or SYN packets with no ACK followup (half-open scan). Nmap SYN scan leaves RST responses from closed ports.',
+  path:'/var/log/firewall.log + /var/log/snort.log',
+  vulnerabilities:['ls2_scan1','ls2_scan2','ls2_scan3','ls2_scan4','ls2_scan5','ls2_ids1','ls2_ids2'],
+  lines:[
+    {id:'ls2_head', text:'=== FIREWALL LOG — fw01.corp.local ===', cls:'c-cyan'},
+    {id:'ls2_norm1', text:'[08:01:14] ALLOW TCP 10.0.1.100:54221 -> 10.0.2.50:443 (ESTABLISHED)', cls:'c-green', safe:true},
+    {id:'ls2_norm2', text:'[08:01:22] ALLOW TCP 10.0.1.100:54222 -> 10.0.2.50:80  (ESTABLISHED)', cls:'c-green', safe:true},
+    {id:'ls2_norm3', text:'[08:01:30] ALLOW UDP 10.0.1.200:49120 -> 8.8.8.8:53 (DNS QUERY)', cls:'c-green', safe:true},
+    {id:'ls2_blank1', text:''},
+    {id:'ls2_scan1', text:'[08:14:01] DROP TCP 203.0.113.99:44001 -> 10.0.2.50:21   SYN (no ACK — half-open)', cls:'c-red', vuln:true, vulnName:'Port Scan: SYN Probe Port 21 (FTP)', explanation:'SYN with no ACK = half-open (stealth) scan. The scanner sends SYN packets but never completes the handshake — a classic Nmap -sS signature. Port 21 (FTP) is being probed.'},
+    {id:'ls2_scan2', text:'[08:14:01] DROP TCP 203.0.113.99:44002 -> 10.0.2.50:22   SYN (no ACK — half-open)', cls:'c-red', vuln:true, vulnName:'Port Scan: SYN Probe Port 22 (SSH)', explanation:'Sequential port scanning. Same source, same target, port 22 probed 0ms after port 21. This is automated sequential scanning.'},
+    {id:'ls2_scan3', text:'[08:14:01] DROP TCP 203.0.113.99:44003 -> 10.0.2.50:23   SYN (no ACK — half-open)', cls:'c-red', vuln:true, vulnName:'Port Scan: SYN Probe Port 23 (Telnet)', explanation:'Port 23 (Telnet) probed — scanner is likely doing a service discovery sweep of common ports.'},
+    {id:'ls2_norm4', text:'[08:14:01] ALLOW TCP 10.0.1.150:55001 -> 10.0.3.10:3306 (ESTABLISHED)', cls:'c-green', safe:true},
+    {id:'ls2_scan4', text:'[08:14:02] DROP TCP 203.0.113.99:44004 -> 10.0.2.50:80   SYN (no ACK — half-open)', cls:'c-red', vuln:true, vulnName:'Port Scan: SYN Probe Port 80 (HTTP)', explanation:'Continued sequential scan now hitting port 80. 4 ports in 1 second = automated scanning tool.'},
+    {id:'ls2_scan5', text:'[08:14:02] DROP TCP 203.0.113.99:44005 -> 10.0.2.50:443  SYN (no ACK — half-open)', cls:'c-red', vuln:true, vulnName:'Port Scan: SYN Probe Port 443 (HTTPS)', explanation:'Port 443 probe — scanner hitting all common service ports sequentially. The source ports increment sequentially (44001, 44002...) confirming automated tool usage.'},
+    {id:'ls2_blank2', text:''},
+    {id:'ls2_ids_head', text:'=== SNORT IDS ALERTS ===', cls:'c-cyan'},
+    {id:'ls2_ids1', text:'[08:14:01] [1:1228:7] SCAN nmap SYN scan {TCP} 203.0.113.99:44001 -> 10.0.2.50:21', cls:'c-red', vuln:true, vulnName:'IDS: Nmap SYN Scan Detected', explanation:'Snort rule 1:1228 specifically identifies Nmap SYN scan signature. The IDS has confirmed automated scanning tool usage from 203.0.113.99.'},
+    {id:'ls2_ids2', text:'[08:14:02] [1:469:1]  ICMP PING NMAP {ICMP} 203.0.113.99 -> 10.0.2.0/24', cls:'c-red', vuln:true, vulnName:'IDS: Nmap Ping Sweep Detected', explanation:'Nmap ping sweep across the entire /24 subnet — the attacker is mapping which hosts are alive before the port scan. This confirms active network reconnaissance.'},
+    {id:'ls2_norm5', text:'[08:14:05] ALLOW TCP 10.0.1.100:54889 -> 172.16.0.10:443 (ESTABLISHED)', cls:'c-green', safe:true},
+    {id:'ls2_norm6', text:'[08:15:22] ALLOW UDP 10.0.1.50:123 -> 216.229.0.179:123 (NTP)', cls:'c-green', safe:true},
+  ]
+},
+
+{
+  id:'l3', mode:'log', difficulty:'hard',
+  name:'Lateral Movement & Privilege Escalation',
+  desc:'A workstation has been compromised. Review the Windows Security Event Log for signs of lateral movement and privilege escalation after initial access.',
+  task:'Identify log lines indicating the attacker is moving through the network, escalating privileges, or establishing persistence.',
+  hint:'Lateral movement: successful logins from the compromised workstation to other systems. Privilege escalation: sensitive privilege assignments, new accounts created, or security audit log clearing. Pass-the-hash: NTLM logon from unusual source.',
+  path:'Windows Security Event Log — WORKSTATION-07.corp.local',
+  vulnerabilities:['lm1_pth','lm2_newuser','lm3_addadmin','lm4_clearlogs','lm5_sched','lm6_wmi'],
+  lines:[
+    {id:'lm_head', text:'=== Windows Security Event Log [WORKSTATION-07] ===', cls:'c-cyan'},
+    {id:'lm_norm1', text:'[09:15:01] EventID 4624  Logon Type 2 (Interactive)  User: jsmith  Source: 127.0.0.1  — Normal user logon', cls:'c-green', safe:true},
+    {id:'lm_norm2', text:'[09:15:02] EventID 4688  New process: C:\\Windows\\explorer.exe  User: jsmith  — Explorer started', cls:'c-green', safe:true},
+    {id:'lm_norm3', text:'[09:22:14] EventID 4688  New process: C:\\Program Files\\Chrome\\chrome.exe  User: jsmith', cls:'c-green', safe:true},
+    {id:'lm_blank1', text:''},
+    {id:'lm_note',  text:'--- [09:44:51] Anomalous activity begins ---', cls:'c-amber'},
+    {id:'lm1_pth',  text:'[09:44:52] EventID 4624  Logon Type 3 (Network)  User: Administrator  Source: WORKSTATION-07  AuthPkg: NTLM  LogonProcess: NtLmSsp  — [NTLM network logon from workstation]', cls:'c-red', vuln:true, vulnName:'Pass-the-Hash: NTLM Lateral Movement', explanation:'An NTLM network logon (Type 3) as Administrator sourced from the compromised workstation. Modern environments should use Kerberos — NTLM Type 3 logons from workstations to servers are a pass-the-hash indicator. The attacker dumped the NTLM hash from memory (Mimikatz) and is reusing it.'},
+    {id:'lm_norm4', text:'[09:44:53] EventID 4776  NTLM authentication — DC01.corp.local validated WORKSTATION-07\\Administrator', cls:'c-amber', safe:true},
+    {id:'lm2_newuser', text:'[09:45:11] EventID 4720  New user account created: "helpdesk_svc"  Created by: Administrator  On: DC01', cls:'c-red', vuln:true, vulnName:'Persistence: New Account Created', explanation:'Attackers create new accounts for persistence — even if the original compromised account is disabled, they retain access. "helpdesk_svc" resembles a legitimate service account name (a common attacker naming strategy).'},
+    {id:'lm3_addadmin', text:'[09:45:13] EventID 4732  Account "helpdesk_svc" added to group "Domain Admins"  By: Administrator', cls:'c-red', vuln:true, vulnName:'Privilege Escalation: Domain Admin Group', explanation:'The newly created backdoor account was immediately added to Domain Admins — full domain privilege escalation. This is a critical indicator of complete domain compromise.'},
+    {id:'lm_blank2', text:''},
+    {id:'lm_norm5', text:'[09:45:20] EventID 4672  Special privileges assigned to new logon  User: helpdesk_svc  — Expected for Domain Admin', cls:'c-amber', safe:true},
+    {id:'lm4_clearlogs', text:'[09:47:02] EventID 1102  The audit log was cleared  Subject: Administrator  — Security log cleared!', cls:'c-red', vuln:true, vulnName:'Anti-Forensics: Security Log Cleared', explanation:'EventID 1102 means the Security event log was deliberately cleared. This is an anti-forensics technique to destroy evidence of the attack. Ironically, the clearing event itself is logged — but all preceding events are gone.'},
+    {id:'lm5_sched', text:'[09:47:15] EventID 4698  Scheduled task created: "WindowsUpdateHelper"  Author: Administrator  Command: cmd.exe /c powershell.exe -enc [base64]', cls:'c-red', vuln:true, vulnName:'Persistence: Scheduled Task (Encoded PowerShell)', explanation:'Creating a scheduled task named "WindowsUpdateHelper" (mimicking a legitimate process name) that executes base64-encoded PowerShell is a classic persistence technique. The encoding is used to evade detection.'},
+    {id:'lm6_wmi', text:'[09:47:33] EventID 4688  New process: wmic.exe /node:FILE-SERVER-01 process call create "cmd.exe /c net user backdoor P@ssw0rd /add"', cls:'c-red', vuln:true, vulnName:'Lateral Movement: WMI Remote Command', explanation:'WMIC being used to create a process on a remote server (FILE-SERVER-01). This is remote code execution via WMI — a common lateral movement technique. The command is also adding another backdoor user account.'},
+    {id:'lm_norm6', text:'[09:48:01] EventID 4624  Logon Type 3  User: helpdesk_svc  Source: FILE-SERVER-01', cls:'c-amber', safe:true},
+  ]
+},
+
+{
+  id:'l4', mode:'log', difficulty:'hard',
+  name:'SQL Injection & Web Attack Detection',
+  desc:'Review Apache access logs and WAF alerts from a web application. An attacker is probing and exploiting the application. Identify every malicious request.',
+  task:'Flag log lines showing SQL injection attempts, directory traversal, command injection, and abnormal request patterns.',
+  hint:'SQLi signatures: UNION SELECT, quotes, OR 1=1, encoded characters (%27=%27, %3D==). Directory traversal: ../../../ or %2e%2e. Large 500 errors after injection attempts indicate successful exploitation.',
+  path:'/var/log/apache2/access.log + /var/log/modsec_audit.log',
+  vulnerabilities:['wsql1','wsql2','wtraversal','wcmd','wscanner','wexfil'],
+  lines:[
+    {id:'wa2_head', text:'=== Apache Access Log + ModSecurity WAF Alerts ===', cls:'c-cyan'},
+    {id:'wa2_norm1', text:'[02/Mar/2024:14:01:05] 203.0.113.44 "GET /index.php HTTP/1.1" 200 4821', cls:'c-green', safe:true},
+    {id:'wa2_norm2', text:'[02/Mar/2024:14:01:07] 203.0.113.44 "GET /products.php?id=42 HTTP/1.1" 200 2341', cls:'c-green', safe:true},
+    {id:'wa2_norm3', text:'[02/Mar/2024:14:01:09] 203.0.113.44 "POST /login.php HTTP/1.1" 302 0', cls:'c-green', safe:true},
+    {id:'wa2_blank1', text:''},
+    {id:'wsql1', text:"[02/Mar/2024:14:02:14] 203.0.113.44 \"GET /products.php?id=42' OR '1'='1 HTTP/1.1\" 500 1204", cls:'c-red', vuln:true, vulnName:"SQL Injection: OR 1=1 Boolean Attack", explanation:"Classic boolean-based SQL injection. The single quote breaks out of the SQL string, and OR '1'='1' makes the WHERE clause always true, returning all records. The 500 error indicates the injection reached the database and caused an error — the application is vulnerable."},
+    {id:'wsql2', text:'[02/Mar/2024:14:02:19] 203.0.113.44 "GET /products.php?id=42 UNION SELECT username,password,3 FROM users-- HTTP/1.1" 200 8841', cls:'c-red', vuln:true, vulnName:'SQL Injection: UNION SELECT Data Extraction', explanation:'UNION SELECT attack — the attacker is extracting the username and password columns from the users table. The 200 response with 8841 bytes (much larger than normal) suggests the data was returned. This is active data exfiltration via SQLi.'},
+    {id:'wtraversal', text:'[02/Mar/2024:14:03:02] 203.0.113.44 "GET /download.php?file=../../../etc/passwd HTTP/1.1" 200 2841', cls:'c-red', vuln:true, vulnName:'Directory Traversal: /etc/passwd Read', explanation:'Path traversal attack using ../ to navigate above the web root. The 200 response with 2841 bytes means /etc/passwd was successfully read. The attacker now has all system user accounts.'},
+    {id:'wa2_norm4', text:'[02/Mar/2024:14:03:10] 10.0.0.15 "GET /admin/dashboard.php HTTP/1.1" 200 14220', cls:'c-green', safe:true},
+    {id:'wcmd', text:'[02/Mar/2024:14:03:45] 203.0.113.44 "GET /ping.php?host=127.0.0.1;cat+/etc/shadow HTTP/1.1" 200 3201', cls:'c-red', vuln:true, vulnName:'Command Injection: /etc/shadow Read', explanation:'Command injection via semicolon — the host parameter passes to a shell command (ping). The semicolon appends a second command: "cat /etc/shadow". The 200 response means the shadow file (containing hashed passwords) was returned to the attacker.'},
+    {id:'wa2_blank2', text:''},
+    {id:'wa2_waf_head', text:'=== ModSecurity WAF Alerts ===', cls:'c-cyan'},
+    {id:'wscanner', text:'[02/Mar/2024:14:04:00] [ALERT] Rule 950001 User-Agent: sqlmap/1.7.8 Target: /products.php — Automated scanner detected', cls:'c-red', vuln:true, vulnName:'Automated SQLi Scanner: sqlmap Detected', explanation:"The WAF identified sqlmap — the most common automated SQL injection tool. The User-Agent string explicitly identifies it. Once sqlmap is confirmed, all subsequent requests from this IP should be treated as automated attack traffic."},
+    {id:'wexfil', text:'[02/Mar/2024:14:05:22] [ALERT] Rule 981300 Outbound data: Response contains 847 database records — Possible data exfiltration', cls:'c-red', vuln:true, vulnName:'Data Exfiltration: 847 DB Records in Response', explanation:'The WAF detected an abnormally large response containing 847 database records. This confirms the UNION SELECT attack succeeded and the attacker is actively exfiltrating the database contents.'},
+    {id:'wa2_norm5', text:'[02/Mar/2024:14:05:30] 10.0.0.20 "GET /reports/q1.pdf HTTP/1.1" 200 184221', cls:'c-green', safe:true},
+  ]
+},
+
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let state = {
+  mode: 'hardening',
+  currentScenarioIdx: 0,
+  flagged: new Set(),
+  submitted: false,
+  totalCorrect: 0,
+  totalMissed: 0,
+  completedIds: new Set(),
+};
+
+function currentScenario() {
+  const filtered = SCENARIOS.filter(s => s.mode === state.mode);
+  return filtered[state.currentScenarioIdx] || filtered[0];
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER SCENARIO NAV
+// ════════════════════════════════════════════════════════════════════════
+function renderScenarioNav() {
+  const nav = document.getElementById('scenarioNav');
+  nav.innerHTML = '';
+  const filtered = SCENARIOS.filter(s => s.mode === state.mode);
+  filtered.forEach((sc, i) => {
+    const btn = document.createElement('button');
+    const done = state.completedIds.has(sc.id);
+    btn.className = `snav-btn mode-${sc.mode} ${i === state.currentScenarioIdx ? 'active' : ''} ${done ? 'done' : ''}`;
+    btn.textContent = `${done ? '✓ ' : ''}${sc.name}`;
+    btn.onclick = () => {
+      state.currentScenarioIdx = i;
+      loadScenario();
+      renderScenarioNav();
+    };
+    nav.appendChild(btn);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// LOAD SCENARIO
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario() {
+  const sc = currentScenario();
+  state.flagged = new Set();
+  state.submitted = false;
+
+  // Right panel
+  document.getElementById('rpName').textContent = sc.name;
+  const diffEl = document.getElementById('rpDiff');
+  diffEl.className = `diff-pill diff-${sc.difficulty}`;
+  diffEl.textContent = sc.difficulty.charAt(0).toUpperCase() + sc.difficulty.slice(1);
+  document.getElementById('rpDesc').textContent = sc.desc;
+  document.getElementById('rpTask').textContent = sc.task;
+
+  document.getElementById('termPath').textContent = sc.path;
+  document.getElementById('termStatus').textContent = 'SCANNING';
+  document.getElementById('termStatus').className = 'term-status scanning';
+
+  document.getElementById('instrText').textContent =
+    sc.mode === 'log'
+      ? 'Click suspicious or malicious log lines to flag them as findings.'
+      : 'Click lines with security misconfigurations or vulnerabilities to flag them.';
+
+  document.getElementById('hScenarioNum').textContent = state.currentScenarioIdx + 1;
+
+  // Counters
+  const total = sc.vulnerabilities.length;
+  document.getElementById('findTotal').textContent = total;
+  document.getElementById('findNum').textContent = '0';
+  document.getElementById('findFill').style.width = '0%';
+
+  // Findings list
+  document.getElementById('findingsList').innerHTML = `
+    <div class="empty-findings">
+      No findings yet.<br>
+      Click suspicious lines<br>in the terminal to flag them.
+    </div>`;
+
+  // Render terminal
+  renderTerminal(sc);
+  renderScenarioNav();
+  setTimeout(() => {
+    document.getElementById('termStatus').textContent = sc.mode === 'log' ? 'LIVE' : 'READY';
+    document.getElementById('termStatus').className = `term-status ${sc.mode === 'log' ? 'scanning' : 'clean'}`;
+  }, 800);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER TERMINAL
+// ════════════════════════════════════════════════════════════════════════
+function renderTerminal(sc) {
+  const content = document.getElementById('termContent');
+  content.innerHTML = '';
+
+  // Opening prompt
+  const promptLine = document.createElement('div');
+  promptLine.className = 'log-line';
+  promptLine.innerHTML = `<span class="prompt">root@hardenlab</span><span class="c-dim">:</span><span class="c-blue">~</span><span class="c-dim">#</span> <span class="c-white">cat ${sc.path.split(' ')[0]}</span>`;
+  content.appendChild(promptLine);
+
+  const blankLine = document.createElement('div');
+  blankLine.className = 'log-line';
+  content.appendChild(blankLine);
+
+  sc.lines.forEach(line => {
+    const el = document.createElement('div');
+    el.id = `line_${line.id}`;
+    el.className = `log-line ${line.cls || ''}`;
+    el.dataset.lid = line.id;
+
+    if (line.vuln || line.safe === true) {
+      el.classList.add('clickable');
+      el.addEventListener('click', () => toggleFlag(line.id, sc));
+    }
+
+    // Render colored text
+    el.innerHTML = colorize(line.text || '', line);
+    content.appendChild(el);
+  });
+}
+
+function colorize(text, line) {
+  if (!text) return '&nbsp;';
+  // Basic HTML escape
+  let t = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return t;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// FLAG TOGGLE
+// ════════════════════════════════════════════════════════════════════════
+function toggleFlag(lid, sc) {
+  if (state.submitted) return;
+
+  const el = document.getElementById(`line_${lid}`);
+  if (!el) return;
+
+  if (state.flagged.has(lid)) {
+    state.flagged.delete(lid);
+    el.classList.remove('selected-vuln');
+    // Remove from findings list
+    document.getElementById(`finding_${lid}`)?.remove();
+    if (document.getElementById('findingsList').children.length === 0) {
+      document.getElementById('findingsList').innerHTML = '<div class="empty-findings">No findings yet.<br>Click suspicious lines<br>in the terminal to flag them.</div>';
+    }
+  } else {
+    state.flagged.add(lid);
+    el.classList.add('selected-vuln');
+
+    const line = sc.lines.find(l => l.id === lid);
+    if (line) addFindingItem(lid, line.vulnName || 'Flagged Item', line.explanation || '', 'pending');
+
+    // Remove empty placeholder
+    const empty = document.getElementById('findingsList').querySelector('.empty-findings');
+    if (empty) empty.remove();
+  }
+
+  updateCounter();
+}
+
+function addFindingItem(lid, title, detail, status) {
+  const list = document.getElementById('findingsList');
+  const el = document.createElement('div');
+  el.className = `finding-item ${status}`;
+  el.id = `finding_${lid}`;
+  el.innerHTML = `<div class="finding-title">${title}</div><div class="finding-detail">${detail.substring(0, 90)}${detail.length > 90 ? '…' : ''}</div>`;
+  list.appendChild(el);
+}
+
+function updateCounter() {
+  const count = state.flagged.size;
+  const total = currentScenario().vulnerabilities.length;
+  document.getElementById('findNum').textContent = count;
+  document.getElementById('findFill').style.width = Math.min(100, (count / total) * 100) + '%';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SUBMIT
+// ════════════════════════════════════════════════════════════════════════
+function submitFindings() {
+  if (state.submitted) return;
+  state.submitted = true;
+
+  const sc = currentScenario();
+  const vulnSet = new Set(sc.vulnerabilities);
+  let correct = 0, falsePositives = 0, missed = 0;
+
+  // Mark all lines
+  sc.lines.forEach(line => {
+    const el = document.getElementById(`line_${line.id}`);
+    if (!el) return;
+
+    const isVuln = vulnSet.has(line.id);
+    const wasFlagged = state.flagged.has(line.id);
+
+    el.classList.remove('selected-vuln', 'clickable');
+
+    if (isVuln && wasFlagged) {
+      correct++;
+      el.classList.add('selected-correct');
+      const badge = document.createElement('span');
+      badge.className = 'vuln-badge badge-correct';
+      badge.textContent = '✓ CORRECT';
+      el.appendChild(badge);
+      const fi = document.getElementById(`finding_${line.id}`);
+      if (fi) { fi.className = 'finding-item correct'; fi.querySelector('.finding-title').textContent = '✓ ' + (line.vulnName || 'Correct Finding'); fi.querySelector('.finding-detail').textContent = line.explanation || ''; }
+    } else if (!isVuln && wasFlagged) {
+      falsePositives++;
+      el.classList.add('selected-wrong');
+      const badge = document.createElement('span');
+      badge.className = 'vuln-badge badge-safe';
+      badge.textContent = '✗ FALSE POS.';
+      el.appendChild(badge);
+      const fi = document.getElementById(`finding_${line.id}`);
+      if (fi) { fi.className = 'finding-item wrong'; fi.querySelector('.finding-title').textContent = '✗ False Positive'; }
+    } else if (isVuln && !wasFlagged) {
+      missed++;
+      el.classList.add('missed-vuln');
+      const badge = document.createElement('span');
+      badge.className = 'vuln-badge badge-missed';
+      badge.textContent = '⚠ MISSED';
+      el.appendChild(badge);
+      if (line.vuln) addFindingItem(line.id + '_missed', '⚠ Missed: ' + (line.vulnName || 'Issue'), line.explanation || '', 'missed');
+    } else if (line.safe) {
+      el.classList.add('revealed-safe');
+    }
+  });
+
+  // Stats
+  state.totalCorrect += correct;
+  state.totalMissed += missed;
+  document.getElementById('hScoreCorrect').textContent = state.totalCorrect;
+  document.getElementById('hScoreMissed').textContent = state.totalMissed;
+  state.completedIds.add(sc.id);
+  renderScenarioNav();
+  document.getElementById('termStatus').textContent = correct === sc.vulnerabilities.length ? 'SECURED' : 'ISSUES REMAIN';
+  document.getElementById('termStatus').className = `term-status ${correct === sc.vulnerabilities.length ? 'clean' : 'threat'}`;
+
+  // Results
+  showResults(sc, correct, falsePositives, missed);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RESULTS
+// ════════════════════════════════════════════════════════════════════════
+function showResults(sc, correct, falsePos, missed) {
+  const total = sc.vulnerabilities.length;
+  const pct = Math.round((correct / total) * 100);
+
+  document.getElementById('resNum').textContent = correct;
+  document.getElementById('resDenom').textContent = `/${total}`;
+  document.getElementById('resPct').textContent = pct + '%';
+  document.getElementById('resCorrect').textContent = correct;
+  document.getElementById('resFalsePos').textContent = falsePos;
+  document.getElementById('resMissed').textContent = missed;
+
+  const title = document.getElementById('resTitle');
+  if (pct === 100)     { title.textContent = 'Perfect Analysis'; title.className = 'results-title perfect'; }
+  else if (pct >= 70)  { title.textContent = 'Good Work';        title.className = 'results-title good'; }
+  else                 { title.textContent = 'Review Required';  title.className = 'results-title poor'; }
+
+  let exp = '';
+  if (missed > 0) exp += `You missed ${missed} issue${missed>1?'s':''} — click "Review" to see which lines were highlighted in orange. `;
+  if (falsePos > 0) exp += `You had ${falsePos} false positive${falsePos>1?'s':''} — lines you flagged that were not actually issues. `;
+  if (pct === 100) exp = 'Excellent — you identified every vulnerability correctly with no false positives. Review the explanations on flagged lines to reinforce the concepts.';
+  document.getElementById('resExplanation').textContent = exp;
+
+  document.getElementById('resultsOverlay').classList.add('show');
+}
+
+function closeResults() { document.getElementById('resultsOverlay').classList.remove('show'); }
+
+// ════════════════════════════════════════════════════════════════════════
+// HINT
+// ════════════════════════════════════════════════════════════════════════
+function showHint() {
+  const sc = currentScenario();
+  const overlay = document.getElementById('resultsOverlay');
+  document.getElementById('resTitle').textContent = '💡 Hint';
+  document.getElementById('resTitle').className = 'results-title good';
+  document.getElementById('resNum').textContent = '?';
+  document.getElementById('resDenom').textContent = '';
+  document.getElementById('resPct').textContent = '';
+  document.getElementById('resCorrect').style.display = 'none';
+  document.querySelector('.results-breakdown').style.display = 'none';
+  document.getElementById('resExplanation').textContent = sc.hint;
+  document.getElementById('resultsOverlay').classList.add('show');
+  // Reset after close
+  overlay.addEventListener('transitionend', function restore() {
+    document.querySelector('.results-breakdown').style.display = '';
+    document.getElementById('resCorrect').style.display = '';
+    overlay.removeEventListener('transitionend', restore);
+  }, { once: true });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════════════════
+function resetScenario() {
+  const filtered = SCENARIOS.filter(s => s.mode === state.mode);
+  state.currentScenarioIdx = Math.min(state.currentScenarioIdx, filtered.length - 1);
+  loadScenario();
+}
+
+function nextScenario() {
+  const filtered = SCENARIOS.filter(s => s.mode === state.mode);
+  state.currentScenarioIdx = (state.currentScenarioIdx + 1) % filtered.length;
+  loadScenario();
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  state.currentScenarioIdx = 0;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  renderScenarioNav();
+  loadScenario();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+renderScenarioNav();
+loadScenario();
+</script>
+</body>
+</html>

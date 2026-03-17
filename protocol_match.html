@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProtocolMatch — Security+ Matching Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:      #0d1117;
+  --ink2:     #161d27;
+  --ink3:     #1c2530;
+  --rule:     #242f3d;
+  --rule2:    #2d3a4a;
+  --fog:      #3d5068;
+  --mist:     #8aa0b8;
+  --paper:    #f0f4f8;
+  --paper2:   #e4eaf0;
+  --white:    #ffffff;
+
+  --gold:     #e8a020;
+  --gold-lt:  #f5c060;
+  --gold-bg:  rgba(232,160,32,0.1);
+  --teal:     #1fb6c8;
+  --teal-lt:  #6dd8e6;
+  --teal-bg:  rgba(31,182,200,0.1);
+  --green:    #22c55e;
+  --green-bg: rgba(34,197,94,0.1);
+  --red:      #ef4444;
+  --red-bg:   rgba(239,68,68,0.1);
+  --purple:   #a78bfa;
+  --purple-bg:rgba(167,139,250,0.1);
+
+  --serif:    'Fraunces', Georgia, serif;
+  --mono:     'DM Mono', 'Courier New', monospace;
+  --sans:     'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Subtle noise texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.4;
+}
+
+.wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+/* ── HEADER ── */
+header {
+  border-bottom: 1px solid var(--rule);
+  padding: 20px 0 0;
+  margin-bottom: 0;
+}
+.header-top {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding-bottom: 16px;
+}
+.masthead {
+  font-family: var(--serif);
+  font-size: 2rem; font-weight: 900;
+  letter-spacing: -0.03em; line-height: 1;
+  color: var(--white);
+}
+.masthead span { color: var(--gold); font-style: italic; }
+.tagline {
+  font-family: var(--mono);
+  font-size: 0.65rem; color: var(--fog);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-top: 4px;
+}
+.header-stats {
+  display: flex; gap: 24px; align-items: flex-end;
+}
+.stat-block { text-align: right; }
+.stat-val {
+  font-family: var(--serif);
+  font-size: 1.6rem; font-weight: 700;
+  color: var(--gold); line-height: 1;
+}
+.stat-label {
+  font-family: var(--mono);
+  font-size: 0.58rem; color: var(--fog);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* Mode tabs */
+.mode-tabs {
+  display: flex; gap: 0;
+  border-top: 1px solid var(--rule);
+  margin-top: 0;
+}
+.mtab {
+  padding: 10px 20px;
+  font-family: var(--mono);
+  font-size: 0.68rem; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--fog); cursor: pointer;
+  border: none; background: none;
+  border-top: 2px solid transparent;
+  transition: all 0.15s;
+  margin-top: -1px;
+}
+.mtab:hover { color: var(--mist); }
+.mtab.active { color: var(--gold); border-top-color: var(--gold); }
+
+/* ── MAIN GAME AREA ── */
+.game-area { padding: 32px 0; }
+
+/* Round header */
+.round-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 28px;
+}
+.round-info { display: flex; align-items: center; gap: 16px; }
+.round-badge {
+  background: var(--ink2);
+  border: 1px solid var(--rule2);
+  padding: 6px 14px;
+  font-family: var(--mono);
+  font-size: 0.65rem; color: var(--mist);
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.round-title {
+  font-family: var(--serif);
+  font-size: 1.15rem; font-weight: 700;
+  color: var(--white);
+  font-style: italic;
+}
+.diff-tag {
+  padding: 3px 10px;
+  font-family: var(--mono);
+  font-size: 0.6rem; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  border: 1px solid;
+}
+.diff-easy   { color: var(--green);  border-color: rgba(34,197,94,0.4);  background: var(--green-bg); }
+.diff-medium { color: var(--gold);   border-color: rgba(232,160,32,0.4); background: var(--gold-bg);  }
+.diff-hard   { color: var(--red);    border-color: rgba(239,68,68,0.4);  background: var(--red-bg);   }
+
+/* Timer */
+.timer-wrap {
+  display: flex; align-items: center; gap: 12px;
+}
+.timer {
+  font-family: var(--mono);
+  font-size: 1.4rem; font-weight: 500;
+  color: var(--gold-lt);
+  min-width: 52px; text-align: right;
+  transition: color 0.3s;
+}
+.timer.urgent { color: var(--red); animation: timerPulse 0.5s infinite alternate; }
+@keyframes timerPulse { from{opacity:1} to{opacity:0.5} }
+.timer-bar { width: 120px; height: 3px; background: var(--rule2); }
+.timer-fill { height: 100%; background: var(--gold); transition: width 1s linear, background 0.5s; }
+.timer-fill.urgent { background: var(--red); }
+
+/* ── MATCHING INTERFACE ── */
+.match-layout {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  align-items: start;
+}
+
+.column-header {
+  font-family: var(--mono);
+  font-size: 0.6rem; color: var(--fog);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 12px;
+}
+
+/* Use-case cards (left) */
+.usecase-col { padding-right: 20px; }
+.usecase-card {
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  background: var(--ink2);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule2);
+  position: relative;
+  transition: all 0.15s;
+  min-height: 60px;
+  display: flex; align-items: center;
+}
+.usecase-card.has-match {
+  border-left-color: var(--teal);
+  background: rgba(31,182,200,0.06);
+}
+.usecase-card.correct {
+  border-left-color: var(--green);
+  background: var(--green-bg);
+  animation: correctFlash 0.5s ease;
+}
+.usecase-card.wrong {
+  border-left-color: var(--red);
+  background: var(--red-bg);
+  animation: wrongShake 0.4s ease;
+}
+@keyframes correctFlash {
+  0%,100% { transform: translateX(0); }
+  50%      { transform: translateX(4px); }
+}
+@keyframes wrongShake {
+  0%,100% { transform: translateX(0); }
+  25%     { transform: translateX(-6px); }
+  75%     { transform: translateX(6px); }
+}
+.usecase-num {
+  font-family: var(--mono);
+  font-size: 0.65rem; color: var(--fog);
+  min-width: 22px; flex-shrink: 0;
+}
+.usecase-text {
+  font-size: 0.82rem; color: var(--paper);
+  line-height: 1.4; flex: 1;
+}
+.usecase-tag {
+  font-family: var(--mono);
+  font-size: 0.55rem; color: var(--mist);
+  display: block; margin-top: 3px;
+}
+.match-badge {
+  margin-left: 10px; flex-shrink: 0;
+  padding: 3px 8px;
+  background: var(--teal-bg);
+  border: 1px solid rgba(31,182,200,0.35);
+  color: var(--teal-lt);
+  font-family: var(--mono);
+  font-size: 0.62rem; font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.match-badge:hover { background: rgba(31,182,200,0.2); }
+.match-badge.correct-badge { background: var(--green-bg); border-color: rgba(34,197,94,0.4); color: var(--green); cursor: default; }
+.match-badge.wrong-badge   { background: var(--red-bg);   border-color: rgba(239,68,68,0.4);   color: var(--red);   }
+
+/* Center connector */
+.connector-col {
+  width: 40px;
+  display: flex; flex-direction: column;
+  padding-top: 37px;
+}
+.connector-line {
+  height: 76px; /* matches card height + margin */
+  display: flex; align-items: center; justify-content: center;
+}
+.conn-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--rule2);
+  transition: background 0.3s;
+}
+.conn-dot.matched  { background: var(--teal); }
+.conn-dot.correct  { background: var(--green); }
+.conn-dot.wrong    { background: var(--red); }
+
+/* Protocol cards (right - draggable) */
+.protocol-col { padding-left: 20px; }
+.protocol-bank {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.protocol-card {
+  padding: 10px 14px;
+  background: var(--ink3);
+  border: 1px solid var(--rule2);
+  cursor: grab;
+  user-select: none;
+  transition: all 0.15s;
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.protocol-card:hover { border-color: var(--gold); background: var(--gold-bg); }
+.protocol-card:active { cursor: grabbing; }
+.protocol-card.dragging { opacity: 0.35; }
+.protocol-card.used {
+  opacity: 0.3; cursor: not-allowed;
+  background: var(--ink2); border-color: var(--rule);
+}
+.protocol-card.drag-over { border-color: var(--teal); background: var(--teal-bg); }
+
+.protocol-name {
+  font-family: var(--mono);
+  font-size: 0.82rem; font-weight: 500;
+  color: var(--gold-lt);
+  letter-spacing: 0.04em;
+}
+.protocol-port {
+  font-family: var(--mono);
+  font-size: 0.58rem; color: var(--fog);
+  padding: 2px 6px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+}
+.protocol-card .drag-grip {
+  color: var(--rule2); font-size: 14px; margin-right: 8px;
+}
+
+/* Drop zones on use-case cards */
+.usecase-card.drop-target {
+  border-color: var(--teal) !important;
+  background: rgba(31,182,200,0.12) !important;
+}
+
+/* ── SUBMIT / ACTIONS ── */
+.actions-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+}
+.progress-info {
+  font-family: var(--mono);
+  font-size: 0.68rem; color: var(--fog);
+}
+.progress-info strong { color: var(--mist); }
+.action-btns { display: flex; gap: 10px; }
+
+.btn {
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 0.7rem; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.18s;
+}
+.btn-gold  { border-color: var(--gold);  color: var(--gold);  background: var(--gold-bg);  }
+.btn-gold:hover  { background: rgba(232,160,32,0.22); }
+.btn-teal  { border-color: var(--teal);  color: var(--teal);  background: var(--teal-bg);  }
+.btn-teal:hover  { background: rgba(31,182,200,0.22); }
+.btn-green { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+.btn-green:hover { background: rgba(34,197,94,0.22); }
+.btn-ghost { border-color: var(--rule2); color: var(--fog); background: transparent; }
+.btn-ghost:hover { color: var(--mist); }
+
+/* ── RESULTS PANEL ── */
+.results-panel {
+  display: none;
+  animation: slideUp 0.3s ease;
+}
+.results-panel.show { display: block; }
+@keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+.results-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 24px;
+}
+.score-display {
+  display: flex; align-items: baseline; gap: 12px;
+}
+.score-big {
+  font-family: var(--serif);
+  font-size: 4rem; font-weight: 900;
+  line-height: 1; color: var(--white);
+}
+.score-denom {
+  font-family: var(--serif);
+  font-size: 1.8rem; color: var(--fog);
+}
+.score-pct {
+  font-family: var(--mono);
+  font-size: 0.72rem; color: var(--gold);
+  letter-spacing: 0.08em;
+}
+.grade-letter {
+  font-family: var(--serif);
+  font-size: 2.5rem; font-weight: 900;
+  font-style: italic;
+}
+
+/* Review grid */
+.review-grid { display: flex; flex-direction: column; gap: 10px; }
+.review-item {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid var(--rule);
+  overflow: hidden;
+}
+.review-item.r-correct { border-color: rgba(34,197,94,0.3); }
+.review-item.r-wrong   { border-color: rgba(239,68,68,0.3); }
+
+.ri-usecase {
+  padding: 12px 14px;
+  background: var(--ink2);
+  font-size: 0.78rem; color: var(--paper);
+  line-height: 1.4;
+  border-right: 1px solid var(--rule);
+}
+.ri-arrow {
+  width: 40px; display: flex; align-items: center; justify-content: center;
+  background: var(--ink2);
+  font-size: 1rem;
+  border-right: 1px solid var(--rule);
+}
+.review-item.r-correct .ri-arrow { color: var(--green); }
+.review-item.r-wrong   .ri-arrow { color: var(--red); }
+
+.ri-answer {
+  padding: 12px 14px;
+  background: var(--ink3);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  border-right: 1px solid var(--rule);
+}
+.ri-answer .given { font-weight: 500; }
+.ri-answer .correct-ans { font-size: 0.65rem; color: var(--green); margin-top: 4px; }
+.review-item.r-correct .ri-answer .given { color: var(--green); }
+.review-item.r-wrong   .ri-answer .given { color: var(--red); }
+
+.ri-explain {
+  padding: 12px 14px;
+  background: var(--ink);
+  font-size: 0.68rem; color: var(--fog);
+  line-height: 1.55;
+}
+.ri-explain strong { color: var(--mist); }
+
+/* ── REFERENCE TABLE ── */
+.ref-table-wrap { padding: 28px 0; }
+.ref-title {
+  font-family: var(--serif);
+  font-size: 1.4rem; font-weight: 700;
+  font-style: italic; color: var(--white);
+  margin-bottom: 20px;
+}
+.ref-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.72rem;
+}
+.ref-table th {
+  font-family: var(--mono);
+  font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--fog); text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--ink2);
+}
+.ref-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--mist); vertical-align: top;
+  line-height: 1.4;
+}
+.ref-table tr:hover td { background: var(--ink2); }
+.ref-table td:first-child {
+  font-family: var(--mono);
+  font-weight: 500; color: var(--gold-lt);
+  white-space: nowrap;
+}
+.ref-table td:nth-child(2) {
+  font-family: var(--mono);
+  font-size: 0.65rem; color: var(--teal);
+  white-space: nowrap;
+}
+.confuse-tag {
+  display: inline-block; padding: 1px 6px; margin-top: 3px;
+  font-family: var(--mono); font-size: 0.55rem;
+  color: var(--red); border: 1px solid rgba(239,68,68,0.3);
+  background: var(--red-bg);
+}
+
+/* Streak */
+.streak-bar {
+  display: flex; gap: 4px; align-items: center;
+  margin-bottom: 20px;
+}
+.streak-pip {
+  width: 24px; height: 4px;
+  background: var(--rule2); transition: background 0.3s;
+}
+.streak-pip.win  { background: var(--green); }
+.streak-pip.loss { background: var(--red); }
+.streak-label {
+  font-family: var(--mono); font-size: 0.6rem; color: var(--fog);
+  margin-left: 8px; letter-spacing: 0.08em;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  padding: 12px 20px;
+  background: var(--ink2); border: 1px solid var(--rule2);
+  font-family: var(--mono); font-size: 0.72rem; color: var(--mist);
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok   { border-color: rgba(34,197,94,0.5); color: var(--green); }
+.toast.err  { border-color: rgba(239,68,68,0.5);  color: var(--red);   }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid var(--rule); margin: 0; }
+
+/* Filter chips */
+.filter-row {
+  display: flex; gap: 8px; align-items: center;
+  padding: 16px 0; border-bottom: 1px solid var(--rule); margin-bottom: 24px;
+}
+.filter-label { font-family: var(--mono); font-size: 0.6rem; color: var(--fog); letter-spacing: 0.1em; text-transform: uppercase; margin-right: 4px; }
+.fchip {
+  padding: 4px 12px;
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--fog); cursor: pointer;
+  border: 1px solid var(--rule2); background: transparent;
+  transition: all 0.15s; letter-spacing: 0.04em;
+}
+.fchip:hover { color: var(--mist); }
+.fchip.active { color: var(--gold); border-color: var(--gold); background: var(--gold-bg); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+<div class="wrap">
+  <div class="header-top">
+    <div>
+      <div class="masthead">Protocol<span>Match</span></div>
+      <div class="tagline">Security+ SY0-601 / SY0-701 — Drag-and-Drop Protocol Matching</div>
+    </div>
+    <div class="header-stats">
+      <div class="stat-block">
+        <div class="stat-val" id="totalCorrect">0</div>
+        <div class="stat-label">Correct</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-val" id="totalRounds">0</div>
+        <div class="stat-label">Rounds</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-val" id="bestStreak">0</div>
+        <div class="stat-label">Best Streak</div>
+      </div>
+    </div>
+  </div>
+  <div class="mode-tabs">
+    <button class="mtab active" onclick="setMode('practice')" data-mode="practice">Practice</button>
+    <button class="mtab" onclick="setMode('timed')" data-mode="timed">Timed Mode</button>
+    <button class="mtab" onclick="setMode('reference')" data-mode="reference">Reference Table</button>
+  </div>
+</div>
+</header>
+
+<div class="wrap">
+<div class="game-area" id="gameArea">
+
+  <!-- Filter row -->
+  <div class="filter-row" id="filterRow">
+    <span class="filter-label">Category</span>
+    <button class="fchip active" onclick="setFilter('all', this)">All Protocols</button>
+    <button class="fchip" onclick="setFilter('remote', this)">Remote Access</button>
+    <button class="fchip" onclick="setFilter('email', this)">Email</button>
+    <button class="fchip" onclick="setFilter('web', this)">Web / Tunneling</button>
+    <button class="fchip" onclick="setFilter('network', this)">Network Services</button>
+    <button class="fchip" onclick="setFilter('wireless', this)">Wireless / Auth</button>
+    <button class="fchip" onclick="setFilter('vpn', this)">VPN / Tunneling</button>
+    <button class="fchip" onclick="setFilter('confusers', this)">⚠ Confusers</button>
+  </div>
+
+  <!-- Streak bar -->
+  <div class="streak-bar" id="streakBar">
+    <span class="streak-label">Last 10:</span>
+  </div>
+
+  <!-- Round header -->
+  <div class="round-header" id="roundHeader">
+    <div class="round-info">
+      <div class="round-badge" id="roundBadge">Round 1</div>
+      <div class="round-title" id="roundTitle">Standard Protocol Matching</div>
+      <div class="diff-tag diff-easy" id="diffTag">Easy</div>
+    </div>
+    <div class="timer-wrap" id="timerWrap" style="display:none;">
+      <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+      <div class="timer" id="timerDisplay">2:00</div>
+    </div>
+  </div>
+
+  <!-- Matching interface -->
+  <div id="matchInterface">
+    <div class="match-layout">
+      <!-- Left: Use cases -->
+      <div class="usecase-col">
+        <div class="column-header">Use Case / Scenario</div>
+        <div id="usecaseList"></div>
+      </div>
+
+      <!-- Center: connectors -->
+      <div class="connector-col" id="connectorCol"></div>
+
+      <!-- Right: Protocol bank -->
+      <div class="protocol-col">
+        <div class="column-header">Protocol Options — Drag to match</div>
+        <div class="protocol-bank" id="protocolBank"></div>
+      </div>
+    </div>
+
+    <div class="actions-bar">
+      <div class="progress-info">
+        <strong id="matchedCount">0</strong> of <strong id="totalCount">0</strong> matched
+        — drag a protocol card onto its use case
+      </div>
+      <div class="action-btns">
+        <button class="btn btn-ghost" onclick="clearMatches()">Clear</button>
+        <button class="btn btn-gold" onclick="newRound()">New Round ↻</button>
+        <button class="btn btn-green" onclick="submitAnswers()" id="submitBtn">Submit →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results panel -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <div>
+        <div class="score-display">
+          <div class="score-big" id="scoreNum">0</div>
+          <div class="score-denom" id="scoreDenom">/6</div>
+          <div>
+            <div class="grade-letter" id="gradeLetter" style="color:var(--green);">A</div>
+            <div class="score-pct" id="scorePct">100%</div>
+          </div>
+        </div>
+      </div>
+      <div class="action-btns">
+        <button class="btn btn-gold" onclick="newRound()">New Round ↻</button>
+        <button class="btn btn-ghost" onclick="showReview()">Review Answers ↓</button>
+      </div>
+    </div>
+    <div class="review-grid" id="reviewGrid"></div>
+    <div style="text-align:center; padding:24px 0;">
+      <button class="btn btn-gold" onclick="newRound()" style="padding:12px 36px; font-size:0.8rem;">
+        Generate New Round →
+      </button>
+    </div>
+  </div>
+
+  <!-- Reference table -->
+  <div id="referenceSection" style="display:none;">
+    <div class="ref-table-wrap">
+      <div class="ref-title">Complete Security+ Protocol Reference</div>
+      <table class="ref-table" id="refTable"></table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// FULL PROTOCOL DATABASE
+// ════════════════════════════════════════════════════════════════════════
+const PROTOCOLS = [
+  // Remote Access
+  { id:'ssh',      name:'SSH',       port:'22',     category:'remote',
+    description:'Replaced Telnet for secure encrypted remote CLI access',
+    keywords:['replaces telnet','secure remote','encrypted CLI','terminal access','port 22'],
+    confusesWith:['telnet','sftp'],
+    note:'SSH encrypts the entire session; Telnet sends everything in plaintext.' },
+
+  { id:'telnet',   name:'Telnet',    port:'23',     category:'remote',
+    description:'Insecure remote terminal — transmits ALL data including passwords in plaintext',
+    keywords:['plaintext remote','insecure terminal','unencrypted CLI'],
+    confusesWith:['ssh'],
+    note:'Never use Telnet in production. SSH replaced it entirely.' },
+
+  { id:'rdp',      name:'RDP',       port:'3389',   category:'remote',
+    description:'Remote Desktop Protocol — graphical remote access to Windows systems',
+    keywords:['graphical remote desktop','windows remote access','gui remote'],
+    confusesWith:['vnc','ssh'],
+    note:'RDP provides a full graphical desktop. SSH is CLI only.' },
+
+  { id:'sftp',     name:'SFTP',      port:'22',     category:'remote',
+    description:'Secure file transfer over SSH — completely replaces FTP',
+    keywords:['secure file transfer ssh','replace ftp port 22','ssh file transfer'],
+    confusesWith:['ftps','ftp'],
+    note:'SFTP runs over SSH on port 22. FTPS runs FTP over TLS on port 990/21. Completely different protocols.' },
+
+  { id:'ftps',     name:'FTPS',      port:'990/21', category:'remote',
+    description:'FTP secured with TLS — NOT the same as SFTP',
+    keywords:['ftp over tls','ftp encrypted','ftps port 990','ftp ssl'],
+    confusesWith:['sftp','ftp'],
+    note:'FTPS = FTP + TLS. SFTP = SSH file transfer. They share the "FTP" name but are fundamentally different.' },
+
+  { id:'ftp',      name:'FTP',       port:'20/21',  category:'remote',
+    description:'Unencrypted file transfer — credentials sent in plaintext',
+    keywords:['insecure file transfer','plaintext ftp','unencrypted file transfer'],
+    confusesWith:['sftp','ftps'],
+    note:'FTP is insecure. Use SFTP or FTPS.' },
+
+  // Email
+  { id:'smime',    name:'S/MIME',    port:'—',      category:'email',
+    description:'Encrypts and digitally signs individual email messages end-to-end',
+    keywords:['encrypt email','sign email','email encryption','email digital signature','email confidentiality'],
+    confusesWith:['pgp','tls'],
+    note:'S/MIME works at the message level — the email content is encrypted regardless of transport.' },
+
+  { id:'smtps',    name:'SMTPS',     port:'465',    category:'email',
+    description:'SMTP secured with TLS — encrypts email in transit between mail servers',
+    keywords:['secure smtp','encrypted email transit','smtp tls','mail server to server'],
+    confusesWith:['smime','imap'],
+    note:'SMTPS secures the transport channel. S/MIME secures the message content itself.' },
+
+  { id:'imaps',    name:'IMAPS',     port:'993',    category:'email',
+    description:'IMAP over TLS — secure email retrieval from mail servers',
+    keywords:['secure imap','encrypted email retrieval','imap tls port 993'],
+    confusesWith:['pop3s','smtp'],
+    note:'IMAPS keeps mail on the server and syncs. POP3S downloads and (usually) deletes from server.' },
+
+  { id:'pop3s',    name:'POP3S',     port:'995',    category:'email',
+    description:'POP3 over TLS — downloads mail from server to local client',
+    keywords:['secure pop3','pop3 tls port 995','email download encrypted'],
+    confusesWith:['imaps'],
+    note:'POP3S downloads email to device. IMAPS leaves email on server and syncs across devices.' },
+
+  // Web / HTTP
+  { id:'https',    name:'HTTPS',     port:'443',    category:'web',
+    description:'HTTP secured with TLS — encrypts all web browsing traffic',
+    keywords:['encrypted web','secure http','web browsing','tls web','port 443'],
+    confusesWith:['http','tls'],
+    note:'HTTPS = HTTP over TLS. The lock icon in browsers.' },
+
+  { id:'http',     name:'HTTP',      port:'80',     category:'web',
+    description:'Unencrypted web protocol — data including passwords visible in transit',
+    keywords:['insecure web','plaintext web','unencrypted http','port 80'],
+    confusesWith:['https'],
+    note:'HTTP is unencrypted. Always enforce HTTPS.' },
+
+  { id:'hsts',     name:'HSTS',      port:'—',      category:'web',
+    description:'HTTP Strict Transport Security — forces browsers to always use HTTPS for a domain',
+    keywords:['force https','strict transport','prevent http downgrade','browser https only'],
+    confusesWith:['https','csp'],
+    note:'HSTS is a security header, not a protocol. It tells browsers never to use HTTP for the domain.' },
+
+  // Network Services
+  { id:'dnssec',   name:'DNSSEC',    port:'53',     category:'network',
+    description:'Adds cryptographic signatures to DNS — prevents cache poisoning attacks',
+    keywords:['prevent cache poisoning','dns signature','dns security','signed dns records','dns integrity'],
+    confusesWith:['dns','doh'],
+    note:'DNSSEC adds digital signatures to DNS records. It does NOT encrypt DNS queries — use DoH/DoT for that.' },
+
+  { id:'ldaps',    name:'LDAPS',     port:'636',    category:'network',
+    description:'LDAP over TLS — secures directory service queries and authentication',
+    keywords:['secure ldap','encrypted directory','ldap tls port 636','active directory encrypted','directory services encrypted'],
+    confusesWith:['ldap','kerberos'],
+    note:'LDAPS encrypts the LDAP channel. Regular LDAP (port 389) sends data in plaintext.' },
+
+  { id:'ldap',     name:'LDAP',      port:'389',    category:'network',
+    description:'Lightweight Directory Access Protocol — directory queries in plaintext',
+    keywords:['plaintext directory','unencrypted ldap','directory protocol'],
+    confusesWith:['ldaps'],
+    note:'LDAP on port 389 is unencrypted. Use LDAPS (636) instead.' },
+
+  { id:'snmpv3',   name:'SNMPv3',    port:'161',    category:'network',
+    description:'Secure network device management — adds authentication and encryption to SNMP',
+    keywords:['secure network management','encrypted snmp','snmp authentication','monitor network devices encrypted','replace snmpv1 snmpv2'],
+    confusesWith:['snmpv1','snmpv2'],
+    note:'SNMPv1/v2 use community strings (plaintext). SNMPv3 adds AuthPriv mode with encryption.' },
+
+  { id:'ntp',      name:'NTP',       port:'123',    category:'network',
+    description:'Network Time Protocol — synchronizes clocks across network devices',
+    keywords:['time synchronization','clock sync','network time','synchronize clocks'],
+    confusesWith:['snmp'],
+    note:'NTP keeps device clocks in sync. Critical for Kerberos authentication and log correlation.' },
+
+  { id:'dhcp',     name:'DHCP',      port:'67/68',  category:'network',
+    description:'Dynamically assigns IP addresses, subnet masks, and gateway to clients',
+    keywords:['ip address assignment','dynamic ip','automatic ip','network address allocation'],
+    confusesWith:['dns'],
+    note:'DHCP handles automatic IP assignment. DNS handles name resolution.' },
+
+  { id:'dns',      name:'DNS',       port:'53',     category:'network',
+    description:'Resolves domain names to IP addresses — the internets phone book',
+    keywords:['name resolution','domain to ip','hostname lookup','resolve domain','domain name resolution'],
+    confusesWith:['dnssec','dhcp'],
+    note:'DNS resolves names. DNSSEC adds integrity. DoH/DoT add encryption.' },
+
+  // VPN / Tunneling
+  { id:'ipsec_ah', name:'IPSec AH',  port:'51',     category:'vpn',
+    description:'IPSec Authentication Header — provides integrity and authentication ONLY — no encryption',
+    keywords:['integrity only','no encryption','authentication header','ipsec integrity','data integrity no encrypt'],
+    confusesWith:['ipsec_esp','ipsec'],
+    note:'AH = integrity + auth, but NO confidentiality. If you need encryption, use ESP.' },
+
+  { id:'ipsec_esp',name:'IPSec ESP', port:'50',     category:'vpn',
+    description:'IPSec Encapsulating Security Payload — integrity + authentication + encryption',
+    keywords:['ipsec encryption','confidentiality integrity','encrypt and authenticate','full ipsec protection','ipsec confidentiality'],
+    confusesWith:['ipsec_ah'],
+    note:'ESP provides the full package: encryption, integrity, and auth. Use ESP when the scenario requires confidentiality.' },
+
+  { id:'tls',      name:'TLS',       port:'443',    category:'vpn',
+    description:'Transport Layer Security — the foundation of secure internet communications',
+    keywords:['transport layer security','ssl replacement','ssl tls','secure transport','foundation of https'],
+    confusesWith:['ssl','dtls'],
+    note:'TLS replaced SSL. When an exam says "SSL/TLS," use TLS. SSL is deprecated.' },
+
+  { id:'ssl',      name:'SSL',       port:'443',    category:'vpn',
+    description:'Secure Sockets Layer — deprecated predecessor to TLS; still referenced in exam context',
+    keywords:['deprecated ssl','ssl vpn','ssl predecessor tls'],
+    confusesWith:['tls'],
+    note:'SSL is deprecated. Exams sometimes say "SSL/TLS" — the correct answer is usually TLS.' },
+
+  { id:'srtp',     name:'SRTP',      port:'—',      category:'vpn',
+    description:'Secure Real-Time Protocol — encrypts voice and video streams (VoIP, video conferencing)',
+    keywords:['encrypt voice','encrypt video','voip encryption','rtp encrypted','real-time audio video','voice call encryption'],
+    confusesWith:['rtp','tls'],
+    note:'SRTP is the encrypted version of RTP. Used for VoIP and video conferencing.' },
+
+  // Wireless / Auth
+  { id:'8021x',    name:'802.1X',    port:'—',      category:'wireless',
+    description:'Port-based Network Access Control — requires authentication before granting network access',
+    keywords:['port based nac','network access control','authenticate before network access','wired wireless auth','802.1x nac'],
+    confusesWith:['eap','radius'],
+    note:'802.1X is the framework. EAP is the authentication method that runs over 802.1X. RADIUS is the backend server.' },
+
+  { id:'eap',      name:'EAP',       port:'—',      category:'wireless',
+    description:'Extensible Authentication Protocol — flexible framework for multiple auth methods over 802.1X',
+    keywords:['flexible auth','authentication framework','eap methods','extensible authentication','eap over 802.1x'],
+    confusesWith:['8021x','peap','eaptls'],
+    note:'EAP is a framework. PEAP, EAP-TLS, EAP-FAST are all EAP methods.' },
+
+  { id:'eaptls',   name:'EAP-TLS',   port:'—',      category:'wireless',
+    description:'Most secure EAP method — requires certificates on BOTH client AND server',
+    keywords:['mutual certificate auth','most secure eap','client and server cert','certificate both sides','eap mutual certs'],
+    confusesWith:['peap','eap'],
+    note:'EAP-TLS = mutual certs (both sides). PEAP = server cert only. If the scenario says "most secure," it is usually EAP-TLS.' },
+
+  { id:'peap',     name:'PEAP',      port:'—',      category:'wireless',
+    description:'Protected EAP — wraps EAP in a TLS tunnel; only requires a server certificate',
+    keywords:['server cert only','eap tls tunnel','peap server cert','protected eap','eap in tunnel'],
+    confusesWith:['eaptls','eap'],
+    note:'PEAP only needs a server cert. EAP-TLS needs certs on both ends. PEAP is easier to deploy.' },
+
+  { id:'wpa3',     name:'WPA3',      port:'—',      category:'wireless',
+    description:'Wi-Fi Protected Access 3 — uses SAE to prevent offline dictionary attacks on PSK',
+    keywords:['prevent offline dictionary attack','sae wifi','wpa3 sae','secure psk wifi','wifi forward secrecy'],
+    confusesWith:['wpa2'],
+    note:'WPA3 uses SAE (Simultaneous Authentication of Equals) instead of the 4-way handshake, preventing offline cracking.' },
+
+  { id:'wpa2',     name:'WPA2',      port:'—',      category:'wireless',
+    description:'Wi-Fi Protected Access 2 — uses CCMP/AES; vulnerable to offline dictionary attacks on PSK',
+    keywords:['ccmp aes wifi','wpa2 psk','wifi protected access 2','aes wifi encryption','4-way handshake'],
+    confusesWith:['wpa3'],
+    note:'WPA2-PSK is vulnerable to the 4-way handshake capture → offline crack. WPA3-SAE eliminates this.' },
+
+  { id:'radius',   name:'RADIUS',    port:'1812',   category:'wireless',
+    description:'Centralized AAA server — authentication, authorization, accounting for network access',
+    keywords:['aaa server','centralized auth','authentication server','radius aaa','network auth server'],
+    confusesWith:['tacacs','8021x'],
+    note:'RADIUS: UDP, encrypts only password, open standard. TACACS+: TCP, encrypts full session, Cisco.' },
+
+  { id:'tacacs',   name:'TACACS+',   port:'49',     category:'wireless',
+    description:'Cisco AAA protocol — TCP, encrypts the ENTIRE session payload unlike RADIUS',
+    keywords:['cisco aaa','encrypt full payload','tacacs tcp','cisco authentication','full session encryption aaa'],
+    confusesWith:['radius'],
+    note:'TACACS+ encrypts the full payload over TCP. RADIUS only encrypts the password over UDP.' },
+
+  { id:'kerberos', name:'Kerberos',  port:'88',     category:'wireless',
+    description:'Ticket-based SSO authentication — KDC issues tickets for resource access',
+    keywords:['ticket based sso','kdc tickets','single sign on tickets','kerberos tgt','active directory sso'],
+    confusesWith:['ldap','radius'],
+    note:'Kerberos uses tickets (TGT, service tickets). Pass-the-ticket and Golden Ticket are common attacks.' },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// USE-CASE QUESTION BANK  (each linked to one correct protocol id)
+// ════════════════════════════════════════════════════════════════════════
+const QUESTIONS = [
+  // Remote Access
+  { id:'q_ssh1', answer:'ssh',
+    usecase:'A network admin needs to replace Telnet on all routers with an encrypted alternative that uses port 22.',
+    category:'remote', difficulty:'easy',
+    explanation:'SSH (Secure Shell) on port 22 replaced Telnet for encrypted remote CLI access. Telnet sends everything—including passwords—in plaintext.' },
+  { id:'q_ssh2', answer:'ssh',
+    usecase:'An engineer configures a Linux server to accept only encrypted terminal sessions with key-based authentication.',
+    category:'remote', difficulty:'easy',
+    explanation:'SSH provides encrypted terminal sessions and supports both password and public key authentication.' },
+  { id:'q_sftp1', answer:'sftp',
+    usecase:'A company needs to transfer sensitive payroll files securely. The solution must use port 22 and encrypt the entire session.',
+    category:'remote', difficulty:'medium',
+    explanation:'SFTP (SSH File Transfer Protocol) runs over SSH on port 22. The port 22 requirement is the critical differentiator from FTPS which uses ports 990/21.' },
+  { id:'q_sftp2', answer:'sftp',
+    usecase:'A developer scripts automated file transfers to a production server. The script must authenticate with an SSH key and encrypt data in transit.',
+    category:'remote', difficulty:'medium',
+    explanation:'SFTP uses SSH authentication (including key-based) and runs over the SSH protocol on port 22.' },
+  { id:'q_ftps1', answer:'ftps',
+    usecase:'A legacy system requires FTP but security policy mandates all file transfers be encrypted with TLS. The solution must be backward compatible with standard FTP clients.',
+    category:'remote', difficulty:'hard',
+    explanation:'FTPS (FTP Secure) adds TLS encryption to the standard FTP protocol on ports 990 (implicit) or 21 (explicit). It is NOT the same as SFTP.' },
+  { id:'q_rdp1', answer:'rdp',
+    usecase:'A helpdesk technician needs to control a user\'s Windows desktop remotely using a graphical interface.',
+    category:'remote', difficulty:'easy',
+    explanation:'RDP (Remote Desktop Protocol) on port 3389 provides full graphical remote desktop access to Windows systems.' },
+
+  // Email
+  { id:'q_smime1', answer:'smime',
+    usecase:'A law firm wants to ensure that email messages to clients are both encrypted and digitally signed so the recipient can verify the sender\'s identity.',
+    category:'email', difficulty:'medium',
+    explanation:'S/MIME encrypts and digitally signs individual email messages at the content level, providing end-to-end confidentiality and non-repudiation.' },
+  { id:'q_smime2', answer:'smime',
+    usecase:'Compliance requires that sensitive emails remain confidential even if the mail server is compromised. The solution must encrypt the message body.',
+    category:'email', difficulty:'hard',
+    explanation:'S/MIME encrypts message content end-to-end. SMTPS only encrypts the transport channel—the server can still read the message.' },
+  { id:'q_smtps1', answer:'smtps',
+    usecase:'A mail server must encrypt email as it travels between sending and receiving mail servers to prevent interception in transit.',
+    category:'email', difficulty:'medium',
+    explanation:'SMTPS (SMTP over TLS, port 465) encrypts the channel between mail servers. It protects data in transit but not the message content itself.' },
+  { id:'q_imaps1', answer:'imaps',
+    usecase:'A mobile email client must securely retrieve messages from a corporate mail server without the session being intercepted. Messages should remain on the server.',
+    category:'email', difficulty:'easy',
+    explanation:'IMAPS (IMAP over TLS, port 993) encrypts email retrieval and keeps messages on the server, allowing sync across multiple devices.' },
+  { id:'q_pop3s1', answer:'pop3s',
+    usecase:'A user configures an email client to download all messages from the server to their laptop for offline reading, with the connection encrypted.',
+    category:'email', difficulty:'medium',
+    explanation:'POP3S (POP3 over TLS, port 995) encrypts email download and typically removes messages from the server after download.' },
+
+  // Web
+  { id:'q_https1', answer:'https',
+    usecase:'A company\'s e-commerce checkout page must protect customer credit card numbers from network interception.',
+    category:'web', difficulty:'easy',
+    explanation:'HTTPS (HTTP over TLS, port 443) encrypts all web traffic including form submissions, protecting sensitive data from eavesdropping.' },
+  { id:'q_dnssec1', answer:'dnssec',
+    usecase:'An attacker is poisoning DNS caches to redirect users from a bank\'s website to a phishing page. Which protocol adds cryptographic signatures to DNS records to prevent this?',
+    category:'network', difficulty:'medium',
+    explanation:'DNSSEC adds digital signatures to DNS records, allowing resolvers to verify that responses are authentic and have not been tampered with.' },
+  { id:'q_dnssec2', answer:'dnssec',
+    usecase:'A security team discovers that DNS responses for their domain are being modified en route to clients. They need a protocol that ensures DNS data integrity.',
+    category:'network', difficulty:'medium',
+    explanation:'DNSSEC provides data origin authentication and integrity for DNS. It does NOT encrypt queries—use DoH/DoT for query privacy.' },
+  { id:'q_hsts1', answer:'hsts',
+    usecase:'After deploying HTTPS, a web admin wants to ensure that browsers never fall back to HTTP for their domain, even if a user types the URL without https://',
+    category:'web', difficulty:'hard',
+    explanation:'HSTS (HTTP Strict Transport Security) is a security header that instructs browsers to always use HTTPS for the domain, preventing HTTP downgrade attacks.' },
+
+  // Network Services
+  { id:'q_ldaps1', answer:'ldaps',
+    usecase:'During a penetration test, the tester intercepts LDAP authentication traffic and captures user credentials. What should be implemented to prevent this?',
+    category:'network', difficulty:'medium',
+    explanation:'LDAPS (LDAP over TLS, port 636) encrypts the LDAP channel, preventing credential interception. Standard LDAP on port 389 is plaintext.' },
+  { id:'q_ldaps2', answer:'ldaps',
+    usecase:'A company\'s Active Directory queries traverse an untrusted network segment. The directory service communication must be encrypted.',
+    category:'network', difficulty:'medium',
+    explanation:'LDAPS encrypts LDAP queries including bind credentials. It is critical when LDAP traffic crosses network segments that cannot be fully trusted.' },
+  { id:'q_snmpv3_1', answer:'snmpv3',
+    usecase:'A network monitoring system needs to poll router and switch statistics. The solution must authenticate the management station and encrypt the collected data.',
+    category:'network', difficulty:'medium',
+    explanation:'SNMPv3 adds AuthPriv mode—authentication (MD5/SHA) and privacy (AES encryption). SNMPv1/v2 use unencrypted community strings.' },
+  { id:'q_ntp1', answer:'ntp',
+    usecase:'Kerberos authentication is failing because workstation clocks are drifting more than 5 minutes apart from the KDC. What protocol should be configured to resolve this?',
+    category:'network', difficulty:'hard',
+    explanation:'NTP (Network Time Protocol, port 123) synchronizes clocks. Kerberos requires all parties to be within 5 minutes of each other to prevent replay attacks.' },
+  { id:'q_dhcp1', answer:'dhcp',
+    usecase:'A new laptop connects to the corporate network and automatically receives an IP address, subnet mask, default gateway, and DNS server address without any manual configuration.',
+    category:'network', difficulty:'easy',
+    explanation:'DHCP (Dynamic Host Configuration Protocol) automatically assigns IP configuration to network clients.' },
+
+  // VPN / IPSec
+  { id:'q_ah1', answer:'ipsec_ah',
+    usecase:'A compliance requirement states that all network traffic between two offices must be authenticated and verified for integrity, but encryption is NOT required due to regulatory exemptions.',
+    category:'vpn', difficulty:'hard',
+    explanation:'IPSec AH (Authentication Header) provides integrity verification and authentication without encryption. ESP provides both integrity and confidentiality.' },
+  { id:'q_esp1', answer:'ipsec_esp',
+    usecase:'A site-to-site VPN between headquarters and a branch office must encrypt all traffic AND ensure it cannot be tampered with in transit.',
+    category:'vpn', difficulty:'medium',
+    explanation:'IPSec ESP (Encapsulating Security Payload) provides both encryption (confidentiality) AND integrity. When both are required, ESP is the correct choice.' },
+  { id:'q_esp2', answer:'ipsec_esp',
+    usecase:'An IPSec configuration must guarantee confidentiality of transmitted data. Only AH or ESP may be used.',
+    category:'vpn', difficulty:'hard',
+    explanation:'ESP is the only IPSec component that provides encryption. AH cannot encrypt—it only provides integrity and authentication.' },
+  { id:'q_tls1', answer:'tls',
+    usecase:'After SSL 3.0 was found to be vulnerable to the POODLE attack, a company migrates all encrypted communications to its successor protocol.',
+    category:'vpn', difficulty:'medium',
+    explanation:'TLS (Transport Layer Security) replaced SSL. All SSL versions are deprecated. When an exam says "SSL/TLS," the correct answer in a secure context is TLS.' },
+  { id:'q_srtp1', answer:'srtp',
+    usecase:'A company deploys VoIP and requires that all voice calls be encrypted to prevent eavesdropping on conversations.',
+    category:'vpn', difficulty:'medium',
+    explanation:'SRTP (Secure RTP) encrypts real-time voice and video streams. It is the encrypted version of RTP used in VoIP and video conferencing.' },
+  { id:'q_srtp2', answer:'srtp',
+    usecase:'A video conferencing platform must ensure that audio and video streams cannot be intercepted and replayed by an attacker on the same network.',
+    category:'vpn', difficulty:'medium',
+    explanation:'SRTP provides encryption and replay protection for real-time audio/video. It uses AES for encryption and HMAC-SHA1 for integrity.' },
+
+  // Wireless / Auth
+  { id:'q_8021x_1', answer:'8021x',
+    usecase:'A security policy requires that all devices connecting to the corporate network—wired or wireless—must authenticate with their identity before receiving network access.',
+    category:'wireless', difficulty:'medium',
+    explanation:'802.1X is port-based Network Access Control. It blocks all traffic until the supplicant (client) successfully authenticates with the RADIUS server.' },
+  { id:'q_eaptls1', answer:'eaptls',
+    usecase:'An enterprise Wi-Fi deployment requires the highest level of mutual authentication. Both the client and the wireless infrastructure must present digital certificates.',
+    category:'wireless', difficulty:'hard',
+    explanation:'EAP-TLS requires certificates on BOTH the client AND the server (mutual authentication). It is considered the most secure EAP variant but requires a PKI for client certs.' },
+  { id:'q_peap1', answer:'peap',
+    usecase:'A company wants 802.1X wireless authentication but doesn\'t want to deploy client certificates to every device. Only the authentication server will have a certificate.',
+    category:'wireless', difficulty:'hard',
+    explanation:'PEAP wraps EAP in a TLS tunnel but only requires a server-side certificate. Client authentication happens inside the tunnel using a password (MSCHAPv2 typically).' },
+  { id:'q_wpa3_1', answer:'wpa3',
+    usecase:'A security researcher demonstrates that WPA2-PSK handshakes can be captured and cracked offline using a dictionary attack. Which Wi-Fi security standard eliminates this vulnerability?',
+    category:'wireless', difficulty:'medium',
+    explanation:'WPA3 uses SAE (Simultaneous Authentication of Equals) instead of the 4-way handshake. Captured SAE exchanges cannot be cracked offline.' },
+  { id:'q_wpa2_1', answer:'wpa2',
+    usecase:'A wireless network uses CCMP with AES encryption and requires a pre-shared key for home users to connect. Which Wi-Fi security protocol is in use?',
+    category:'wireless', difficulty:'easy',
+    explanation:'WPA2 uses CCMP (Counter Mode with CBC-MAC Protocol) with AES encryption. WPA3 uses SAE instead of PSK.' },
+  { id:'q_radius1', answer:'radius',
+    usecase:'An organization uses a central server that handles authentication, authorization, and accounting for all VPN and Wi-Fi connections using UDP and encrypting only the password field.',
+    category:'wireless', difficulty:'hard',
+    explanation:'RADIUS uses UDP (ports 1812/1813), encrypts only the password, and is an open standard. TACACS+ uses TCP (port 49) and encrypts the full session payload.' },
+  { id:'q_tacacs1', answer:'tacacs',
+    usecase:'A Cisco network administrator configures an AAA server that encrypts the entire authentication payload—not just the password—and uses TCP for reliability.',
+    category:'wireless', difficulty:'hard',
+    explanation:'TACACS+ (port 49, TCP) encrypts the full session payload and separates authentication, authorization, and accounting. It is Cisco-proprietary.' },
+  { id:'q_kerberos1', answer:'kerberos',
+    usecase:'A Windows domain user logs in once and is automatically granted access to file shares, email, and web apps without re-entering credentials. The system uses ticket-based SSO.',
+    category:'wireless', difficulty:'medium',
+    explanation:'Kerberos provides ticket-based SSO. The KDC issues a TGT on login; the client exchanges it for service tickets to access resources without re-authentication.' },
+
+  // Confuser pairs (extra tricky)
+  { id:'q_conf1', answer:'sftp',
+    usecase:'The requirement specifically states: secure file transfer using port 22, SSH authentication, and a command-line compatible solution.',
+    category:'remote', difficulty:'hard',
+    explanation:'All three clues—port 22, SSH auth, command-line—point to SFTP. FTPS uses ports 990/21 and TLS, not SSH.' },
+  { id:'q_conf2', answer:'ipsec_esp',
+    usecase:'An IPSec tunnel between two sites must provide BOTH confidentiality AND integrity. Choose between AH and ESP.',
+    category:'vpn', difficulty:'medium',
+    explanation:'ESP provides both confidentiality (encryption) AND integrity. AH provides integrity only—no encryption. When confidentiality is required, ESP wins every time.' },
+  { id:'q_conf3', answer:'eaptls',
+    usecase:'The security team mandates the highest assurance wireless authentication. Every connecting device must present a valid client certificate in addition to the server certificate.',
+    category:'wireless', difficulty:'hard',
+    explanation:'EAP-TLS = mutual certificate authentication. PEAP only requires a server cert. The phrase "client certificate" or "both sides" always signals EAP-TLS.' },
+  { id:'q_conf4', answer:'tacacs',
+    usecase:'Unlike RADIUS, this Cisco AAA protocol uses TCP and ensures that authentication, authorization, and accounting are handled as separate, independently controllable functions.',
+    category:'wireless', difficulty:'hard',
+    explanation:'TACACS+ separates AAA functions, uses TCP for reliability, encrypts the full payload, and is Cisco-proprietary. RADIUS combines auth+authz and only encrypts the password.' },
+  { id:'q_conf5', answer:'dnssec',
+    usecase:'DNS responses for a financial institution are being forged. The fix must allow recipients to cryptographically verify that DNS records are authentic.',
+    category:'network', difficulty:'medium',
+    explanation:'DNSSEC digitally signs DNS zones. Resolvers can verify signatures, preventing forged responses. Note: DNSSEC provides integrity, not encryption.' },
+  { id:'q_conf6', answer:'smime',
+    usecase:'An email must remain confidential even after delivery to the recipient\'s mailbox. The encryption must protect content regardless of whether the mail server is compromised.',
+    category:'email', difficulty:'hard',
+    explanation:'S/MIME encrypts the message content end-to-end. SMTPS only encrypts the transport channel—the message is decrypted at the server. Only S/MIME ensures server-independent confidentiality.' },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// ROUND CONFIGURATIONS
+// ════════════════════════════════════════════════════════════════════════
+const ROUND_TYPES = [
+  { title: 'Standard Protocol Matching',      difficulty:'easy',   count:5, categories:null,                  timedSeconds:null },
+  { title: 'Remote Access & File Transfer',   difficulty:'medium', count:6, categories:['remote'],            timedSeconds:null },
+  { title: 'Email Protocol Suite',            difficulty:'medium', count:5, categories:['email'],             timedSeconds:null },
+  { title: 'Network Services Deep Dive',      difficulty:'medium', count:6, categories:['network'],           timedSeconds:null },
+  { title: 'Wireless & Authentication',       difficulty:'hard',   count:6, categories:['wireless'],          timedSeconds:null },
+  { title: 'IPSec AH vs ESP Challenge',       difficulty:'hard',   count:4, categories:['vpn'],               timedSeconds:null },
+  { title: 'The Great Confusers',             difficulty:'hard',   count:6, categories:null, confusers:true,  timedSeconds:null },
+  { title: 'Mixed Rapid Fire',                difficulty:'medium', count:8, categories:null,                  timedSeconds:null },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let state = {
+  mode: 'practice',
+  activeFilter: 'all',
+  currentRound: 0,
+  roundNum: 1,
+  questions: [],     // selected question objects for this round
+  protocols: [],     // protocol options for this round
+  matches: {},       // questionId → protocolId
+  answered: false,
+  timerInterval: null,
+  timerSeconds: 0,
+  timerMax: 0,
+  totalCorrect: 0,
+  totalAttempted: 0,
+  bestStreak: 0,
+  currentStreak: 0,
+  history: [],       // 'win'|'loss' per round, last 10
+  dragSource: null,
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// MODE & FILTER
+// ════════════════════════════════════════════════════════════════════════
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll('.mtab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  document.getElementById('filterRow').style.display = mode === 'reference' ? 'none' : 'flex';
+  document.getElementById('gameArea').querySelector('.streak-bar').style.display = mode === 'reference' ? 'none' : 'flex';
+  document.getElementById('referenceSection').style.display = mode === 'reference' ? 'block' : 'none';
+
+  if (mode === 'reference') {
+    renderReferenceTable();
+    document.getElementById('matchInterface').style.display = 'none';
+    document.getElementById('resultsPanel').classList.remove('show');
+    document.getElementById('roundHeader').style.display = 'none';
+  } else {
+    document.getElementById('matchInterface').style.display = 'block';
+    document.getElementById('roundHeader').style.display = 'flex';
+    newRound();
+  }
+}
+
+function setFilter(filter, el) {
+  state.activeFilter = filter;
+  document.querySelectorAll('.fchip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  newRound();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ROUND GENERATION
+// ════════════════════════════════════════════════════════════════════════
+function newRound() {
+  clearTimer();
+  state.answered = false;
+  state.matches = {};
+
+  document.getElementById('resultsPanel').classList.remove('show');
+  document.getElementById('matchInterface').style.display = 'block';
+
+  // Pick round type
+  const rt = ROUND_TYPES[state.currentRound % ROUND_TYPES.length];
+
+  // Filter questions
+  let pool = [...QUESTIONS];
+  if (state.activeFilter !== 'all') {
+    if (state.activeFilter === 'confusers') {
+      pool = pool.filter(q => ['q_conf1','q_conf2','q_conf3','q_conf4','q_conf5','q_conf6'].includes(q.id));
+    } else {
+      pool = pool.filter(q => q.category === state.activeFilter);
+    }
+  } else if (rt.confusers) {
+    pool = pool.filter(q => ['q_conf1','q_conf2','q_conf3','q_conf4','q_conf5','q_conf6'].includes(q.id));
+  } else if (rt.categories) {
+    pool = pool.filter(q => rt.categories.includes(q.category));
+  }
+
+  if (pool.length < 3) pool = [...QUESTIONS]; // fallback
+
+  // Select questions (random, no repeat of same protocol)
+  const count = Math.min(rt.count, pool.length);
+  const shuffled = pool.sort(() => Math.random() - 0.5);
+  const used = new Set();
+  state.questions = [];
+  for (const q of shuffled) {
+    if (!used.has(q.answer) && state.questions.length < count) {
+      used.add(q.answer);
+      state.questions.push(q);
+    }
+  }
+  if (state.questions.length < 3) state.questions = shuffled.slice(0, 3);
+
+  // Get correct protocols + 1–2 distractors
+  const correctIds = new Set(state.questions.map(q => q.answer));
+  const allProtocols = [...PROTOCOLS];
+  const distractorPool = allProtocols.filter(p => !correctIds.has(p.id));
+  const distractorCount = Math.min(2, Math.floor(state.questions.length / 2));
+  const distractors = distractorPool.sort(() => Math.random() - 0.5).slice(0, distractorCount);
+
+  const correctProtocols = allProtocols.filter(p => correctIds.has(p.id));
+  state.protocols = [...correctProtocols, ...distractors].sort(() => Math.random() - 0.5);
+
+  // Update round header
+  document.getElementById('roundBadge').textContent = `Round ${state.roundNum}`;
+  document.getElementById('roundTitle').textContent = state.activeFilter !== 'all'
+    ? `${el?.textContent || ''} Protocol Challenge` : rt.title;
+  const diffTag = document.getElementById('diffTag');
+  diffTag.className = `diff-tag diff-${rt.difficulty}`;
+  diffTag.textContent = rt.difficulty.charAt(0).toUpperCase() + rt.difficulty.slice(1);
+
+  // Timer
+  const timerWrap = document.getElementById('timerWrap');
+  if (state.mode === 'timed') {
+    state.timerMax = state.timerSeconds = state.questions.length * 20;
+    timerWrap.style.display = 'flex';
+    startTimer();
+  } else {
+    timerWrap.style.display = 'none';
+  }
+
+  renderRound();
+  state.roundNum++;
+  state.currentRound++;
+
+  document.getElementById('totalCount').textContent = state.questions.length;
+  document.getElementById('matchedCount').textContent = '0';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER ROUND
+// ════════════════════════════════════════════════════════════════════════
+function renderRound() {
+  const ucList = document.getElementById('usecaseList');
+  const protoBank = document.getElementById('protocolBank');
+  const connectorCol = document.getElementById('connectorCol');
+
+  ucList.innerHTML = '';
+  protoBank.innerHTML = '';
+  connectorCol.innerHTML = '';
+
+  state.questions.forEach((q, i) => {
+    // Use-case card
+    const card = document.createElement('div');
+    card.className = 'usecase-card';
+    card.id = `uc_${q.id}`;
+    card.dataset.qid = q.id;
+    card.innerHTML = `
+      <div class="usecase-num">${i + 1}.</div>
+      <div class="usecase-text">
+        ${q.usecase}
+        <span class="usecase-tag">${q.category} · ${q.difficulty}</span>
+      </div>
+    `;
+
+    // Drop target
+    card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drop-target'); });
+    card.addEventListener('dragleave', () => card.classList.remove('drop-target'));
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      card.classList.remove('drop-target');
+      const protocolId = e.dataTransfer.getData('protocolId');
+      if (protocolId) applyMatch(q.id, protocolId);
+    });
+
+    ucList.appendChild(card);
+
+    // Connector dot
+    const dot = document.createElement('div');
+    dot.className = 'connector-line';
+    dot.innerHTML = `<div class="conn-dot" id="dot_${q.id}"></div>`;
+    connectorCol.appendChild(dot);
+  });
+
+  // Protocol cards
+  state.protocols.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'protocol-card';
+    card.id = `proto_${p.id}`;
+    card.draggable = true;
+    card.dataset.pid = p.id;
+    card.innerHTML = `
+      <span class="drag-grip">⠿</span>
+      <div>
+        <div class="protocol-name">${p.name}</div>
+      </div>
+      <div class="protocol-port">${p.port}</div>
+    `;
+
+    card.addEventListener('dragstart', e => {
+      if (card.classList.contains('used')) { e.preventDefault(); return; }
+      card.classList.add('dragging');
+      e.dataTransfer.setData('protocolId', p.id);
+      state.dragSource = p.id;
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      state.dragSource = null;
+    });
+
+    // Click-to-match (mobile/keyboard)
+    card.addEventListener('click', () => {
+      if (card.classList.contains('used')) return;
+      if (state.selectedProtocol === p.id) {
+        state.selectedProtocol = null;
+        card.style.borderColor = '';
+      } else {
+        state.selectedProtocol = p.id;
+        card.style.borderColor = 'var(--gold)';
+      }
+    });
+
+    protoBank.appendChild(card);
+  });
+
+  // Also allow clicking a use-case card when a protocol is selected
+  document.querySelectorAll('.usecase-card').forEach(c => {
+    c.addEventListener('click', () => {
+      if (state.selectedProtocol) {
+        applyMatch(c.dataset.qid, state.selectedProtocol);
+        const pc = document.getElementById(`proto_${state.selectedProtocol}`);
+        if (pc) pc.style.borderColor = '';
+        state.selectedProtocol = null;
+      }
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// APPLY MATCH
+// ════════════════════════════════════════════════════════════════════════
+function applyMatch(qid, pid) {
+  // If this protocol was previously used elsewhere, unassign it
+  const prevQ = Object.entries(state.matches).find(([k,v]) => v === pid && k !== qid);
+  if (prevQ) {
+    delete state.matches[prevQ[0]];
+    const prevCard = document.getElementById(`uc_${prevQ[0]}`);
+    if (prevCard) {
+      prevCard.classList.remove('has-match');
+      const badge = prevCard.querySelector('.match-badge');
+      if (badge) badge.remove();
+    }
+    const prevDot = document.getElementById(`dot_${prevQ[0]}`);
+    if (prevDot) prevDot.className = 'conn-dot';
+  }
+
+  // If this question already had a match, un-use old protocol
+  if (state.matches[qid]) {
+    const oldPid = state.matches[qid];
+    const oldCard = document.getElementById(`proto_${oldPid}`);
+    if (oldCard) oldCard.classList.remove('used');
+  }
+
+  state.matches[qid] = pid;
+
+  // Update use-case card
+  const ucCard = document.getElementById(`uc_${qid}`);
+  ucCard.classList.add('has-match');
+  const existingBadge = ucCard.querySelector('.match-badge');
+  if (existingBadge) existingBadge.remove();
+  const proto = PROTOCOLS.find(p => p.id === pid);
+  const badge = document.createElement('span');
+  badge.className = 'match-badge';
+  badge.textContent = proto.name;
+  badge.title = 'Click to remove match';
+  badge.addEventListener('click', e => { e.stopPropagation(); removeMatch(qid); });
+  ucCard.appendChild(badge);
+
+  // Mark protocol card as used
+  const protoCard = document.getElementById(`proto_${pid}`);
+  if (protoCard) protoCard.classList.add('used');
+
+  // Update dot
+  const dot = document.getElementById(`dot_${qid}`);
+  if (dot) dot.className = 'conn-dot matched';
+
+  // Update counter
+  const matchedCount = Object.keys(state.matches).length;
+  document.getElementById('matchedCount').textContent = matchedCount;
+}
+
+function removeMatch(qid) {
+  const pid = state.matches[qid];
+  if (!pid) return;
+  delete state.matches[qid];
+  const ucCard = document.getElementById(`uc_${qid}`);
+  ucCard.classList.remove('has-match');
+  const badge = ucCard.querySelector('.match-badge');
+  if (badge) badge.remove();
+  const protoCard = document.getElementById(`proto_${pid}`);
+  if (protoCard) protoCard.classList.remove('used');
+  const dot = document.getElementById(`dot_${qid}`);
+  if (dot) dot.className = 'conn-dot';
+  document.getElementById('matchedCount').textContent = Object.keys(state.matches).length;
+}
+
+function clearMatches() {
+  Object.keys(state.matches).forEach(qid => removeMatch(qid));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SUBMIT
+// ════════════════════════════════════════════════════════════════════════
+function submitAnswers() {
+  clearTimer();
+
+  const unmatchedCount = state.questions.length - Object.keys(state.matches).length;
+  if (unmatchedCount > 0 && state.mode !== 'timed') {
+    showToast(`${unmatchedCount} question${unmatchedCount > 1 ? 's' : ''} not yet matched`, 'err');
+    return;
+  }
+
+  state.answered = true;
+  let correct = 0;
+  const results = [];
+
+  state.questions.forEach(q => {
+    const given = state.matches[q.id] || null;
+    const isCorrect = given === q.answer;
+    if (isCorrect) correct++;
+
+    const correctProto = PROTOCOLS.find(p => p.id === q.answer);
+    const givenProto   = given ? PROTOCOLS.find(p => p.id === given) : null;
+
+    // Visual feedback on use-case cards
+    const ucCard = document.getElementById(`uc_${q.id}`);
+    ucCard.classList.remove('has-match');
+    ucCard.classList.add(isCorrect ? 'correct' : 'wrong');
+    const badge = ucCard.querySelector('.match-badge');
+    if (badge) badge.className = isCorrect ? 'match-badge correct-badge' : 'match-badge wrong-badge';
+
+    // Dot
+    const dot = document.getElementById(`dot_${q.id}`);
+    if (dot) dot.className = `conn-dot ${isCorrect ? 'correct' : 'wrong'}`;
+
+    results.push({ q, given, givenProto, correctProto, isCorrect });
+  });
+
+  // Stats
+  state.totalCorrect += correct;
+  state.totalAttempted += state.questions.length;
+  const pct = correct / state.questions.length;
+  if (pct >= 0.8) {
+    state.currentStreak++;
+    state.bestStreak = Math.max(state.bestStreak, state.currentStreak);
+    state.history.push('win');
+  } else {
+    state.currentStreak = 0;
+    state.history.push('loss');
+  }
+  if (state.history.length > 10) state.history.shift();
+
+  updateHeaderStats();
+  updateStreakBar();
+  showResults(correct, results);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RESULTS
+// ════════════════════════════════════════════════════════════════════════
+function showResults(correct, results) {
+  document.getElementById('matchInterface').style.display = 'none';
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('show');
+
+  const total = results.length;
+  const pct = Math.round((correct / total) * 100);
+
+  document.getElementById('scoreNum').textContent = correct;
+  document.getElementById('scoreDenom').textContent = `/${total}`;
+  document.getElementById('scorePct').textContent = pct + '%';
+
+  const grade = pct === 100 ? 'A+' : pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F';
+  const gradeColor = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--gold)' : 'var(--red)';
+  const glEl = document.getElementById('gradeLetter');
+  glEl.textContent = grade;
+  glEl.style.color = gradeColor;
+
+  // Review grid
+  const grid = document.getElementById('reviewGrid');
+  grid.innerHTML = results.map(r => `
+    <div class="review-item ${r.isCorrect ? 'r-correct' : 'r-wrong'}">
+      <div class="ri-usecase">${r.q.usecase}</div>
+      <div class="ri-arrow">${r.isCorrect ? '✓' : '✗'}</div>
+      <div class="ri-answer">
+        <div class="given">${r.givenProto ? r.givenProto.name : '— not answered'}</div>
+        ${!r.isCorrect ? `<div class="correct-ans">✓ Correct: ${r.correctProto.name} (${r.correctProto.port})</div>` : ''}
+      </div>
+      <div class="ri-explain">
+        ${r.q.explanation}
+        ${!r.isCorrect && r.correctProto.note ? `<br><br><strong>Key distinction:</strong> ${r.correctProto.note}` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function showReview() {
+  document.getElementById('reviewGrid').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TIMER
+// ════════════════════════════════════════════════════════════════════════
+function startTimer() {
+  updateTimerDisplay();
+  state.timerInterval = setInterval(() => {
+    state.timerSeconds--;
+    updateTimerDisplay();
+    if (state.timerSeconds <= 0) {
+      clearTimer();
+      showToast('Time\'s up! Auto-submitting...', 'err');
+      submitAnswers();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(state.timerSeconds / 60);
+  const s = String(state.timerSeconds % 60).padStart(2,'0');
+  const el = document.getElementById('timerDisplay');
+  const fill = document.getElementById('timerFill');
+  el.textContent = `${m}:${s}`;
+  const pct = (state.timerSeconds / state.timerMax) * 100;
+  fill.style.width = pct + '%';
+  const urgent = state.timerSeconds <= 20;
+  el.classList.toggle('urgent', urgent);
+  fill.classList.toggle('urgent', urgent);
+}
+
+function clearTimer() {
+  if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// STATS & STREAKS
+// ════════════════════════════════════════════════════════════════════════
+function updateHeaderStats() {
+  document.getElementById('totalCorrect').textContent = state.totalCorrect;
+  document.getElementById('totalRounds').textContent = state.roundNum - 1;
+  document.getElementById('bestStreak').textContent = state.bestStreak;
+}
+
+function updateStreakBar() {
+  const bar = document.getElementById('streakBar');
+  bar.innerHTML = '<span class="streak-label">Last 10:</span>';
+  state.history.forEach(h => {
+    const pip = document.createElement('div');
+    pip.className = `streak-pip ${h}`;
+    bar.appendChild(pip);
+  });
+  if (state.history.length === 0) {
+    const lbl = document.createElement('span');
+    lbl.style.cssText = 'font-family:var(--mono);font-size:0.6rem;color:var(--fog);';
+    lbl.textContent = 'Complete a round to see history';
+    bar.appendChild(lbl);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// REFERENCE TABLE
+// ════════════════════════════════════════════════════════════════════════
+function renderReferenceTable() {
+  const table = document.getElementById('refTable');
+  table.innerHTML = `
+    <tr>
+      <th>Protocol</th><th>Port</th><th>Category</th><th>Purpose</th><th>Notes / Common Confusers</th>
+    </tr>
+    ${PROTOCOLS.map(p => `
+      <tr>
+        <td>${p.name}</td>
+        <td>${p.port}</td>
+        <td style="color:var(--fog); font-size:0.65rem;">${p.category}</td>
+        <td>${p.description}</td>
+        <td>
+          ${p.note || ''}
+          ${p.confusesWith && p.confusesWith.length ? `<br><span class="confuse-tag">⚠ Confused with: ${p.confusesWith.map(c => PROTOCOLS.find(pr=>pr.id===c)?.name || c).join(', ')}</span>` : ''}
+        </td>
+      </tr>
+    `).join('')}
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════════════════
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+updateStreakBar();
+newRound();
+</script>
+</body>
+</html>
