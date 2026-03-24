@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LogSentry Lab — grep & Select-String Analysis Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:         #0c0a06;
+  --surface:    #111008;
+  --panel:      #16130a;
+  --card:       #1b170e;
+  --card-hi:    #211d12;
+  --border:     #2a240f;
+  --border2:    #3d3418;
+
+  --amber:      #f0a500;
+  --amber-dim:  #1e1400;
+  --amber-glow: rgba(240,165,0,0.12);
+  --amber-faint:rgba(240,165,0,0.05);
+  --gold:       #ffc233;
+  --orange:     #f06030;
+
+  --green:      #56d98a;
+  --green-dim:  #0a2016;
+  --red:        #f05050;
+  --red-dim:    #200808;
+  --cyan:       #40d4e8;
+  --cyan-dim:   #062830;
+  --violet:     #9d7fea;
+
+  --match-bg:   rgba(240,165,0,0.18);
+  --match-border:rgba(240,165,0,0.5);
+
+  --text:       #d8c89a;
+  --text-dim:   #5a4e2c;
+  --text-muted: #302a14;
+
+  /* Log line severity colors */
+  --log-error:  #f05050;
+  --log-warn:   #f0a500;
+  --log-info:   #56d98a;
+  --log-debug:  #40d4e8;
+  --log-auth:   #9d7fea;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Chakra Petch', sans-serif;
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(240,165,0,0.04) 0%, transparent 55%),
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(240,165,0,0.008) 3px, rgba(240,165,0,0.008) 4px);
+  pointer-events: none;
+}
+
+/* ══ HEADER ══ */
+header {
+  position: relative; z-index: 50;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 0;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  padding-right: 16px;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo-icon {
+  width: 32px; height: 32px;
+  background: var(--amber-dim);
+  border: 1px solid rgba(240,165,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  box-shadow: 0 0 10px rgba(240,165,0,0.1);
+}
+.logo-text {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 1rem; font-weight: 700;
+  color: var(--amber);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(240,165,0,0.3);
+  line-height: 1;
+}
+.logo-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem; color: var(--text-dim);
+  letter-spacing: 0.1em; display: block;
+}
+
+.scenario-tabs {
+  display: flex; flex: 1; overflow-x: auto;
+  padding: 0 6px;
+}
+.stab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 12px; height: 52px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 0.68rem; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--amber); border-bottom-color: var(--amber); }
+.stab.done   { color: var(--green); border-bottom-color: var(--green); }
+.stab .snum {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem; padding: 1px 5px;
+  background: var(--border); color: var(--text-dim);
+}
+.stab.active .snum { background: var(--amber-dim); color: var(--amber); }
+.stab.done   .snum { background: var(--green-dim); color: var(--green); }
+.shell-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.48rem; padding: 1px 5px; border: 1px solid;
+}
+.tag-bash { color: var(--green);  border-color: rgba(86,217,138,0.3); background: rgba(86,217,138,0.05); }
+.tag-ps   { color: var(--cyan);   border-color: rgba(64,212,232,0.3); background: rgba(64,212,232,0.05); }
+
+.header-right {
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 7px; align-items: center;
+}
+.hbtn {
+  padding: 5px 13px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-amber { border-color: var(--amber); color: var(--amber); background: var(--amber-faint); }
+.hbtn-amber:hover { background: var(--amber-glow); }
+.hbtn-green { border-color: var(--green); color: var(--green); background: rgba(86,217,138,0.05); }
+.hbtn-green:hover { background: rgba(86,217,138,0.14); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover { color: var(--text); }
+
+/* ══ WORKSPACE ══ */
+.workspace {
+  display: grid;
+  grid-template-columns: 260px 1fr 1fr;
+  height: calc(100vh - 52px);
+  position: relative; z-index: 1;
+}
+
+/* ══ LEFT PANEL ══ */
+.left-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.lp-sec {
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.lp-sec.grow { flex: 1; overflow-y: auto; }
+.lp-sec.grow::-webkit-scrollbar { width: 4px; }
+.lp-sec.grow::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.lp-lbl {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 9px;
+  display: flex; align-items: center; gap: 6px;
+}
+.lp-lbl::before { content:''; display:block; width:3px; height:10px; background: var(--amber); }
+.lp-lbl.green::before  { background: var(--green); }
+.lp-lbl.cyan::before   { background: var(--cyan); }
+.lp-lbl.red::before    { background: var(--red); }
+
+.brief-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 0.88rem; font-weight: 700;
+  color: var(--amber); margin-bottom: 5px; line-height: 1.25;
+  text-shadow: 0 0 5px rgba(240,165,0,0.25);
+}
+.diff-pill {
+  display: inline-block; padding: 2px 7px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 7px;
+}
+.diff-easy   { color: var(--green);  border: 1px solid rgba(86,217,138,0.25);  background: rgba(86,217,138,0.06); }
+.diff-medium { color: var(--amber);  border: 1px solid rgba(240,165,0,0.25);   background: rgba(240,165,0,0.06); }
+.diff-hard   { color: var(--red);    border: 1px solid rgba(240,80,80,0.25);   background: rgba(240,80,80,0.06); }
+
+.brief-body { font-size: 0.67rem; line-height: 1.7; color: var(--text-dim); }
+.brief-body strong { color: var(--text); }
+
+/* Task box */
+.task-box {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  padding: 9px 11px;
+  margin-bottom: 5px;
+}
+.task-num {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.54rem; color: var(--amber);
+  letter-spacing: 0.1em; margin-bottom: 3px;
+}
+.task-text { font-size: 0.67rem; color: var(--text); line-height: 1.5; }
+.task-box.done { border-color: rgba(86,217,138,0.3); background: rgba(86,217,138,0.04); }
+.task-box.done .task-num { color: var(--green); }
+
+/* Score */
+.score-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 13px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-big {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 1.8rem; font-weight: 800;
+  line-height: 1; color: var(--amber);
+  text-shadow: 0 0 8px rgba(240,165,0,0.4);
+}
+.score-meta { flex: 1; }
+.score-lbl { font-size: 0.52rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; font-family: 'Share Tech Mono', monospace; }
+.score-bar { height: 2px; background: var(--border); margin-top: 5px; }
+.score-fill { height: 100%; background: var(--amber); transition: width 0.5s ease; box-shadow: 0 0 5px rgba(240,165,0,0.4); }
+
+/* ══ LOG VIEWER (center) ══ */
+.log-panel {
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--bg);
+}
+.log-header {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.log-filename {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.66rem; color: var(--amber);
+  display: flex; align-items: center; gap: 6px;
+}
+.log-file-tabs {
+  display: flex; gap: 3px;
+}
+.log-tab {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; padding: 2px 9px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer; transition: all 0.12s;
+}
+.log-tab.active { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+.log-linecount {
+  margin-left: auto;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem; color: var(--text-muted);
+}
+.match-count {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--green);
+  background: var(--green-dim);
+  border: 1px solid rgba(86,217,138,0.2);
+  padding: 1px 7px;
+}
+
+.log-body {
+  flex: 1; overflow-y: auto;
+  font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  line-height: 1.6;
+  padding: 8px 0;
+}
+.log-body::-webkit-scrollbar { width: 5px; }
+.log-body::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.log-line {
+  display: flex;
+  padding: 1px 14px;
+  gap: 10px;
+  transition: background 0.1s;
+  border-left: 2px solid transparent;
+}
+.log-line:hover { background: rgba(240,165,0,0.03); }
+.log-linenum {
+  color: var(--text-muted);
+  min-width: 30px; text-align: right;
+  flex-shrink: 0; user-select: none;
+  font-size: 0.56rem; padding-top: 1px;
+}
+.log-content { flex: 1; word-break: break-all; }
+
+/* Log line type coloring */
+.log-line.type-error  { border-left-color: rgba(240,80,80,0.4); }
+.log-line.type-warn   { border-left-color: rgba(240,165,0,0.4); }
+.log-line.type-info   { border-left-color: transparent; }
+.log-line.type-auth   { border-left-color: rgba(157,127,234,0.3); }
+
+.log-line.matched {
+  background: var(--match-bg) !important;
+  border-left: 2px solid var(--amber) !important;
+}
+.log-line.matched .log-content { color: var(--gold); }
+
+/* Highlight matched text within line */
+.match-hl {
+  background: rgba(240,165,0,0.35);
+  color: var(--gold);
+  font-weight: 600;
+  outline: 1px solid rgba(240,165,0,0.5);
+}
+
+/* Severity tokens */
+.tok-error  { color: var(--log-error); font-weight: 600; }
+.tok-warn   { color: var(--log-warn);  font-weight: 600; }
+.tok-info   { color: var(--log-info);  }
+.tok-debug  { color: var(--log-debug); }
+.tok-auth   { color: var(--log-auth);  }
+.tok-ip     { color: var(--cyan); }
+.tok-ts     { color: var(--text-muted); }
+.tok-user   { color: var(--violet); }
+.tok-path   { color: var(--amber); opacity: 0.7; }
+
+/* ══ TERMINAL (right) ══ */
+.terminal-panel {
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+.term-titlebar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  height: 32px;
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.ttdots { display: flex; gap: 4px; }
+.ttdot { width: 8px; height: 8px; border-radius: 50%; }
+.ttdot.r { background: #ff5f57; } .ttdot.y { background: #febc2e; } .ttdot.g { background: #28c840; }
+.term-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem; color: var(--text-dim);
+  flex: 1; text-align: center;
+}
+.term-shell-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.54rem; padding: 1px 6px; border: 1px solid;
+}
+.badge-bash { color: var(--green);  border-color: rgba(86,217,138,0.25); background: rgba(86,217,138,0.05); }
+.badge-ps   { color: var(--cyan);   border-color: rgba(64,212,232,0.25); background: rgba(64,212,232,0.05); }
+
+.term-output {
+  flex: 1; overflow-y: auto;
+  padding: 10px 13px;
+  font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  font-size: 0.66rem;
+  line-height: 1.7;
+}
+.term-output::-webkit-scrollbar { width: 5px; }
+.term-output::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.tl { display: block; white-space: pre-wrap; word-break: break-word; }
+.t-prompt-bash { color: var(--green); }
+.t-prompt-ps   { color: var(--cyan); }
+.t-cmd    { color: var(--text); }
+.t-out    { color: var(--text-dim); }
+.t-match  { color: var(--gold); }
+.t-path   { color: var(--amber); }
+.t-err    { color: var(--red); }
+.t-ok     { color: var(--green); }
+.t-sep    { color: var(--text-muted); }
+.t-info   { color: var(--cyan); }
+
+.term-input-row {
+  display: flex; align-items: center;
+  padding: 6px 13px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+.t-prompt-label {
+  font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  font-size: 0.66rem;
+  flex-shrink: 0; padding-right: 5px;
+}
+.term-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  font-size: 0.66rem; color: var(--text);
+  caret-color: var(--amber);
+}
+
+/* Quick insert */
+.ac-strip {
+  display: flex; gap: 4px; align-items: center;
+  padding: 4px 13px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+  flex-shrink: 0; flex-wrap: wrap;
+  min-height: 28px;
+}
+.ac-lbl { font-family: 'Share Tech Mono', monospace; font-size: 0.54rem; color: var(--text-muted); margin-right: 2px; white-space: nowrap; }
+.ac-chip {
+  font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+  font-size: 0.56rem; color: var(--amber);
+  background: var(--amber-dim);
+  border: 1px solid rgba(240,165,0,0.15);
+  padding: 1px 6px; cursor: pointer;
+  transition: all 0.1s; white-space: nowrap;
+}
+.ac-chip:hover { background: var(--amber-glow); border-color: rgba(240,165,0,0.35); }
+.ac-chip.ps-chip { color: var(--cyan); background: var(--cyan-dim); border-color: rgba(64,212,232,0.15); }
+.ac-chip.ps-chip:hover { background: rgba(64,212,232,0.15); }
+
+/* ══ MODAL ══ */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border2);
+  padding: 22px 26px; max-width: 560px; width: 92%;
+  position: relative; transform: translateY(8px); transition: transform 0.2s;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-close { position: absolute; top: 9px; right: 11px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; }
+.modal-title { font-family: 'Chakra Petch', sans-serif; font-size: 1.1rem; font-weight: 800; letter-spacing: 0.06em; margin-bottom: 12px; }
+.modal-title.win  { color: var(--green); }
+.modal-title.info { color: var(--amber); }
+.modal-title.warn { color: var(--amber); }
+.modal-title.fail { color: var(--red); }
+.modal-body { font-size: 0.71rem; color: var(--text-dim); line-height: 1.8; margin-bottom: 16px; }
+.modal-body strong { color: var(--text); }
+.modal-body code { font-family: 'Share Tech Mono', monospace; font-size: 0.66rem; color: var(--amber); background: var(--card); padding: 1px 5px; border: 1px solid var(--border); }
+.modal-actions { display: flex; gap: 7px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📋</div>
+    <div>
+      <div class="logo-text">LogSentry</div>
+      <span class="logo-sub">Log Analysis · grep · Select-String</span>
+    </div>
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-right">
+    <button class="hbtn hbtn-gray" onclick="resetScenario()">↺ Reset</button>
+    <button class="hbtn hbtn-amber" onclick="showHintModal()">💡 Hint</button>
+    <button class="hbtn hbtn-green" onclick="checkAnswer()">✓ Check</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="lp-sec" id="briefSection"></div>
+    <div class="lp-sec grow" id="taskSection"></div>
+    <div class="score-row">
+      <div class="score-big" id="scoreNum">—</div>
+      <div class="score-meta">
+        <div class="score-lbl">Tasks Complete</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG VIEWER -->
+  <div class="log-panel">
+    <div class="log-header">
+      <div class="log-filename">📄 <span id="logFilename">auth.log</span></div>
+      <div class="log-file-tabs" id="logFileTabs"></div>
+      <div class="log-linecount" id="logLineCount"></div>
+      <div class="match-count" id="matchCount" style="display:none;"></div>
+    </div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+
+  <!-- TERMINAL -->
+  <div class="terminal-panel">
+    <div class="term-titlebar">
+      <div class="ttdots"><div class="ttdot r"></div><div class="ttdot y"></div><div class="ttdot g"></div></div>
+      <div class="term-title" id="termTitle">bash — analyst@soc-01</div>
+      <div class="term-shell-badge badge-bash" id="shellBadge">bash</div>
+    </div>
+    <div class="term-output" id="termOutput"></div>
+    <div class="term-input-row">
+      <div class="t-prompt-label t-prompt-bash" id="promptLabel">analyst@soc-01:~$</div>
+      <input class="term-input" id="termInput" type="text"
+             placeholder="Type a command…"
+             autocomplete="off" autocorrect="off" spellcheck="false"/>
+    </div>
+    <div class="ac-strip" id="acStrip">
+      <span class="ac-lbl">Quick Insert:</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// SYNTHETIC LOG FILES
+// ════════════════════════════════════════════════════════════════════════
+const LOG_FILES = {
+
+  "auth.log": [
+    "Nov 14 08:01:12 webserver01 sshd[1842]: Accepted password for admin from 10.0.1.50 port 54312 ssh2",
+    "Nov 14 08:03:44 webserver01 sshd[1843]: Failed password for root from 185.220.101.55 port 41228 ssh2",
+    "Nov 14 08:03:46 webserver01 sshd[1843]: Failed password for root from 185.220.101.55 port 41230 ssh2",
+    "Nov 14 08:03:48 webserver01 sshd[1843]: Failed password for root from 185.220.101.55 port 41232 ssh2",
+    "Nov 14 08:03:50 webserver01 sshd[1843]: Failed password for root from 185.220.101.55 port 41234 ssh2",
+    "Nov 14 08:03:52 webserver01 sshd[1843]: Failed password for admin from 185.220.101.55 port 41236 ssh2",
+    "Nov 14 08:03:54 webserver01 sshd[1843]: Failed password for admin from 185.220.101.55 port 41238 ssh2",
+    "Nov 14 08:04:01 webserver01 sshd[1844]: Accepted password for deploy from 10.0.1.22 port 52100 ssh2",
+    "Nov 14 08:10:22 webserver01 sshd[1845]: Failed password for invalid user oracle from 185.220.101.55 port 41302 ssh2",
+    "Nov 14 08:10:24 webserver01 sshd[1845]: Failed password for invalid user postgres from 185.220.101.55 port 41304 ssh2",
+    "Nov 14 08:10:26 webserver01 sshd[1845]: Failed password for invalid user mysql from 185.220.101.55 port 41306 ssh2",
+    "Nov 14 08:11:00 webserver01 sshd[1845]: Connection closed by 185.220.101.55 port 41308",
+    "Nov 14 08:15:33 webserver01 sudo: admin : TTY=pts/1 ; PWD=/home/admin ; USER=root ; COMMAND=/bin/bash",
+    "Nov 14 08:22:10 webserver01 sshd[1850]: Accepted publickey for deploy from 10.0.1.22 port 52200 ssh2",
+    "Nov 14 09:00:01 webserver01 CRON[2001]: pam_unix(cron:session): session opened for user root by (uid=0)",
+    "Nov 14 09:05:17 webserver01 sshd[1855]: Failed password for root from 92.63.197.152 port 50100 ssh2",
+    "Nov 14 09:05:19 webserver01 sshd[1855]: Failed password for root from 92.63.197.152 port 50102 ssh2",
+    "Nov 14 09:30:44 webserver01 sshd[1860]: Accepted password for jsmith from 10.0.1.78 port 55001 ssh2",
+    "Nov 14 10:00:01 webserver01 CRON[2010]: pam_unix(cron:session): session opened for user root by (uid=0)",
+    "Nov 14 10:44:22 webserver01 sshd[1870]: Disconnected from 10.0.1.78 port 55001",
+  ],
+
+  "apache_access.log": [
+    '10.0.1.50 - - [14/Nov/2024:07:55:01 +0000] "GET /index.html HTTP/1.1" 200 4523',
+    '10.0.1.50 - - [14/Nov/2024:07:55:12 +0000] "GET /assets/style.css HTTP/1.1" 200 1842',
+    '185.220.101.55 - - [14/Nov/2024:08:02:44 +0000] "GET /admin/login.php HTTP/1.1" 200 3201',
+    '185.220.101.55 - - [14/Nov/2024:08:02:51 +0000] "POST /admin/login.php HTTP/1.1" 401 892',
+    '185.220.101.55 - - [14/Nov/2024:08:02:53 +0000] "POST /admin/login.php HTTP/1.1" 401 892',
+    '185.220.101.55 - - [14/Nov/2024:08:02:55 +0000] "POST /admin/login.php HTTP/1.1" 401 892',
+    '185.220.101.55 - - [14/Nov/2024:08:03:01 +0000] "GET /../../../etc/passwd HTTP/1.1" 400 512',
+    '185.220.101.55 - - [14/Nov/2024:08:03:02 +0000] "GET /phpmyadmin/index.php HTTP/1.1" 404 218',
+    '185.220.101.55 - - [14/Nov/2024:08:03:04 +0000] "GET /wp-admin/admin-ajax.php HTTP/1.1" 404 218',
+    '10.0.1.22 - - [14/Nov/2024:08:04:00 +0000] "GET /api/status HTTP/1.1" 200 443',
+    '10.0.1.22 - - [14/Nov/2024:08:04:12 +0000] "POST /api/deploy HTTP/1.1" 202 188',
+    '185.220.101.55 - - [14/Nov/2024:08:05:22 +0000] "GET /admin/config.php HTTP/1.1" 403 512',
+    '10.0.1.50 - - [14/Nov/2024:08:30:00 +0000] "GET /dashboard HTTP/1.1" 200 8844',
+    '10.0.1.50 - - [14/Nov/2024:08:31:15 +0000] "GET /reports/q3.pdf HTTP/1.1" 200 204800',
+    '203.0.113.99 - - [14/Nov/2024:09:12:01 +0000] "GET /xmlrpc.php HTTP/1.1" 200 512',
+    '203.0.113.99 - - [14/Nov/2024:09:12:03 +0000] "POST /xmlrpc.php HTTP/1.1" 200 512',
+    '10.0.1.78 - - [14/Nov/2024:09:30:55 +0000] "GET /index.html HTTP/1.1" 200 4523',
+    '185.220.101.55 - - [14/Nov/2024:10:01:44 +0000] "GET /admin/upload.php HTTP/1.1" 403 512',
+  ],
+
+  "syslog": [
+    "Nov 14 07:00:01 webserver01 systemd[1]: Starting Daily apt upgrade and clean activities...",
+    "Nov 14 07:00:03 webserver01 systemd[1]: Started Daily apt upgrade and clean activities.",
+    "Nov 14 08:00:01 webserver01 systemd[1]: Starting Cleanup of Temporary Directories...",
+    "Nov 14 08:01:55 webserver01 kernel: [12345.678] device eth0: renamed to ens3",
+    "Nov 14 08:02:10 webserver01 systemd-networkd[301]: ens3: Link UP",
+    "Nov 14 08:03:40 webserver01 kernel: [12400.001] TCP: Possible SYN flooding on port 22. Sending cookies.",
+    "Nov 14 08:03:41 webserver01 kernel: [12400.002] TCP: Possible SYN flooding on port 22. Sending cookies.",
+    "Nov 14 08:03:42 webserver01 kernel: [12400.003] TCP: Possible SYN flooding on port 22. Sending cookies.",
+    "Nov 14 08:10:00 webserver01 systemd[1]: firewalld.service: Main process exited, code=killed, status=9/KILL",
+    "Nov 14 08:10:01 webserver01 systemd[1]: firewalld.service: Failed with result 'signal'.",
+    "Nov 14 08:10:02 webserver01 systemd[1]: Failed to start Dynamic Firewall Manager.",
+    "Nov 14 08:15:00 webserver01 systemd[1]: Started firewalld - dynamic firewall daemon.",
+    "Nov 14 09:00:01 webserver01 systemd[1]: Starting System Logging Service...",
+    "Nov 14 09:00:02 webserver01 systemd[1]: Started System Logging Service.",
+    "Nov 14 10:00:00 webserver01 kernel: [18000.001] Out of memory: Killed process 4418 (apache2) total-vm:842368kB",
+    "Nov 14 10:00:01 webserver01 systemd[1]: apache2.service: A process of the service crashed.",
+    "Nov 14 10:00:02 webserver01 systemd[1]: apache2.service: Failed with result 'core-dump'.",
+    "Nov 14 10:00:05 webserver01 systemd[1]: apache2.service: Scheduled restart job, restart counter is at 1.",
+    "Nov 14 10:00:06 webserver01 systemd[1]: Reloading The Apache HTTP Server.",
+    "Nov 14 10:01:00 webserver01 systemd[1]: Reload of apache2.service operation timed out. Stopping.",
+  ],
+
+  "security.evtx.txt": [
+    "2024-11-14 08:01:05 | EventID=4624 | Logon Type=3 | Account=CORP\\admin | Source IP=10.0.1.50 | Status=Success",
+    "2024-11-14 08:02:30 | EventID=4625 | Logon Type=3 | Account=CORP\\administrator | Source IP=185.220.101.55 | Status=Failure | SubStatus=0xC000006A",
+    "2024-11-14 08:02:32 | EventID=4625 | Logon Type=3 | Account=CORP\\administrator | Source IP=185.220.101.55 | Status=Failure | SubStatus=0xC000006A",
+    "2024-11-14 08:02:34 | EventID=4625 | Logon Type=3 | Account=CORP\\administrator | Source IP=185.220.101.55 | Status=Failure | SubStatus=0xC000006A",
+    "2024-11-14 08:02:36 | EventID=4625 | Logon Type=3 | Account=CORP\\jsmith | Source IP=185.220.101.55 | Status=Failure | SubStatus=0xC000006A",
+    "2024-11-14 08:02:38 | EventID=4625 | Logon Type=3 | Account=CORP\\jsmith | Source IP=185.220.101.55 | Status=Failure | SubStatus=0xC000006A",
+    "2024-11-14 08:03:15 | EventID=4740 | Account=CORP\\jsmith | Caller=CORP\\administrator | Reason=Account locked out",
+    "2024-11-14 08:05:00 | EventID=4624 | Logon Type=10 | Account=CORP\\svcbackup | Source IP=10.0.1.100 | Status=Success",
+    "2024-11-14 08:10:00 | EventID=4688 | Process=powershell.exe | CommandLine=powershell.exe -nop -w hidden -enc JABzAD0ATgBlAHcA | User=CORP\\svcbackup",
+    "2024-11-14 08:10:01 | EventID=4688 | Process=cmd.exe | CommandLine=cmd.exe /c whoami | User=CORP\\svcbackup",
+    "2024-11-14 08:10:05 | EventID=4688 | Process=net.exe | CommandLine=net localgroup administrators | User=CORP\\svcbackup",
+    "2024-11-14 08:15:22 | EventID=4724 | Target Account=CORP\\administrator | Changed By=CORP\\svcbackup | Action=Password Reset Attempt",
+    "2024-11-14 08:20:00 | EventID=4648 | Account=CORP\\svcbackup | Target Account=CORP\\administrator | LogonType=Explicit Credentials",
+    "2024-11-14 09:00:01 | EventID=4624 | Logon Type=3 | Account=CORP\\admin | Source IP=10.0.1.50 | Status=Success",
+    "2024-11-14 09:30:00 | EventID=4625 | Logon Type=3 | Account=CORP\\hradmin | Source IP=10.0.1.78 | Status=Failure | SubStatus=0xC000006A",
+    "2024-11-14 09:30:01 | EventID=4624 | Logon Type=3 | Account=CORP\\hradmin | Source IP=10.0.1.78 | Status=Success",
+  ],
+
+  "app_error.log": [
+    "[2024-11-14 07:50:01] INFO  Application started on port 8080",
+    "[2024-11-14 07:50:02] INFO  Database connection pool initialized: 10 connections",
+    "[2024-11-14 08:00:00] INFO  Scheduled job: DataSync started",
+    "[2024-11-14 08:00:45] WARN  DataSync: 3 records failed validation, skipping",
+    "[2024-11-14 08:01:22] ERROR Database connection timeout after 30s [host=db01.internal port=5432]",
+    "[2024-11-14 08:01:23] ERROR Failed to execute query: SELECT * FROM users WHERE session_token='...' [SQLSTATE=08006]",
+    "[2024-11-14 08:01:24] ERROR Retrying database connection (attempt 1/3)",
+    "[2024-11-14 08:01:27] ERROR Retrying database connection (attempt 2/3)",
+    "[2024-11-14 08:01:30] ERROR Retrying database connection (attempt 3/3)",
+    "[2024-11-14 08:01:31] CRITICAL All database retry attempts exhausted. Application entering degraded mode.",
+    "[2024-11-14 08:01:32] ERROR HTTP 500 returned to client 185.220.101.55 for request GET /api/user/profile",
+    "[2024-11-14 08:05:00] INFO  Database connection restored",
+    "[2024-11-14 08:05:01] INFO  Application resumed normal operation",
+    "[2024-11-14 09:15:00] WARN  Rate limit exceeded: 185.220.101.55 (500 req/min threshold)",
+    "[2024-11-14 09:15:01] WARN  Rate limit exceeded: 185.220.101.55 (500 req/min threshold)",
+    "[2024-11-14 09:15:02] WARN  Rate limit exceeded: 185.220.101.55 (500 req/min threshold)",
+    "[2024-11-14 10:00:00] ERROR Out of memory exception in RequestHandler thread",
+    "[2024-11-14 10:00:01] ERROR java.lang.OutOfMemoryError: Java heap space",
+    "[2024-11-14 10:00:02] ERROR at com.corp.app.RequestHandler.processRequest(RequestHandler.java:142)",
+    "[2024-11-14 10:00:03] CRITICAL JVM heap exhausted. Initiating emergency shutdown.",
+  ],
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIOS
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+
+  // ── S1: Basic grep for failed logins (bash/easy) ──────────────────────
+  {
+    id:0, shell:"bash",
+    title:"Failed SSH Logins",
+    difficulty:"easy",
+    desc:"A SOC alert triggered on <strong>webserver01</strong>. You suspect SSH brute-force activity. Find all failed login attempts in <code>auth.log</code>.",
+    files: ["auth.log"],
+    hint: "Use grep with the pattern 'Failed' against auth.log. The -i flag makes the search case-insensitive. Count results with -c or pipe to wc -l.",
+    tasks:[
+      { id:"t1", text:"Find all lines containing 'Failed' in auth.log", done:false,
+        check: s => s.ranWithFile("grep","auth.log") && s.patternMatches("Failed","auth.log") },
+      { id:"t2", text:"Identify the attacking IP address (185.220.101.55)", done:false,
+        check: s => s.outputContains("185.220.101.55") || s.patternMatches("185.220.101.55","auth.log") },
+    ],
+    chips:["grep 'Failed' auth.log","grep -i 'failed' auth.log","grep -c 'Failed' auth.log","grep '185.220.101.55' auth.log"],
+  },
+
+  // ── S2: grep with IP across multiple log files (bash/medium) ──────────
+  {
+    id:1, shell:"bash",
+    title:"Suspicious IP — Multi-File Search",
+    difficulty:"medium",
+    desc:"You've identified a suspicious external IP: <strong>185.220.101.55</strong>. Investigate its activity across <strong>all log files</strong> in <code>/var/log/</code>. Students often forget to use <code>*.log</code> or forget the path — causing zero results.",
+    files: ["auth.log","apache_access.log","app_error.log"],
+    hint: "grep -r searches recursively. To search multiple files in a directory, use a wildcard: grep '185.220.101.55' /var/log/*.log — or grep -r '185.220.101.55' /var/log/. Without a wildcard or -r, you will only search one file and miss activity in others.",
+    tasks:[
+      { id:"t1", text:"Search auth.log for the suspicious IP", done:false,
+        check: s => s.ranWithFile("grep","auth.log") && s.patternMatches("185.220.101.55","auth.log") },
+      { id:"t2", text:"Search apache_access.log for the IP", done:false,
+        check: s => (s.ranWithFile("grep","apache_access.log") || s.usedWildcard()) && s.patternMatches("185.220.101.55","apache_access.log") },
+      { id:"t3", text:"Search app_error.log for the IP (wildcard or -r)", done:false,
+        check: s => (s.usedWildcard() || s.usedRecursive()) && s.patternMatches("185.220.101.55","app_error.log") },
+    ],
+    chips:["grep '185.220.101.55' auth.log","grep '185.220.101.55' *.log","grep -r '185.220.101.55' /var/log/","grep '185.220.101.55' apache_access.log"],
+  },
+
+  // ── S3: grep -n, tail, multiple patterns (bash/medium) ────────────────
+  {
+    id:2, shell:"bash",
+    title:"Service Failure — syslog Analysis",
+    difficulty:"medium",
+    desc:"The web server experienced an unexpected outage. Analyze <code>syslog</code> to find the <strong>firewall service failure</strong> and the <strong>Apache crash</strong>. Use line numbers to locate events in context.",
+    files: ["syslog"],
+    hint: "Use grep -n to show line numbers alongside matches. To find multiple keywords, use grep -E 'Failed|OOM|killed' or run separate greps. The -i flag helps with case variations.",
+    tasks:[
+      { id:"t1", text:"Find all 'Failed' events in syslog with line numbers", done:false,
+        check: s => s.ranWithFlag("grep","-n") && s.patternMatches("Failed","syslog") },
+      { id:"t2", text:"Find the Out of Memory / process kill event", done:false,
+        check: s => s.patternMatches("memory","syslog","i") || s.patternMatches("OOM","syslog") || s.patternMatches("Killed","syslog") },
+      { id:"t3", text:"Find the firewalld service failure", done:false,
+        check: s => s.patternMatches("firewalld","syslog") || s.patternMatches("firewall","syslog","i") },
+    ],
+    chips:["grep -n 'Failed' syslog","grep -in 'failed' syslog","grep -i 'memory' syslog","grep 'firewalld' syslog","tail -50 syslog"],
+  },
+
+  // ── S4: Select-String basic (PS/easy) ─────────────────────────────────
+  {
+    id:3, shell:"ps",
+    title:"PowerShell — Failed Logins (Windows Events)",
+    difficulty:"easy",
+    desc:"You are on a Windows system reviewing exported event log data in <code>security.evtx.txt</code>. Use <code>Select-String</code> to find <strong>failed logon events (EventID 4625)</strong>.",
+    files: ["security.evtx.txt"],
+    hint: "Select-String -Path security.evtx.txt -Pattern '4625' — or use -Pattern 'Failure' to match the Status field. The -Pattern argument accepts regex. Unlike grep, Select-String returns MatchInfo objects with filename, line number, and the matched line.",
+    tasks:[
+      { id:"t1", text:"Use Select-String to find EventID 4625 lines", done:false,
+        check: s => s.ranCmd("Select-String") && s.patternMatches("4625","security.evtx.txt") },
+      { id:"t2", text:"Find all failures from 185.220.101.55", done:false,
+        check: s => s.patternMatches("185.220.101.55","security.evtx.txt") },
+      { id:"t3", text:"Find the account lockout event (EventID 4740)", done:false,
+        check: s => s.patternMatches("4740","security.evtx.txt") },
+    ],
+    chips:["Select-String -Path security.evtx.txt -Pattern '4625'","Select-String -Path security.evtx.txt -Pattern '185.220.101.55'","Select-String -Path security.evtx.txt -Pattern '4740'","Select-String -Path security.evtx.txt -Pattern 'Failure'"],
+  },
+
+  // ── S5: Select-String wildcard across files (PS/medium) ───────────────
+  {
+    id:4, shell:"ps",
+    title:"PowerShell — Multi-File Wildcard Search",
+    difficulty:"medium",
+    desc:"Multiple log files are in <code>C:\\Logs\\</code>. Search <strong>all .txt files</strong> for the suspicious IP <strong>185.220.101.55</strong>. The most common mistake: writing a correct command but targeting a single file instead of using <code>*.txt</code> or <code>-Recurse</code>.",
+    files: ["security.evtx.txt","app_error.log"],
+    hint: "Select-String -Path C:\\Logs\\*.txt -Pattern '185.220.101.55' searches all .txt files. Without the wildcard — Select-String -Path security.evtx.txt — you only check one file. Use -Recurse to search subdirectories: Get-ChildItem -Recurse | Select-String '185.220.101.55'",
+    tasks:[
+      { id:"t1", text:"Use Select-String with *.txt to search all text files", done:false,
+        check: s => s.ranCmd("Select-String") && s.usedWildcard() },
+      { id:"t2", text:"Find 185.220.101.55 in security.evtx.txt", done:false,
+        check: s => s.patternMatches("185.220.101.55","security.evtx.txt") },
+      { id:"t3", text:"Find 185.220.101.55 in app_error.log", done:false,
+        check: s => s.patternMatches("185.220.101.55","app_error.log") },
+    ],
+    chips:["Select-String -Path '*.txt' -Pattern '185.220.101.55'","Select-String -Path 'C:\\Logs\\*.txt' -Pattern '185.220.101.55'","Get-ChildItem *.log | Select-String '185.220.101.55'","Select-String -Path security.evtx.txt -Pattern '185.220.101.55'"],
+  },
+
+  // ── S6: grep -v, -c, pipe chain (bash/hard) ───────────────────────────
+  {
+    id:5, shell:"bash",
+    title:"Apache Log — Attack Pattern Isolation",
+    difficulty:"hard",
+    desc:"Analyze <code>apache_access.log</code> for attack activity. Isolate all <strong>401 and 403</strong> responses, count requests from the suspicious IP, and find the path traversal attempt (<code>../</code>). Use grep flags and pipes.",
+    files: ["apache_access.log"],
+    hint: "Pipe grep output: grep '185.220.101.55' apache_access.log | grep -E '401|403'. Use grep -c to count. For path traversal look for '../' — grep '\\.\\./' apache_access.log. grep -v inverts the match (show non-matching lines).",
+    tasks:[
+      { id:"t1", text:"Find all 401 Unauthorized responses", done:false,
+        check: s => s.patternMatches("401","apache_access.log") },
+      { id:"t2", text:"Find the path traversal attempt (../../etc/passwd)", done:false,
+        check: s => s.patternMatches("passwd","apache_access.log") || s.patternMatches("\\.\\./","apache_access.log") || s.patternMatches("../","apache_access.log") },
+      { id:"t3", text:"Count total requests from 185.220.101.55", done:false,
+        check: s => s.ranWithFlag("grep","-c") && s.patternMatches("185.220.101.55","apache_access.log") },
+      { id:"t4", text:"Find all non-200 responses from internal IPs (use grep -v)", done:false,
+        check: s => s.ranWithFlag("grep","-v") },
+    ],
+    chips:["grep '401' apache_access.log","grep '185.220.101.55' apache_access.log | grep -E '401|403'","grep -c '185.220.101.55' apache_access.log","grep '\\.\\./' apache_access.log","grep 'passwd' apache_access.log"],
+  },
+
+  // ── S7: Select-String regex + -Context (PS/hard) ──────────────────────
+  {
+    id:6, shell:"ps",
+    title:"PowerShell — Suspicious Process Execution",
+    difficulty:"hard",
+    desc:"A compromised service account (<strong>svcbackup</strong>) appears to be running unusual commands. Use <code>Select-String</code> with <strong>regex patterns</strong> and the <strong>-Context</strong> flag to investigate process execution events (EventID 4688) in <code>security.evtx.txt</code>.",
+    files: ["security.evtx.txt"],
+    hint: "Select-String supports regex: -Pattern '4688.*svcbackup' matches lines with both tokens. Use -Context 1,1 to show 1 line before and after each match. The -CaseSensitive switch is available but not required here.",
+    tasks:[
+      { id:"t1", text:"Find all EventID 4688 (process creation) events", done:false,
+        check: s => s.patternMatches("4688","security.evtx.txt") },
+      { id:"t2", text:"Filter 4688 events for the svcbackup account", done:false,
+        check: s => s.patternMatches("svcbackup","security.evtx.txt") && s.patternMatches("4688","security.evtx.txt") },
+      { id:"t3", text:"Find the encoded PowerShell command (-enc flag)", done:false,
+        check: s => s.patternMatches("-enc","security.evtx.txt") || s.patternMatches("encoded","security.evtx.txt","i") || s.patternMatches("-nop","security.evtx.txt") },
+      { id:"t4", text:"Find the password reset attempt (EventID 4724)", done:false,
+        check: s => s.patternMatches("4724","security.evtx.txt") },
+    ],
+    chips:["Select-String -Path security.evtx.txt -Pattern '4688'","Select-String -Path security.evtx.txt -Pattern 'svcbackup'","Select-String -Path security.evtx.txt -Pattern '-enc'","Select-String -Path security.evtx.txt -Pattern '4724'","Select-String -Path security.evtx.txt -Pattern '4688' | Select-String 'svcbackup'"],
+  },
+
+  // ── S8: Combined grep chain + tail (bash/hard) ─────────────────────────
+  {
+    id:7, shell:"bash",
+    title:"Application Error Triage",
+    difficulty:"hard",
+    desc:"The application server crashed. Analyze <code>app_error.log</code> to find the sequence of database failures leading to the crash. Use <code>grep</code> with <code>-A</code> (after) and <code>-B</code> (before) flags to capture context, and <code>tail</code> to check the last events.",
+    files: ["app_error.log"],
+    hint: "grep -A 3 'CRITICAL' app_error.log shows 3 lines after each CRITICAL match. grep -B 2 shows lines before. tail -5 app_error.log shows the last 5 lines. Combine: grep 'ERROR' app_error.log | grep -v 'INFO'",
+    tasks:[
+      { id:"t1", text:"Find all ERROR and CRITICAL entries", done:false,
+        check: s => s.patternMatches("ERROR","app_error.log") || s.patternMatches("CRITICAL","app_error.log") },
+      { id:"t2", text:"Find database connection failures (timeout)", done:false,
+        check: s => s.patternMatches("timeout","app_error.log","i") || s.patternMatches("database","app_error.log","i") || s.patternMatches("connection","app_error.log","i") },
+      { id:"t3", text:"Show last 5 lines of the log (tail)", done:false,
+        check: s => s.ranCmd("tail") },
+      { id:"t4", text:"Find CRITICAL events with context (-A flag)", done:false,
+        check: s => s.ranWithFlag("grep","-A") || s.patternMatches("CRITICAL","app_error.log") },
+    ],
+    chips:["grep 'ERROR' app_error.log","grep 'CRITICAL' app_error.log","grep -A 3 'CRITICAL' app_error.log","tail -10 app_error.log","grep -i 'database' app_error.log","grep -E 'ERROR|CRITICAL' app_error.log"],
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentIdx = 0;
+let completedScenarios = new Set();
+let cmdLog = [];
+let cmdHistory = [], historyPos = -1;
+let outputBuffer = "";
+let patternsSearched = {}; // file -> [pattern]
+let flagsUsed = new Set();
+let cmdsRun = new Set();
+let wildcardUsed = false, recursiveUsed = false;
+let tasksCompleted = new Set();
+let currentFileTab = 0;
+
+// ════════════════════════════════════════════════════════════════════════
+// CHECKER
+// ════════════════════════════════════════════════════════════════════════
+const checker = {
+  ranCmd(cmd)          { return cmdsRun.has(cmd.toLowerCase()); },
+  ranWithFile(cmd,f)   { return cmdLog.some(c => c.toLowerCase().includes(cmd.toLowerCase()) && c.includes(f)); },
+  ranWithFlag(cmd,fl)  { return cmdLog.some(c => c.toLowerCase().includes(cmd.toLowerCase()) && c.includes(fl)); },
+  outputContains(s)    { return outputBuffer.toLowerCase().includes(s.toLowerCase()); },
+  usedWildcard()       { return wildcardUsed; },
+  usedRecursive()      { return recursiveUsed; },
+  patternMatches(pat, file, flags) {
+    const key = file.toLowerCase();
+    if (!patternsSearched[key]) return false;
+    return patternsSearched[key].some(p => {
+      try {
+        const re = new RegExp(pat, flags||'');
+        return re.test(p) || p.toLowerCase().includes(pat.toLowerCase());
+      } catch(e) { return p.toLowerCase().includes(pat.toLowerCase()); }
+    });
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// TERMINAL OUTPUT HELPERS
+// ════════════════════════════════════════════════════════════════════════
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function printLine(cls, text) {
+  const out = document.getElementById('termOutput');
+  const span = document.createElement('span');
+  span.className = `tl ${cls}`;
+  span.textContent = text;
+  out.appendChild(span);
+  out.appendChild(document.createTextNode('\n'));
+  out.scrollTop = out.scrollHeight;
+  outputBuffer += text + '\n';
+}
+
+function printBlank() { printLine('t-out',''); }
+
+function printPromptLine(cmd) {
+  const s = SCENARIOS[currentIdx];
+  const out = document.getElementById('termOutput');
+  const span = document.createElement('span');
+  span.className = 'tl';
+  const cls = s.shell==='bash' ? 't-prompt-bash' : 't-prompt-ps';
+  const prompt = s.shell==='bash' ? 'analyst@soc-01:~$' : 'PS C:\\Logs>';
+  span.innerHTML = `<span class="${cls}">${esc(prompt)} </span><span class="t-cmd">${esc(cmd)}</span>`;
+  out.appendChild(span);
+  out.appendChild(document.createTextNode('\n'));
+  out.scrollTop = out.scrollHeight;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// LOG VIEWER
+// ════════════════════════════════════════════════════════════════════════
+function renderLogViewer(scenario, highlightPattern, highlightFile) {
+  const s = SCENARIOS[currentIdx];
+  const files = s.files;
+
+  // Tabs
+  const tabBar = document.getElementById('logFileTabs');
+  tabBar.innerHTML = '';
+  files.forEach((f,i) => {
+    const tab = document.createElement('div');
+    tab.className = `log-tab${i===currentFileTab?' active':''}`;
+    tab.textContent = f;
+    tab.addEventListener('click', () => { currentFileTab = i; renderLogViewer(scenario, highlightPattern, highlightFile); });
+    tabBar.appendChild(tab);
+  });
+
+  const activeFile = files[currentFileTab];
+  document.getElementById('logFilename').textContent = activeFile;
+
+  const lines = LOG_FILES[activeFile] || [];
+  document.getElementById('logLineCount').textContent = `${lines.length} lines`;
+
+  const body = document.getElementById('logBody');
+  body.innerHTML = '';
+
+  let matchCount = 0;
+  const pat = highlightPattern && (highlightFile === activeFile || !highlightFile) ? highlightPattern : null;
+
+  lines.forEach((line, i) => {
+    const div = document.createElement('div');
+    div.className = 'log-line';
+
+    // Type detection
+    if (/error|failed|failure|critical/i.test(line)) div.classList.add('type-error');
+    else if (/warn/i.test(line)) div.classList.add('type-warn');
+    else if (/auth|login|password|session/i.test(line)) div.classList.add('type-auth');
+    else div.classList.add('type-info');
+
+    let matched = false;
+    if (pat) {
+      try {
+        const re = new RegExp(pat, 'i');
+        if (re.test(line)) { matched = true; matchCount++; }
+      } catch(e) {
+        if (line.toLowerCase().includes(pat.toLowerCase())) { matched = true; matchCount++; }
+      }
+    }
+    if (matched) div.classList.add('matched');
+
+    const numEl = document.createElement('div'); numEl.className = 'log-linenum'; numEl.textContent = i+1;
+    const contentEl = document.createElement('div'); contentEl.className = 'log-content';
+
+    if (matched && pat) {
+      try {
+        const re = new RegExp(`(${pat})`, 'gi');
+        contentEl.innerHTML = colorizeLogLine(esc(line)).replace(re, '<span class="match-hl">$1</span>');
+      } catch(e) { contentEl.innerHTML = colorizeLogLine(esc(line)); }
+    } else {
+      contentEl.innerHTML = colorizeLogLine(esc(line));
+    }
+
+    div.appendChild(numEl); div.appendChild(contentEl);
+    body.appendChild(div);
+  });
+
+  const mc = document.getElementById('matchCount');
+  if (pat && matchCount > 0) {
+    mc.style.display = 'inline-block';
+    mc.textContent = `${matchCount} match${matchCount!==1?'es':''}`;
+    // Scroll to first match
+    const firstMatch = body.querySelector('.matched');
+    if (firstMatch) setTimeout(() => firstMatch.scrollIntoView({block:'center',behavior:'smooth'}), 100);
+  } else {
+    mc.style.display = 'none';
+  }
+}
+
+function colorizeLogLine(line) {
+  // Timestamp
+  line = line.replace(/^(\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2}|^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}|\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\])/,
+    '<span class="tok-ts">$1</span>');
+  // Severity tokens
+  line = line.replace(/\b(ERROR|CRITICAL|FAILED)\b/g, '<span class="tok-error">$1</span>');
+  line = line.replace(/\b(WARN(ING)?|Failed)\b/g, '<span class="tok-warn">$1</span>');
+  line = line.replace(/\b(INFO|Accepted|Success)\b/g, '<span class="tok-info">$1</span>');
+  // IPs
+  line = line.replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g, '<span class="tok-ip">$1</span>');
+  // Usernames
+  line = line.replace(/\b(for\s+)(\S+)(\s+from)/g, '$1<span class="tok-user">$2</span>$3');
+  return line;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// COMMAND PROCESSOR
+// ════════════════════════════════════════════════════════════════════════
+function processCommand(raw) {
+  const input = raw.trim();
+  if (!input) return;
+  cmdLog.push(input);
+  cmdHistory.unshift(input);
+  historyPos = -1;
+  printPromptLine(input);
+
+  const s = SCENARIOS[currentIdx];
+  const lower = input.toLowerCase();
+
+  // Track wildcards and recursive
+  if (input.includes('*.') || input.includes('*log') || input.includes('*txt')) wildcardUsed = true;
+  if (lower.includes('-r ') || lower.includes('-r\n') || lower.includes('recurse')) recursiveUsed = true;
+
+  // Track flags
+  const flagRe = /-[a-zA-Z]+/g;
+  let fm; while((fm=flagRe.exec(input))!==null) flagsUsed.add(fm[0].toLowerCase());
+
+  // ── cls/clear ──
+  if (/^(cls|clear|clear-host)$/i.test(input)) {
+    document.getElementById('termOutput').innerHTML = '';
+    outputBuffer = '';
+    return;
+  }
+
+  // ── help ──
+  if (/^help$/i.test(input) || /^man grep/i.test(input) || /^get-help/i.test(input)) {
+    printHelpText(s.shell);
+    return;
+  }
+
+  // ── tail ──
+  if (/^tail(\s|$)/i.test(input)) {
+    cmdsRun.add('tail');
+    const nMatch = input.match(/-n?\s*(\d+)/);
+    const n = nMatch ? parseInt(nMatch[1]) : 10;
+    // Find file
+    const fileArg = findFileArg(input, s.files);
+    if (!fileArg) { printLine('t-err','tail: No such file — specify a log filename'); printBlank(); updateTasks(); return; }
+    const lines = LOG_FILES[fileArg] || [];
+    const slice = lines.slice(-n);
+    printBlank();
+    printLine('t-path', `==> ${fileArg} <==`);
+    slice.forEach(l => printLine('t-out', l));
+    printBlank();
+    outputBuffer += slice.join('\n');
+    renderLogViewer(s, null);
+    updateTasks(); return;
+  }
+
+  // ── cat ──
+  if (/^cat(\s|$)/i.test(input)) {
+    cmdsRun.add('cat');
+    const fileArg = findFileArg(input, s.files);
+    if (!fileArg) { printLine('t-err','cat: No such file'); printBlank(); updateTasks(); return; }
+    const lines = LOG_FILES[fileArg] || [];
+    printBlank();
+    lines.forEach(l => printLine('t-out', l));
+    printBlank();
+    outputBuffer += lines.join('\n');
+    updateTasks(); return;
+  }
+
+  // ── ls ──
+  if (/^(ls|dir|get-childitem|gci)(\s.*)?$/i.test(input)) {
+    cmdsRun.add('ls'); printBlank();
+    s.files.forEach(f => printLine('t-path', f));
+    printBlank(); updateTasks(); return;
+  }
+
+  // ── grep ──
+  if (/^grep(\s|$)/i.test(input)) {
+    cmdsRun.add('grep');
+    handleGrep(input, s);
+    updateTasks(); return;
+  }
+
+  // ── Select-String ──
+  if (/^select-string(\s|$)/i.test(input) || /^sls(\s|$)/i.test(input)) {
+    cmdsRun.add('select-string');
+    handleSelectString(input, s);
+    updateTasks(); return;
+  }
+
+  // ── Get-Content / type ──
+  if (/^(get-content|gc|type)(\s|$)/i.test(input)) {
+    cmdsRun.add('get-content');
+    const fileArg = findFileArg(input, s.files);
+    if (!fileArg) { printLine('t-err','Cannot find path — specify a valid filename.'); printBlank(); updateTasks(); return; }
+    const lines = LOG_FILES[fileArg] || [];
+    printBlank(); lines.forEach(l => printLine('t-out', l)); printBlank();
+    outputBuffer += lines.join('\n');
+    updateTasks(); return;
+  }
+
+  // Unknown
+  printLine('t-err', `'${input.split(/\s/)[0]}': command not found. Try 'help'.`);
+  printBlank();
+}
+
+// ── grep handler ──────────────────────────────────────────────────────
+function handleGrep(input, s) {
+  // Parse flags
+  const iFlag = /\s-[a-zA-Z]*i[a-zA-Z]*\s/.test(' '+input+' ');
+  const cFlag = /\s-[a-zA-Z]*c[a-zA-Z]*\s/.test(' '+input+' ');
+  const nFlag = /\s-[a-zA-Z]*n[a-zA-Z]*\s/.test(' '+input+' ');
+  const vFlag = /\s-[a-zA-Z]*v[a-zA-Z]*\s/.test(' '+input+' ');
+  const rFlag = /\s-[a-zA-Z]*r[a-zA-Z]*\s/.test(' '+input+' ') || input.includes(' -r ');
+  const AFlag = input.match(/\s-A\s*(\d+)/); const afterN = AFlag ? parseInt(AFlag[1]) : 0;
+  const BFlag = input.match(/\s-B\s*(\d+)/); const beforeN = BFlag ? parseInt(BFlag[1]) : 0;
+  const EFlag = /\s-[a-zA-Z]*E[a-zA-Z]*\s/.test(' '+input+' ');
+
+  if (rFlag) recursiveUsed = true;
+  if (input.includes('*.') || input.includes('*log') || input.includes('*txt')) wildcardUsed = true;
+
+  // Extract pattern (first quoted or unquoted token after grep and flags)
+  const patMatch = input.match(/grep\s+(?:-[^\s]+\s+)*['"]?([^'"]+?)['"]?\s+/);
+  if (!patMatch) { printLine('t-err','grep: missing pattern'); printBlank(); return; }
+  let pattern = patMatch[1].trim();
+
+  // Determine target files
+  const targetFiles = resolveFiles(input, s.files);
+  if (targetFiles.length === 0) {
+    printLine('t-err', 'grep: no matching files found');
+    printLine('t-out', 'Tip: use *.log for all log files, or specify a filename explicitly');
+    printBlank(); return;
+  }
+
+  // Register patterns
+  targetFiles.forEach(f => {
+    if (!patternsSearched[f]) patternsSearched[f] = [];
+    patternsSearched[f].push(pattern);
+  });
+
+  let totalMatches = 0;
+  let lastFile = null, lastPat = null;
+
+  targetFiles.forEach(file => {
+    const lines = LOG_FILES[file] || [];
+    const flags = iFlag ? 'i' : '';
+    let re;
+    try { re = new RegExp(pattern, flags); } catch(e) { re = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), flags); }
+
+    const matchedIndices = [];
+    lines.forEach((l,i) => { if (vFlag ? !re.test(l) : re.test(l)) matchedIndices.push(i); });
+
+    if (cFlag) {
+      if (targetFiles.length > 1) printLine('t-match', `${file}:${matchedIndices.length}`);
+      else printLine('t-match', String(matchedIndices.length));
+      totalMatches += matchedIndices.length;
+      lastFile = file; lastPat = pattern;
+      return;
+    }
+
+    if (matchedIndices.length === 0) {
+      if (targetFiles.length > 1) printLine('t-out', `[no matches in ${file}]`);
+    } else {
+      if (targetFiles.length > 1) { printBlank(); printLine('t-path', `==> ${file} <==`); }
+      const shown = new Set();
+      matchedIndices.forEach(idx => {
+        const start = Math.max(0, idx - beforeN);
+        const end = Math.min(lines.length-1, idx + afterN);
+        for (let j=start; j<=end; j++) {
+          if (shown.has(j)) continue; shown.add(j);
+          const isMatch = vFlag ? !re.test(lines[j]) : re.test(lines[j]);
+          const prefix = nFlag ? `${j+1}:` : '';
+          const cls = isMatch ? 't-match' : 't-out';
+          printLine(cls, prefix + lines[j]);
+          if (isMatch) totalMatches++;
+        }
+        if (afterN > 0 && idx < matchedIndices[matchedIndices.length-1]) printLine('t-sep','--');
+      });
+      lastFile = file; lastPat = pattern;
+    }
+  });
+
+  if (totalMatches === 0 && !cFlag) {
+    printLine('t-out', '(no matches found)');
+    if (!wildcardUsed && targetFiles.length < s.files.length) {
+      printLine('t-info', `Tip: Try *.log to search all ${s.files.length} log files`);
+    }
+  }
+  printBlank();
+
+  // Update log viewer with last search
+  if (lastFile && lastPat) renderLogViewer(s, lastPat, lastFile);
+}
+
+// ── Select-String handler ─────────────────────────────────────────────
+function handleSelectString(input, s) {
+  // Extract -Pattern
+  const patM = input.match(/-Pattern\s+['"]([^'"]+)['"]/i) || input.match(/Select-String\s+['"]([^'"]+)['"]/i);
+  if (!patM) { printLine('t-err',"Select-String: Missing -Pattern argument. Usage: Select-String -Path <file> -Pattern '<regex>'"); printBlank(); return; }
+  const pattern = patM[1];
+
+  // Wildcard detection
+  if (input.includes('*.') || input.includes('*log') || input.includes('*txt')) wildcardUsed = true;
+
+  // Resolve files
+  const targetFiles = resolveFiles(input, s.files);
+  if (targetFiles.length === 0) {
+    printLine('t-err', "Select-String: Cannot find path. Check -Path argument.");
+    printLine('t-out', "Tip: Use -Path '*.txt' to search all text files");
+    printBlank(); return;
+  }
+
+  let lastFile = null;
+  targetFiles.forEach(file => {
+    const lines = LOG_FILES[file] || [];
+    if (!patternsSearched[file]) patternsSearched[file] = [];
+    patternsSearched[file].push(pattern);
+
+    let re;
+    try { re = new RegExp(pattern,'i'); } catch(e) { re = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i'); }
+
+    const matched = lines.map((l,i) => ({l,i})).filter(({l}) => re.test(l));
+    if (matched.length === 0) {
+      printLine('t-out', `[No matches in ${file}]`);
+    } else {
+      matched.forEach(({l,i}) => {
+        printLine('t-match', `${file}:${i+1}:${l}`);
+      });
+      lastFile = file;
+    }
+  });
+
+  if (!lastFile) {
+    if (!wildcardUsed && targetFiles.length < s.files.length) {
+      printLine('t-info', `Tip: Use -Path '*.txt' to search all ${s.files.length} files`);
+    }
+  }
+  printBlank();
+  if (lastFile) renderLogViewer(s, pattern, lastFile);
+}
+
+// ── Resolve which files a command targets ─────────────────────────────
+function resolveFiles(input, available) {
+  if (input.includes('*.log') || input.includes('*.txt') || input.includes('*.')) {
+    wildcardUsed = true; return [...available];
+  }
+  if (input.includes('-r ') || input.toLowerCase().includes('recurse') || input.includes('/var/log/')) {
+    recursiveUsed = true; return [...available];
+  }
+  const found = available.filter(f => input.includes(f));
+  return found.length ? found : [];
+}
+
+function findFileArg(input, available) {
+  return available.find(f => input.includes(f)) || null;
+}
+
+// ── Help text ─────────────────────────────────────────────────────────
+function printHelpText(shell) {
+  printBlank();
+  if (shell === 'bash') {
+    printLine('t-info', 'grep — Search for patterns in files');
+    printLine('t-out', '  grep PATTERN file.log          Search for PATTERN');
+    printLine('t-out', '  grep -i PATTERN file.log       Case-insensitive');
+    printLine('t-out', '  grep -n PATTERN file.log       Show line numbers');
+    printLine('t-out', '  grep -c PATTERN file.log       Count matches');
+    printLine('t-out', '  grep -v PATTERN file.log       Invert match');
+    printLine('t-out', '  grep -A 3 PATTERN file.log     3 lines after match');
+    printLine('t-out', '  grep -B 2 PATTERN file.log     2 lines before match');
+    printLine('t-out', '  grep -r PATTERN /var/log/      Recursive search');
+    printLine('t-out', '  grep PATTERN *.log             Search all .log files');
+    printLine('t-out', '  tail -n 20 file.log            Last 20 lines');
+  } else {
+    printLine('t-info', 'Select-String — Search for patterns in files');
+    printLine('t-out', "  Select-String -Path file.txt -Pattern 'PATTERN'");
+    printLine('t-out', "  Select-String -Path '*.txt' -Pattern 'PATTERN'");
+    printLine('t-out', "  Get-Content file.log | Select-String 'PATTERN'");
+    printLine('t-out', "  Get-ChildItem *.log | Select-String 'PATTERN'");
+    printLine('t-out', "  Select-String -Path file -Pattern 'A.*B'  (regex)");
+  }
+  printBlank();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TASKS + SCORING
+// ════════════════════════════════════════════════════════════════════════
+function updateTasks() {
+  const s = SCENARIOS[currentIdx];
+  s.tasks.forEach(t => { if (!tasksCompleted.has(t.id) && t.check(checker)) tasksCompleted.add(t.id); });
+  renderTaskList(s);
+  const done = tasksCompleted.size, total = s.tasks.length;
+  const pct = Math.round(done/total*100);
+  document.getElementById('scoreNum').textContent = `${done}/${total}`;
+  document.getElementById('scoreFill').style.width = pct+'%';
+  document.getElementById('scoreFill').style.background = pct===100?'var(--green)':pct>=50?'var(--amber)':'var(--amber)';
+}
+
+function renderTaskList(s) {
+  const sec = document.getElementById('taskSection');
+  sec.innerHTML = '<div class="lp-lbl green">Tasks</div>';
+  s.tasks.forEach(t => {
+    const done = tasksCompleted.has(t.id);
+    const box = document.createElement('div');
+    box.className = `task-box${done?' done':''}`;
+    box.innerHTML = `<div class="task-num">${done?'✓ COMPLETE':'◈ PENDING'}</div><div class="task-text">${t.text}</div>`;
+    sec.appendChild(box);
+  });
+}
+
+function checkAnswer() {
+  const s = SCENARIOS[currentIdx];
+  updateTasks();
+  const done = tasksCompleted.size, total = s.tasks.length;
+  if (done === total) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    setTimeout(() => showModal('✓ All Tasks Complete!',
+      `You completed all ${total} tasks for <strong>"${s.title}"</strong>.<br><br>${s.hint}`,
+      'win', currentIdx < SCENARIOS.length-1), 200);
+  } else {
+    const unmet = s.tasks.filter(t => !tasksCompleted.has(t.id));
+    showModal(`${done}/${total} Tasks Complete`,
+      `Still needed:<br><br>${unmet.map(t=>`• ${t.text}`).join('<br>')}<br><br>💡 ${s.hint}`,
+      'warn', false);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO LOADING
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentIdx = idx;
+  cmdLog = []; cmdHistory = []; historyPos = -1;
+  outputBuffer = ''; patternsSearched = {};
+  flagsUsed = new Set(); cmdsRun = new Set();
+  wildcardUsed = false; recursiveUsed = false;
+  tasksCompleted = new Set();
+  currentFileTab = 0;
+
+  const s = SCENARIOS[idx];
+  document.getElementById('termOutput').innerHTML = '';
+  outputBuffer = '';
+
+  // Header
+  const isPS = s.shell === 'ps';
+  document.getElementById('termTitle').textContent = isPS ? 'Windows PowerShell — C:\\Logs' : 'bash — analyst@soc-01:/var/log';
+  document.getElementById('shellBadge').textContent = isPS ? 'PowerShell 7' : 'bash';
+  document.getElementById('shellBadge').className = `term-shell-badge ${isPS?'badge-ps':'badge-bash'}`;
+  document.getElementById('promptLabel').textContent = isPS ? 'PS C:\\Logs>' : 'analyst@soc-01:~$';
+  document.getElementById('promptLabel').className = `t-prompt-label ${isPS?'t-prompt-ps':'t-prompt-bash'}`;
+
+  // Brief
+  const diffCls = {easy:'diff-easy',medium:'diff-medium',hard:'diff-hard'}[s.difficulty];
+  const shellTag = isPS ? '<span class="shell-tag tag-ps">PowerShell</span>' : '<span class="shell-tag tag-bash">bash</span>';
+  document.getElementById('briefSection').innerHTML = `
+    <div class="lp-lbl">Scenario</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffCls}">${s.difficulty}</span> ${shellTag}
+    <div class="brief-body" style="margin-top:7px;">${s.desc}</div>`;
+
+  // Tasks
+  renderTaskList(s);
+  document.getElementById('scoreNum').textContent = `0/${s.tasks.length}`;
+  document.getElementById('scoreFill').style.width = '0%';
+
+  // Log viewer
+  renderLogViewer(s, null);
+
+  // Chips
+  const strip = document.getElementById('acStrip');
+  strip.innerHTML = '<span class="ac-lbl">Quick Insert:</span>';
+  s.chips.forEach(chip => {
+    const btn = document.createElement('button');
+    btn.className = `ac-chip${isPS?' ps-chip':''}`;
+    btn.textContent = chip;
+    btn.addEventListener('click', () => {
+      document.getElementById('termInput').value = chip;
+      document.getElementById('termInput').focus();
+    });
+    strip.appendChild(btn);
+  });
+
+  // Welcome lines
+  printLine('t-sep', '─────────────────────────────────────────────────────────');
+  printLine(isPS?'t-info':'t-ok', `  ${s.title.toUpperCase()}`);
+  printLine('t-sep', '─────────────────────────────────────────────────────────');
+  printLine('t-out', `  Available files: ${s.files.join(', ')}`);
+  printLine('t-out', `  Shell: ${isPS ? 'PowerShell (use Select-String)' : 'bash (use grep, tail, cat)'}`);
+  printLine('t-out', '  Type  help  for command reference.');
+  printLine('t-sep', '─────────────────────────────────────────────────────────');
+  printBlank();
+
+  updateTabStates();
+  document.getElementById('termInput').focus();
+}
+
+function resetScenario() { loadScenario(currentIdx); }
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function buildTabs() {
+  const c = document.getElementById('scenarioTabs');
+  c.innerHTML = '';
+  SCENARIOS.forEach((s,i) => {
+    const btn = document.createElement('button');
+    const tag = s.shell==='bash' ? '<span class="shell-tag tag-bash">bash</span>' : '<span class="shell-tag tag-ps">PS</span>';
+    btn.className = `stab${i===0?' active':''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title} ${tag}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active',j===i));
+    });
+    c.appendChild(btn);
+  });
+}
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab,i) => {
+    tab.classList.toggle('active',i===currentIdx);
+    tab.classList.toggle('done',completedScenarios.has(i)&&i!==currentIdx);
+    tab.querySelector('.snum').textContent = completedScenarios.has(i)?'✓':String(i+1).padStart(2,'0');
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL + HINT
+// ════════════════════════════════════════════════════════════════════════
+function showModal(title,body,type,showNext) {
+  document.getElementById('modalTitle').className=`modal-title ${type}`;
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modalNext').style.display=showNext?'block':'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function showHintModal() { showModal('💡 Hint',SCENARIOS[currentIdx].hint,'info',false); }
+function nextScenario() {
+  closeModal(); currentIdx++;
+  loadScenario(currentIdx);
+  document.querySelectorAll('.stab').forEach((t,j)=>t.classList.toggle('active',j===currentIdx));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INPUT
+// ════════════════════════════════════════════════════════════════════════
+const termInput = document.getElementById('termInput');
+termInput.addEventListener('keydown', e => {
+  if (e.key==='Enter') { const v=termInput.value; termInput.value=''; processCommand(v); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); if(historyPos<cmdHistory.length-1){historyPos++;termInput.value=cmdHistory[historyPos]||'';} }
+  else if (e.key==='ArrowDown') { e.preventDefault(); if(historyPos>0){historyPos--;termInput.value=cmdHistory[historyPos]||'';}else{historyPos=-1;termInput.value='';} }
+});
+document.getElementById('termOutput').addEventListener('click', () => termInput.focus());
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildTabs();
+loadScenario(0);
+</script>
+</body>
+</html>

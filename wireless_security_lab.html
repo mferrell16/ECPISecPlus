@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WifiSec Lab — Wireless Security Protocol Selection</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #040810;
+  --surface:     #060c18;
+  --panel:       #08111e;
+  --card:        #0a1525;
+  --card-hi:     #0d1b2e;
+  --border:      #0f2040;
+  --border2:     #163060;
+
+  --blue:        #1e90ff;
+  --blue-dim:    #04183a;
+  --blue-glow:   rgba(30,144,255,0.15);
+  --blue-faint:  rgba(30,144,255,0.06);
+  --electric:    #00d4ff;
+  --electric-dim:#022535;
+
+  --green:       #00e676;
+  --green-dim:   #012a18;
+  --red:         #ff3d5a;
+  --red-dim:     #2a0510;
+  --amber:       #ffab00;
+  --amber-dim:   #251700;
+  --violet:      #b366ff;
+  --violet-dim:  #1a0b30;
+
+  --text:        #b8d4f0;
+  --text-dim:    #2a4870;
+  --text-muted:  #12284a;
+
+  /* Protocol brand colors */
+  --wpa3:        #00e676;
+  --wpa2-ent:    #1e90ff;
+  --wpa2-psk:    #ffab00;
+  --wep:         #ff3d5a;
+  --open:        #ff3d5a;
+  --dot1x:       #b366ff;
+  --tkip:        #ff7020;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  overflow: hidden;
+}
+
+/* Signal wave background */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 50%, rgba(30,144,255,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 60% at 85% 30%, rgba(0,212,255,0.05) 0%, transparent 50%),
+    repeating-linear-gradient(90deg, transparent, transparent 79px, rgba(30,144,255,0.015) 79px, rgba(30,144,255,0.015) 80px),
+    repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(30,144,255,0.012) 59px, rgba(30,144,255,0.012) 60px);
+  pointer-events: none;
+}
+
+/* ══ HEADER ══ */
+header {
+  position: relative; z-index: 50;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 18px; gap: 0;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 11px;
+  padding-right: 18px;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo-icon {
+  width: 34px; height: 34px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.logo-icon svg { width: 28px; height: 28px; }
+.logo-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem; font-weight: 700;
+  color: var(--electric);
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 10px rgba(0,212,255,0.4);
+  line-height: 1;
+}
+.logo-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem; color: var(--text-dim);
+  letter-spacing: 0.1em; display: block;
+  margin-top: 2px;
+}
+
+.scenario-tabs {
+  display: flex; flex: 1; overflow-x: auto;
+  padding: 0 6px;
+}
+.stab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 13px; height: 52px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--electric); border-bottom-color: var(--electric); }
+.stab.done   { color: var(--green); border-bottom-color: var(--green); }
+.stab .snum {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; padding: 1px 5px;
+  background: var(--border); color: var(--text-dim);
+}
+.stab.active .snum { background: var(--electric-dim); color: var(--electric); }
+.stab.done   .snum { background: var(--green-dim); color: var(--green); }
+
+.header-right {
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 7px; align-items: center;
+}
+.hbtn {
+  padding: 5px 14px;
+  font-family: 'Exo 2', sans-serif;
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-blue  { border-color: var(--electric); color: var(--electric); background: rgba(0,212,255,0.06); }
+.hbtn-blue:hover  { background: rgba(0,212,255,0.16); }
+.hbtn-green { border-color: var(--green); color: var(--green); background: rgba(0,230,118,0.06); }
+.hbtn-green:hover { background: rgba(0,230,118,0.16); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover { color: var(--text); }
+
+/* ══ WORKSPACE ══ */
+.workspace {
+  display: grid;
+  grid-template-columns: 272px 1fr 272px;
+  height: calc(100vh - 52px);
+  position: relative; z-index: 1;
+}
+
+/* ══ SIDE PANELS ══ */
+.side-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.side-panel.right { border-right: none; border-left: 1px solid var(--border); }
+
+.sp-sec {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sp-sec.grow { flex: 1; overflow-y: auto; }
+.sp-sec.grow::-webkit-scrollbar { width: 4px; }
+.sp-sec.grow::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.sp-lbl {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.58rem; font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 7px;
+}
+.sp-lbl::before { content:''; display:block; width:3px; height:10px; background: var(--electric); }
+.sp-lbl.green::before  { background: var(--green); }
+.sp-lbl.amber::before  { background: var(--amber); }
+.sp-lbl.red::before    { background: var(--red); }
+.sp-lbl.violet::before { background: var(--violet); }
+
+.brief-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--electric);
+  text-shadow: 0 0 6px rgba(0,212,255,0.3);
+  margin-bottom: 5px; line-height: 1.3;
+  letter-spacing: 0.04em;
+}
+.diff-pill {
+  display: inline-block; padding: 2px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.diff-easy   { color: var(--green);    border: 1px solid rgba(0,230,118,0.3);   background: rgba(0,230,118,0.06); }
+.diff-medium { color: var(--amber);    border: 1px solid rgba(255,171,0,0.3);   background: rgba(255,171,0,0.06); }
+.diff-hard   { color: var(--red);      border: 1px solid rgba(255,61,90,0.3);   background: rgba(255,61,90,0.06); }
+
+.brief-body { font-size: 0.69rem; line-height: 1.75; color: var(--text-dim); }
+.brief-body strong { color: var(--text); }
+
+/* ══ REQUIREMENT CARD ══ */
+.req-card {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  padding: 11px 13px;
+  margin-bottom: 8px;
+}
+.req-card-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.56rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 7px;
+  display: flex; align-items: center; gap: 5px;
+}
+.req-card-label::before { content:'▸'; color: var(--electric); }
+.req-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  background: rgba(30,144,255,0.04);
+  margin-bottom: 4px;
+  font-size: 0.68rem; color: var(--text);
+  line-height: 1.45;
+}
+.req-item:last-child { margin-bottom: 0; }
+.req-bullet {
+  color: var(--electric);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  flex-shrink: 0; margin-top: 1px;
+}
+.req-item.key-req {
+  border-color: rgba(0,212,255,0.3);
+  background: rgba(0,212,255,0.06);
+}
+.req-item.key-req .req-bullet { color: var(--electric); }
+
+/* Score */
+.score-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-big {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.7rem; font-weight: 800;
+  line-height: 1; color: var(--electric);
+  text-shadow: 0 0 10px rgba(0,212,255,0.4);
+  letter-spacing: 0.06em;
+}
+.score-meta { flex: 1; }
+.score-lbl { font-size: 0.52rem; color: var(--text-dim); letter-spacing: 0.12em; text-transform: uppercase; font-family: 'Share Tech Mono', monospace; }
+.score-bar { height: 2px; background: var(--border); margin-top: 6px; }
+.score-fill { height: 100%; background: var(--electric); transition: width 0.5s ease; box-shadow: 0 0 6px rgba(0,212,255,0.4); }
+
+/* ══ CENTER PANEL ══ */
+.center-panel {
+  display: flex; flex-direction: column;
+  overflow: hidden; background: var(--bg);
+}
+.center-hdr {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0;
+}
+.center-mode {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.62rem; font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+}
+.center-instr {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--text-muted);
+  flex: 1;
+}
+.question-progress {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--text-dim);
+}
+
+/* ══ MAIN Q AREA ══ */
+.q-area {
+  flex: 1; overflow-y: auto;
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.q-area::-webkit-scrollbar { width: 5px; }
+.q-area::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* Scenario context box */
+.scenario-box {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.scenario-box::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--electric), var(--blue));
+}
+.scenario-org {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--electric);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.scenario-brief {
+  font-size: 0.75rem; line-height: 1.75;
+  color: var(--text);
+  font-weight: 400;
+}
+.scenario-brief strong { color: var(--electric); font-weight: 700; }
+
+/* KEY requirement callout */
+.key-req-callout {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 13px;
+  background: rgba(0,212,255,0.05);
+  border: 1px solid rgba(0,212,255,0.25);
+}
+.krc-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.krc-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.56rem; font-weight: 600;
+  letter-spacing: 0.12em; color: var(--electric);
+  margin-bottom: 3px;
+}
+.krc-text {
+  font-size: 0.74rem; font-weight: 700;
+  color: var(--text); line-height: 1.4;
+}
+
+/* ══ PROTOCOL CHOICES ══ */
+.choices-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.56rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 0;
+}
+.choices-grid {
+  display: flex; flex-direction: column; gap: 6px;
+}
+
+.proto-choice {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.proto-choice:hover:not(.revealed) { border-color: var(--border2); background: var(--card-hi); }
+.proto-choice.selected { border-color: var(--electric); background: rgba(0,212,255,0.05); }
+.proto-choice.rev-correct { border-color: var(--green); background: rgba(0,230,118,0.05); cursor: default; }
+.proto-choice.rev-wrong   { border-color: rgba(255,61,90,0.5); background: rgba(255,61,90,0.04); cursor: default; }
+.proto-choice.rev-neutral { opacity: 0.45; cursor: default; }
+.proto-choice.revealed { pointer-events: none; }
+
+/* Color stripe */
+.proto-stripe {
+  width: 4px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+/* Choice body */
+.proto-body {
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.proto-top {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+.proto-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.proto-full {
+  font-size: 0.64rem; color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
+}
+.proto-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.proto-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.49rem; padding: 1px 6px;
+  border: 1px solid; letter-spacing: 0.06em;
+}
+
+.proto-desc {
+  font-size: 0.66rem; color: var(--text-dim);
+  line-height: 1.55;
+}
+/* Requirement coverage bars */
+.coverage-row {
+  display: flex; flex-direction: column; gap: 3px;
+  margin-top: 2px;
+}
+.cov-item {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.58rem;
+}
+.cov-label { color: var(--text-muted); width: 160px; flex-shrink: 0; font-family:'Share Tech Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cov-bar { flex: 1; height: 4px; background: var(--border); position: relative; }
+.cov-fill { height: 100%; position: absolute; left: 0; top: 0; transition: width 0.4s ease; }
+.cov-val { font-family: 'Share Tech Mono', monospace; font-size: 0.54rem; width: 22px; text-align: right; flex-shrink: 0; }
+
+/* Right side of choice — result indicator */
+.proto-result {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px;
+  border-left: 1px solid var(--border);
+  font-size: 18px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+/* Trap marker */
+.trap-marker {
+  position: absolute; top: 6px; right: 52px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.48px; padding: 1px 6px;
+  background: rgba(255,171,0,0.1);
+  border: 1px solid rgba(255,171,0,0.3);
+  color: var(--amber);
+  font-size: 0.48rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.proto-choice.rev-wrong .trap-marker.is-trap,
+.proto-choice.rev-neutral .trap-marker.is-trap { opacity: 1; }
+
+/* ══ RIGHT PANEL — Protocol Reference ══ */
+.proto-ref-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.prc-header {
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px;
+}
+.prc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.prc-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+.prc-tier {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem; padding: 1px 5px;
+  border: 1px solid; letter-spacing: 0.06em;
+}
+.tier-enterprise { color: var(--blue);    border-color: rgba(30,144,255,0.3); background: rgba(30,144,255,0.07); }
+.tier-personal   { color: var(--amber);   border-color: rgba(255,171,0,0.3);  background: rgba(255,171,0,0.07); }
+.tier-legacy     { color: var(--red);     border-color: rgba(255,61,90,0.3);  background: rgba(255,61,90,0.07); }
+.tier-standard   { color: var(--green);   border-color: rgba(0,230,118,0.3);  background: rgba(0,230,118,0.07); }
+
+.prc-body {
+  padding: 6px 9px;
+  font-size: 0.6rem; color: var(--text-dim);
+  line-height: 1.55;
+}
+.prc-feat { display: flex; gap: 5px; margin-bottom: 2px; }
+.feat-icon { color: var(--green); flex-shrink: 0; }
+.feat-icon.no { color: var(--red); }
+
+/* ══ MODAL ══ */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 24px 28px;
+  max-width: 580px; width: 92%;
+  position: relative;
+  transform: translateY(8px); transition: transform 0.2s;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-close {
+  position: absolute; top: 10px; right: 12px;
+  background: none; border: none;
+  color: var(--text-dim); cursor: pointer; font-size: 1rem;
+}
+.modal-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem; font-weight: 800;
+  letter-spacing: 0.06em; margin-bottom: 13px;
+}
+.modal-title.win  { color: var(--green); text-shadow: 0 0 8px rgba(0,230,118,0.4); }
+.modal-title.info { color: var(--electric); }
+.modal-title.warn { color: var(--amber); }
+.modal-title.fail { color: var(--red); }
+.modal-body {
+  font-size: 0.72rem; color: var(--text-dim);
+  line-height: 1.8; margin-bottom: 18px;
+}
+.modal-body strong { color: var(--text); }
+.modal-body code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem; color: var(--electric);
+  background: var(--card); padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+.modal-trap-box {
+  padding: 10px 12px;
+  background: rgba(255,171,0,0.05);
+  border: 1px solid rgba(255,171,0,0.25);
+  margin-top: 10px;
+  font-size: 0.68rem; color: var(--amber);
+  line-height: 1.65;
+}
+.modal-trap-box strong { color: var(--amber); }
+.modal-actions { display: flex; gap: 7px; justify-content: flex-end; }
+
+/* Progress dots */
+.progress-dots {
+  display: flex; gap: 4px; align-items: center;
+}
+.pdot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--border); transition: all 0.2s;
+}
+.pdot.active   { background: var(--electric); box-shadow: 0 0 4px rgba(0,212,255,0.6); }
+.pdot.answered { background: var(--green); }
+.pdot.wrong    { background: var(--red); }
+
+@keyframes choiceIn {
+  from { opacity:0; transform: translateY(4px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.proto-choice { animation: choiceIn 0.2s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="3" fill="var(--electric)"/>
+        <path d="M8 14 Q8 8 14 8 Q20 8 20 14" stroke="var(--electric)" stroke-width="1.5" fill="none" opacity="0.7"/>
+        <path d="M4 14 Q4 4 14 4 Q24 4 24 14" stroke="var(--electric)" stroke-width="1.2" fill="none" opacity="0.4"/>
+        <path d="M1 14 Q1 1 14 1 Q27 1 27 14" stroke="var(--electric)" stroke-width="1" fill="none" opacity="0.2"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">WifiSec Lab</div>
+      <span class="logo-sub">Wireless Security Protocol Selection</span>
+    </div>
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-right">
+    <button class="hbtn hbtn-gray" onclick="resetScenario()">↺ Reset</button>
+    <button class="hbtn hbtn-blue" onclick="showHintModal()">💡 Hint</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT PANEL -->
+  <div class="side-panel">
+    <div class="sp-sec" id="briefSection"></div>
+    <div class="sp-sec" id="reqSection"></div>
+    <div class="sp-sec grow" id="leftStats"></div>
+    <div class="score-row">
+      <div class="score-big" id="scoreNum">0/0</div>
+      <div class="score-meta">
+        <div class="score-lbl">Correct Answers</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center-panel" id="centerPanel">
+    <div class="center-hdr">
+      <div class="center-mode">Protocol Selection</div>
+      <div class="center-instr">Read the requirement — select the protocol that satisfies it exactly</div>
+      <div class="question-progress" id="qProgress"></div>
+      <div class="progress-dots" id="progressDots"></div>
+    </div>
+    <div class="q-area" id="qArea"></div>
+  </div>
+
+  <!-- RIGHT — Protocol Reference -->
+  <div class="side-panel right">
+    <div class="sp-sec">
+      <div class="sp-lbl">Protocol Reference</div>
+      <div id="protoRef"></div>
+    </div>
+    <div class="sp-sec grow">
+      <div class="sp-lbl amber">Exam Traps</div>
+      <div style="font-size:0.63rem;color:var(--text-dim);line-height:1.7;display:flex;flex-direction:column;gap:7px;">
+        <div style="padding:7px 9px;background:rgba(255,171,0,0.04);border:1px solid rgba(255,171,0,0.2);">
+          <div style="color:var(--amber);font-weight:700;margin-bottom:3px;font-family:'Orbitron',sans-serif;font-size:0.56rem;letter-spacing:0.1em;">WPA2-PSK + STRONG PASSWORD</div>
+          Sounds secure but uses a <strong style="color:var(--text);">shared key</strong> — everyone on the network has the same password. Cannot do per-user auth, cannot revoke one user's access, and is vulnerable to offline dictionary attacks if the handshake is captured.
+        </div>
+        <div style="padding:7px 9px;background:rgba(255,61,90,0.04);border:1px solid rgba(255,61,90,0.2);">
+          <div style="color:var(--red);font-weight:700;margin-bottom:3px;font-family:'Orbitron',sans-serif;font-size:0.56rem;letter-spacing:0.1em;">WEP — ALWAYS WRONG</div>
+          Cryptographically broken since 2001. IV reuse makes it crackable in minutes. Never a correct answer regardless of how the question is worded.
+        </div>
+        <div style="padding:7px 9px;background:rgba(179,102,255,0.04);border:1px solid rgba(179,102,255,0.2);">
+          <div style="color:var(--violet);font-weight:700;margin-bottom:3px;font-family:'Orbitron',sans-serif;font-size:0.56rem;letter-spacing:0.1em;">802.1X ≠ JUST WIRELESS</div>
+          802.1X is a framework that can authenticate wired or wireless clients. It requires a RADIUS server and EAP method. WPA2/WPA3-Enterprise uses 802.1X — they are the same thing described differently.
+        </div>
+        <div style="padding:7px 9px;background:rgba(0,230,118,0.04);border:1px solid rgba(0,230,118,0.15);">
+          <div style="color:var(--green);font-weight:700;margin-bottom:3px;font-family:'Orbitron',sans-serif;font-size:0.56rem;letter-spacing:0.1em;">WPA3 — DICTIONARY ATTACKS</div>
+          WPA3 uses SAE (Simultaneous Authentication of Equals) replacing PSK. SAE is resistant to offline dictionary attacks because it doesn't expose a handshake that can be captured and brute-forced offline.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextQ()" id="modalNext" style="display:none;">Next Question →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// PROTOCOL DEFINITIONS
+// ════════════════════════════════════════════════════════════════════════
+const PROTOCOLS = {
+  wpa3_personal: {
+    name: "WPA3-Personal",
+    full: "Wi-Fi Protected Access 3 — SAE",
+    color: "var(--wpa3)",
+    tier: "standard",
+    tierLabel: "Current Standard",
+    badges: ["SAE", "Forward Secrecy"],
+    desc: "Replaces PSK with SAE (Simultaneous Authentication of Equals). Resistant to offline dictionary attacks — no usable handshake is exposed. Each connection uses unique session keys.",
+    features: {
+      "Offline dictionary attack resistance": true,
+      "Per-user authentication": false,
+      "Shared passphrase": true,
+      "RADIUS/802.1X required": false,
+      "Forward secrecy": true,
+      "Legacy device support": false,
+    }
+  },
+  wpa3_enterprise: {
+    name: "WPA3-Enterprise",
+    full: "WPA3 + 802.1X + RADIUS",
+    color: "var(--wpa3)",
+    tier: "enterprise",
+    tierLabel: "Enterprise",
+    badges: ["802.1X", "RADIUS", "SAE", "192-bit"],
+    desc: "WPA3 with 802.1X authentication. Per-user credentials, RADIUS server required, 192-bit minimum encryption mode. Highest security tier for enterprise.",
+    features: {
+      "Offline dictionary attack resistance": true,
+      "Per-user authentication": true,
+      "Shared passphrase": false,
+      "RADIUS/802.1X required": true,
+      "Forward secrecy": true,
+      "Legacy device support": false,
+    }
+  },
+  wpa2_enterprise: {
+    name: "WPA2-Enterprise",
+    full: "WPA2 + 802.1X + RADIUS + EAP",
+    color: "var(--wpa2-ent)",
+    tier: "enterprise",
+    tierLabel: "Enterprise",
+    badges: ["802.1X", "RADIUS", "EAP"],
+    desc: "802.1X-based authentication with a RADIUS server. Each user authenticates with individual credentials. The gold standard for per-user wireless authentication in enterprise environments.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": true,
+      "Shared passphrase": false,
+      "RADIUS/802.1X required": true,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    }
+  },
+  wpa2_personal: {
+    name: "WPA2-Personal",
+    full: "WPA2-PSK / WPA2 Pre-Shared Key",
+    color: "var(--wpa2-psk)",
+    tier: "personal",
+    tierLabel: "Personal / SOHO",
+    badges: ["PSK", "Shared Key"],
+    desc: "Uses a single shared passphrase for all users. Vulnerable to offline dictionary attacks if the 4-way handshake is captured. Cannot revoke individual user access.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": false,
+      "Shared passphrase": true,
+      "RADIUS/802.1X required": false,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    },
+    isTrap: true,
+    trapNote: "Common trap — WPA2-PSK with a 'strong passphrase' sounds secure but still fails offline dictionary attack and per-user authentication requirements."
+  },
+  radius_dot1x: {
+    name: "RADIUS + 802.1X",
+    full: "Remote Auth Dial-In User Service + IEEE 802.1X",
+    color: "var(--dot1x)",
+    tier: "enterprise",
+    tierLabel: "Enterprise",
+    badges: ["802.1X", "EAP", "AAA"],
+    desc: "RADIUS provides centralized AAA (Authentication, Authorization, Accounting). 802.1X is the port-based access control standard. Together they enable per-user authentication on wired or wireless networks.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": true,
+      "Shared passphrase": false,
+      "RADIUS/802.1X required": true,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    }
+  },
+  wep: {
+    name: "WEP",
+    full: "Wired Equivalent Privacy",
+    color: "var(--wep)",
+    tier: "legacy",
+    tierLabel: "Deprecated",
+    badges: ["BROKEN", "RC4", "IV Reuse"],
+    desc: "Cryptographically broken. Static IV reuse makes WEP crackable in minutes using passive traffic capture. Never use. Never select on an exam unless the question asks what NOT to use.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": false,
+      "Shared passphrase": true,
+      "RADIUS/802.1X required": false,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    },
+    isTrap: true,
+    trapNote: "Always wrong. WEP is cryptographically broken and should never be selected."
+  },
+  open_network: {
+    name: "Open Network",
+    full: "No Authentication / No Encryption",
+    color: "var(--red)",
+    tier: "legacy",
+    tierLabel: "No Security",
+    badges: ["NO ENCRYPTION", "NO AUTH"],
+    desc: "No authentication or encryption. All traffic is visible to any nearby device. Used only for intentional public guest access with a captive portal.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": false,
+      "Shared passphrase": false,
+      "RADIUS/802.1X required": false,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    }
+  },
+  wpa2_ccmp: {
+    name: "WPA2-CCMP / AES",
+    full: "WPA2 with Counter Mode CBC-MAC Protocol",
+    color: "var(--blue)",
+    tier: "standard",
+    tierLabel: "Standard Encryption",
+    badges: ["AES-128", "CCMP"],
+    desc: "CCMP is the encryption cipher used within WPA2 — not a standalone authentication method. Replaces TKIP. WPA2 mandates CCMP/AES for certified devices. Answers encryption strength questions, not authentication questions.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": false,
+      "Shared passphrase": true,
+      "RADIUS/802.1X required": false,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    }
+  },
+  captive_portal: {
+    name: "Captive Portal",
+    full: "Web-Based Guest Authentication Portal",
+    color: "var(--amber)",
+    tier: "personal",
+    tierLabel: "Guest Access",
+    badges: ["WEB AUTH", "GUEST"],
+    desc: "Browser-based authentication page shown before granting internet access. Provides accountability and terms-of-service acceptance. Not a cryptographic security mechanism — does not encrypt traffic.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": true,
+      "Shared passphrase": false,
+      "RADIUS/802.1X required": false,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    }
+  },
+  eap_tls: {
+    name: "EAP-TLS",
+    full: "Extensible Authentication Protocol — TLS",
+    color: "var(--violet)",
+    tier: "enterprise",
+    tierLabel: "Enterprise",
+    badges: ["CERTIFICATES", "MUTUAL AUTH", "PKI"],
+    desc: "EAP method using certificate-based mutual authentication. Both the client and server present certificates. Strongest EAP method — eliminates password-based attacks entirely. Requires PKI infrastructure.",
+    features: {
+      "Offline dictionary attack resistance": true,
+      "Per-user authentication": true,
+      "Shared passphrase": false,
+      "RADIUS/802.1X required": true,
+      "Forward secrecy": true,
+      "Legacy device support": false,
+    }
+  },
+  eap_peap: {
+    name: "PEAP",
+    full: "Protected EAP (MSCHAPv2 inner)",
+    color: "var(--blue)",
+    tier: "enterprise",
+    tierLabel: "Enterprise",
+    badges: ["TLS TUNNEL", "PASSWORD"],
+    desc: "Wraps inner authentication (typically MSCHAPv2) in a TLS tunnel. Server presents a certificate; client authenticates with username/password. No client certificate required — easier to deploy than EAP-TLS.",
+    features: {
+      "Offline dictionary attack resistance": false,
+      "Per-user authentication": true,
+      "Shared passphrase": false,
+      "RADIUS/802.1X required": true,
+      "Forward secrecy": false,
+      "Legacy device support": true,
+    }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// QUESTIONS — 8 scenarios across a single scrollable scenario
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+  {
+    id: 0,
+    title: "Enterprise Wireless Deployment",
+    difficulty: "easy",
+    desc: "A mid-size accounting firm is deploying a new wireless network and building a series of security requirements. For each requirement below, select the protocol or technology that satisfies it. <strong>Beware of options that sound secure but miss the specific requirement.</strong>",
+    questions: [
+      {
+        id: "q1",
+        org: "Scenario 1 — Small Office / Home Office Network",
+        brief: "A home user wants to protect their Wi-Fi network. They are concerned that a neighbor captured their Wi-Fi handshake and could run an offline password-cracking tool against it. The user uses a <strong>passphrase-based</strong> setup and does not have a RADIUS server.",
+        keyReq: "Prevent offline dictionary attacks against a captured handshake — no RADIUS server available",
+        choices: ["wpa3_personal","wpa2_personal","wpa2_ccmp","wep"],
+        correct: "wpa3_personal",
+        trap: "wpa2_personal",
+        trapReason: "WPA2-PSK exposes a 4-way handshake that can be captured and brute-forced offline, regardless of how strong the passphrase is. WPA3-SAE does not expose this handshake.",
+        explanation: "WPA3-Personal uses SAE (Simultaneous Authentication of Equals) which replaces the PSK 4-way handshake. SAE is a zero-knowledge proof — the passphrase is never transmitted and no offline-crackable handshake is generated. WPA2-PSK with any passphrase still exposes the handshake for offline attack.",
+      },
+      {
+        id: "q2",
+        org: "Scenario 2 — University Campus Network",
+        brief: "A university IT department needs each student and faculty member to authenticate with their <strong>individual university credentials</strong> (username/password). When a student's account is suspended, their wireless access must be <strong>revoked immediately</strong> without changing a shared network password. There are hundreds of access points across campus.",
+        keyReq: "Per-user authentication with individual credentials — shared passphrase is not acceptable",
+        choices: ["wpa2_enterprise","wpa2_personal","radius_dot1x","wpa3_personal"],
+        correct: "wpa2_enterprise",
+        trap: "wpa2_personal",
+        trapReason: "WPA2-PSK uses a single shared passphrase — revoking one user requires changing the password for everyone. It cannot provide per-user authentication or granular access revocation.",
+        explanation: "WPA2-Enterprise (WPA2 + 802.1X + RADIUS) authenticates each user against a RADIUS server using individual credentials. Revoking a student's account in Active Directory or the RADIUS server immediately prevents wireless access without affecting other users.",
+      },
+      {
+        id: "q3",
+        org: "Scenario 3 — Healthcare Clinic",
+        brief: "A healthcare clinic requires wireless authentication using <strong>digital certificates</strong> on both the client device and the server — no passwords at all. This <strong>eliminates credential phishing</strong> and satisfies their cyber insurance requirement for mutual authentication. A PKI infrastructure is already in place.",
+        keyReq: "Certificate-based mutual authentication — no passwords, client cert required on every device",
+        choices: ["eap_tls","wpa2_enterprise","eap_peap","wpa3_enterprise"],
+        correct: "eap_tls",
+        trap: "eap_peap",
+        trapReason: "PEAP also uses 802.1X and a RADIUS server, but the client authenticates with a username/password inside the TLS tunnel — not a certificate. The question requires mutual certificate authentication with no passwords.",
+        explanation: "EAP-TLS requires both the RADIUS server and the wireless client to present valid X.509 certificates. There are no passwords — authentication is purely certificate-based. This is the strongest EAP method and is immune to credential phishing because there are no credentials to steal.",
+      },
+      {
+        id: "q4",
+        org: "Scenario 4 — Coffee Shop Guest Wi-Fi",
+        brief: "A coffee shop wants to provide free Wi-Fi to customers, require them to <strong>accept terms of service</strong> before browsing, and log each session for legal compliance. Customers should not need to call for a password. The connection <strong>does not need to be encrypted</strong> end-to-end — they expect customers to use HTTPS.",
+        keyReq: "Browser-based terms acceptance + session logging for guests — no pre-shared key distribution",
+        choices: ["captive_portal","open_network","wpa2_personal","wpa3_personal"],
+        correct: "captive_portal",
+        trap: "open_network",
+        trapReason: "An open network with no captive portal provides no terms acceptance, no session logging, and no accountability — it just gives away free internet. The question requires ToS acceptance and logging.",
+        explanation: "A captive portal intercepts HTTP traffic and redirects clients to a web-based login/terms page before granting full internet access. It provides terms-of-service acceptance, session logging, and usage tracking. Note: it does not encrypt traffic — that's intentional here — but it satisfies the specific requirements stated.",
+      },
+      {
+        id: "q5",
+        org: "Scenario 5 — Financial Services Firm",
+        brief: "A financial services firm must deploy wireless that provides the <strong>highest level of encryption</strong>, supports <strong>per-user authentication</strong> via RADIUS, and is <strong>resistant to offline dictionary attacks</strong>. Legacy device compatibility is not a concern — all devices are modern. They want the single best option.",
+        keyReq: "Maximum security: offline attack resistance + per-user auth + strongest encryption — all three",
+        choices: ["wpa3_enterprise","wpa2_enterprise","wpa3_personal","radius_dot1x"],
+        correct: "wpa3_enterprise",
+        trap: "wpa2_enterprise",
+        trapReason: "WPA2-Enterprise provides per-user auth but does NOT protect against offline dictionary attacks — its 4-way handshake can still be captured. The question asks for ALL THREE requirements simultaneously, which only WPA3-Enterprise satisfies.",
+        explanation: "WPA3-Enterprise combines 802.1X per-user authentication with SAE-based protections and 192-bit minimum encryption mode. It satisfies all three requirements: offline attack resistance (SAE), per-user authentication (802.1X/RADIUS), and maximum encryption. WPA2-Enterprise fails the first requirement.",
+      },
+      {
+        id: "q6",
+        org: "Scenario 6 — Retail Store Network Audit",
+        brief: "An auditor reviewing a retail store's network finds they are using <strong>WEP</strong> to 'protect' their point-of-sale terminals. The store manager argues it has a 'complex key' so it should be secure. The auditor must explain why this fails PCI-DSS compliance and recommend a replacement.",
+        keyReq: "Replace a cryptographically broken protocol — PCI-DSS compliant encryption required",
+        choices: ["wpa2_enterprise","wep","wpa3_personal","open_network"],
+        correct: "wpa2_enterprise",
+        trap: "wep",
+        trapReason: "WEP is the protocol being replaced — it is cryptographically broken regardless of key complexity. IV reuse in RC4 makes it crackable in minutes using only passive traffic capture.",
+        explanation: "WEP is broken at the cryptographic level — its RC4 implementation reuses IVs, and tools like aircrack-ng can crack WEP in minutes with enough traffic regardless of key length. PCI-DSS explicitly prohibits WEP. WPA2-Enterprise with 802.1X provides PCI-compliant encryption and per-terminal authentication suitable for a POS environment.",
+      },
+      {
+        id: "q7",
+        org: "Scenario 7 — School District BYOD Program",
+        brief: "A school district is rolling out a BYOD (Bring Your Own Device) program. Teachers and staff need wireless access with <strong>individual Active Directory credentials</strong>. The district already has a <strong>Windows Server with NPS (Network Policy Server)</strong> acting as a RADIUS server. They want to use <strong>username/password</strong> authentication — not certificates.",
+        keyReq: "Per-user Active Directory credentials via existing RADIUS/NPS — password-based, no client certificates",
+        choices: ["eap_peap","eap_tls","wpa2_personal","wpa3_personal"],
+        correct: "eap_peap",
+        trap: "eap_tls",
+        trapReason: "EAP-TLS requires client certificates on every device — the question explicitly states password-based auth, no client certificates. PEAP uses 802.1X with MSCHAPv2 inside a TLS tunnel, supporting AD credentials without client certs.",
+        explanation: "PEAP (Protected EAP) wraps MSCHAPv2 inside a TLS tunnel. The server presents a certificate, but the client authenticates with their Active Directory username and password — no client certificate required. Windows NPS supports PEAP natively. EAP-TLS would require issuing and managing certificates on every BYOD device, which the question excludes.",
+      },
+      {
+        id: "q8",
+        org: "Scenario 8 — Conference Room Guest Network",
+        brief: "A law firm wants a separate guest wireless network for visiting clients. Requirements: (1) Visitors must get a <strong>unique daily password</strong> from the receptionist. (2) Traffic must be <strong>encrypted</strong>. (3) No backend infrastructure like RADIUS. (4) If a visitor's password is compromised, it should <strong>not expose other users' past sessions</strong> due to forward secrecy.",
+        keyReq: "Encrypted + passphrase-based + forward secrecy — no RADIUS, no shared-key session exposure",
+        choices: ["wpa3_personal","wpa2_personal","wpa2_enterprise","captive_portal"],
+        correct: "wpa3_personal",
+        trap: "wpa2_personal",
+        trapReason: "WPA2-PSK does not provide forward secrecy — if the passphrase is compromised, previously captured sessions can be decrypted retroactively. WPA3-SAE provides forward secrecy through unique session keys even with a shared passphrase.",
+        explanation: "WPA3-Personal (SAE) generates a unique session key for each connection even when all users share the same passphrase. This provides forward secrecy — compromising the passphrase does not allow decryption of past captured sessions. WPA2-PSK uses a PMK derived directly from the passphrase, so knowing the passphrase allows decryption of all captured traffic.",
+      },
+    ],
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentScenarioIdx = 0;
+let currentQIdx = 0;
+let answers = {};   // qId -> selected choice key
+let revealed = {};  // qId -> true
+let correctCount = 0;
+let totalAnswered = 0;
+
+// ════════════════════════════════════════════════════════════════════════
+// PROTOCOL REFERENCE
+// ════════════════════════════════════════════════════════════════════════
+function buildProtoRef() {
+  const ref = document.getElementById('protoRef');
+  const featured = ['wpa3_personal','wpa2_enterprise','wpa3_enterprise','eap_tls','eap_peap','wpa2_personal'];
+  ref.innerHTML = '';
+  featured.forEach(key => {
+    const p = PROTOCOLS[key];
+    const tierCls = {enterprise:'tier-enterprise',personal:'tier-personal',legacy:'tier-legacy',standard:'tier-standard'}[p.tier];
+    const card = document.createElement('div');
+    card.className = 'proto-ref-card';
+    card.innerHTML = `
+      <div class="prc-header">
+        <div class="prc-dot" style="background:${p.color};box-shadow:0 0 4px ${p.color};"></div>
+        <div class="prc-name" style="color:${p.color};">${p.name}</div>
+        <div class="prc-tier ${tierCls}">${p.tierLabel}</div>
+      </div>
+      <div class="prc-body">
+        ${Object.entries(p.features).slice(0,4).map(([feat,val]) =>
+          `<div class="prc-feat"><span class="feat-icon${val?'':' no'}">${val?'✓':'✗'}</span>${feat}</div>`
+        ).join('')}
+      </div>`;
+    ref.appendChild(card);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentScenarioIdx = idx;
+  currentQIdx = 0;
+  answers = {}; revealed = {};
+  correctCount = 0; totalAnswered = 0;
+
+  const s = SCENARIOS[idx];
+  const diffCls = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+
+  document.getElementById('briefSection').innerHTML = `
+    <div class="sp-lbl">Scenario</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffCls}">${s.difficulty}</span>
+    <div class="brief-body" style="margin-top:7px;">${s.desc}</div>`;
+
+  // Req section
+  document.getElementById('reqSection').innerHTML = `
+    <div class="sp-lbl">Key Exam Requirements</div>
+    <div class="req-card">
+      <div class="req-card-label">Requirement Patterns Tested</div>
+      ${[
+        { text:"Prevent offline dictionary attacks", key:true },
+        { text:"Per-user authentication (no shared key)", key:true },
+        { text:"Certificate-based mutual authentication", key:false },
+        { text:"Forward secrecy on shared passphrase", key:true },
+        { text:"No RADIUS infrastructure available", key:false },
+        { text:"Highest encryption + 802.1X combined", key:false },
+      ].map(r => `<div class="req-item${r.key?' key-req':''}"><span class="req-bullet">${r.key?'►':'·'}</span>${r.text}</div>`).join('')}
+    </div>`;
+
+  renderProgressDots(s);
+  updateScoreDisplay();
+  loadQuestion(s, 0);
+  updateTabStates();
+}
+
+function renderProgressDots(s) {
+  const dots = document.getElementById('progressDots');
+  dots.innerHTML = '';
+  s.questions.forEach((q, i) => {
+    const d = document.createElement('div');
+    d.className = `pdot${i === currentQIdx ? ' active' : ''}`;
+    d.title = `Question ${i+1}`;
+    dots.appendChild(d);
+  });
+}
+
+function refreshProgressDots(s) {
+  const dotEls = document.querySelectorAll('.pdot');
+  s.questions.forEach((q, i) => {
+    const d = dotEls[i]; if (!d) return;
+    d.className = 'pdot';
+    if (revealed[q.id]) {
+      d.classList.add(answers[q.id] === q.correct ? 'answered' : 'wrong');
+    } else if (i === currentQIdx) {
+      d.classList.add('active');
+    }
+  });
+}
+
+function loadQuestion(s, qIdx) {
+  currentQIdx = qIdx;
+  const q = s.questions[qIdx];
+  const qArea = document.getElementById('qArea');
+  qArea.innerHTML = '';
+  document.getElementById('qProgress').textContent = `Q${qIdx+1} / ${s.questions.length}`;
+
+  // Scenario box
+  const sb = document.createElement('div');
+  sb.className = 'scenario-box';
+  sb.innerHTML = `
+    <div class="scenario-org">📡 ${q.org}</div>
+    <div class="scenario-brief">${q.brief}</div>`;
+  qArea.appendChild(sb);
+
+  // Key req callout
+  const krc = document.createElement('div');
+  krc.className = 'key-req-callout';
+  krc.innerHTML = `
+    <div class="krc-icon">🎯</div>
+    <div>
+      <div class="krc-label">Key Requirement</div>
+      <div class="krc-text">${q.keyReq}</div>
+    </div>`;
+  qArea.appendChild(krc);
+
+  // Choices label
+  const cl = document.createElement('div');
+  cl.className = 'choices-label'; cl.textContent = 'Select the best protocol:';
+  qArea.appendChild(cl);
+
+  // Choices grid
+  const grid = document.createElement('div');
+  grid.className = 'choices-grid';
+  const isRevealed = !!revealed[q.id];
+
+  q.choices.forEach((key, ci) => {
+    const p = PROTOCOLS[key];
+    if (!p) return;
+    const card = buildChoiceCard(p, key, q, isRevealed, ci);
+    grid.appendChild(card);
+  });
+  qArea.appendChild(grid);
+
+  // If already answered, show nav
+  if (isRevealed) {
+    appendNavRow(s, qIdx, qArea);
+  }
+
+  qArea.scrollTop = 0;
+  refreshProgressDots(s);
+}
+
+function buildChoiceCard(p, key, q, isRevealed, animIdx) {
+  const card = document.createElement('div');
+  card.className = 'proto-choice';
+  card.style.animationDelay = `${animIdx * 0.06}s`;
+  if (isRevealed) card.classList.add('revealed');
+  const isSelected = answers[q.id] === key;
+  if (isSelected && !isRevealed) card.classList.add('selected');
+  if (isRevealed) {
+    if (key === q.correct) card.classList.add('rev-correct');
+    else if (isSelected) card.classList.add('rev-wrong');
+    else card.classList.add('rev-neutral');
+  }
+
+  const tierCls = {enterprise:'tier-enterprise',personal:'tier-personal',legacy:'tier-legacy',standard:'tier-standard'}[p.tier];
+  const badgeHtml = p.badges.map(b => `<span class="proto-badge" style="color:${p.color};border-color:${p.color}30;background:${p.color}10;">${b}</span>`).join('');
+
+  // Coverage bars — show only when revealed
+  let covHtml = '';
+  if (isRevealed) {
+    const keyFeats = ["Offline dictionary attack resistance","Per-user authentication","Forward secrecy","RADIUS/802.1X required"];
+    covHtml = `<div class="coverage-row">${keyFeats.map(feat => {
+      const val = p.features[feat];
+      const color = val ? 'var(--green)' : 'var(--red)';
+      return `<div class="cov-item">
+        <div class="cov-label">${feat}</div>
+        <div class="cov-bar"><div class="cov-fill" style="width:${val?'100%':'0%'};background:${color};"></div></div>
+        <div class="cov-val" style="color:${color};">${val?'YES':'NO'}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  let resultIcon = '';
+  if (isRevealed) {
+    if (key === q.correct) resultIcon = '✓';
+    else if (isSelected) resultIcon = '✗';
+  }
+
+  card.innerHTML = `
+    <div class="proto-stripe" style="background:${p.color};"></div>
+    <div class="proto-body">
+      <div class="proto-top">
+        <div class="proto-name" style="color:${p.color};">${p.name}</div>
+        <div class="proto-full">${p.full}</div>
+        <div class="proto-badges">${badgeHtml}<span class="proto-badge prc-tier ${tierCls}">${p.tierLabel}</span></div>
+      </div>
+      <div class="proto-desc">${p.desc}</div>
+      ${covHtml}
+    </div>
+    <div class="proto-result" style="color:${key===q.correct?'var(--green)':'var(--red)'};">${resultIcon}</div>
+    ${p.isTrap ? `<div class="trap-marker is-trap">⚠ TRAP</div>` : ''}`;
+
+  if (!isRevealed) {
+    card.addEventListener('click', () => selectChoice(key, q));
+  }
+  return card;
+}
+
+function selectChoice(key, q) {
+  const s = SCENARIOS[currentScenarioIdx];
+  if (revealed[q.id]) return;
+  answers[q.id] = key;
+  revealed[q.id] = true;
+  totalAnswered++;
+  const isCorrect = key === q.correct;
+  if (isCorrect) correctCount++;
+
+  updateScoreDisplay();
+  loadQuestion(s, currentQIdx);
+
+  if (isCorrect) {
+    const correct = PROTOCOLS[q.correct];
+    let body = `<strong>${correct.name}</strong> is the correct choice.<br><br>${q.explanation}`;
+    if (q.trap && key !== q.trap) {
+      body += `<div class="modal-trap-box">⚠ <strong>Watch out for:</strong> ${PROTOCOLS[q.trap].name} — ${q.trapReason}</div>`;
+    }
+    setTimeout(() => showModal('✓ Correct', body, 'win',
+      currentQIdx < s.questions.length - 1), 200);
+  } else {
+    const correct = PROTOCOLS[q.correct];
+    const selected = PROTOCOLS[key];
+    let body = `You selected <strong>${selected.name}</strong>, but the correct answer is <strong>${correct.name}</strong>.<br><br>${q.explanation}`;
+    if (selected.isTrap) {
+      body += `<div class="modal-trap-box">⚠ <strong>Trap triggered:</strong> ${selected.trapNote}</div>`;
+    } else if (q.trap === key) {
+      body += `<div class="modal-trap-box">⚠ <strong>This is the common exam trap:</strong> ${q.trapReason}</div>`;
+    }
+    setTimeout(() => showModal('Incorrect', body, 'fail',
+      currentQIdx < s.questions.length - 1), 200);
+  }
+
+  // Check if all answered
+  if (totalAnswered === s.questions.length) {
+    completedSet.add(currentScenarioIdx);
+    updateTabStates();
+  }
+}
+
+function appendNavRow(s, qIdx, qArea) {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;padding-top:4px;';
+  if (qIdx > 0) {
+    const prev = document.createElement('button');
+    prev.className = 'hbtn hbtn-gray';
+    prev.textContent = '← Prev';
+    prev.addEventListener('click', () => loadQuestion(s, qIdx - 1));
+    row.appendChild(prev);
+  }
+  if (qIdx < s.questions.length - 1) {
+    const next = document.createElement('button');
+    next.className = 'hbtn hbtn-blue';
+    next.textContent = 'Next →';
+    next.addEventListener('click', () => loadQuestion(s, qIdx + 1));
+    row.appendChild(next);
+  }
+  if (row.children.length) qArea.appendChild(row);
+}
+
+function updateScoreDisplay() {
+  const s = SCENARIOS[currentScenarioIdx];
+  const total = s.questions.length;
+  document.getElementById('scoreNum').textContent = `${correctCount}/${total}`;
+  const pct = total ? Math.round(correctCount / total * 100) : 0;
+  document.getElementById('scoreFill').style.width = pct + '%';
+  document.getElementById('scoreFill').style.background =
+    pct === 100 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--electric)';
+
+  // Left stats
+  const answered = Object.keys(revealed).length;
+  document.getElementById('leftStats').innerHTML = `
+    <div class="sp-lbl green">Progress</div>
+    <div style="display:flex;flex-direction:column;gap:5px;">
+      ${SCENARIOS[currentScenarioIdx].questions.map((q,i) => {
+        const ans = answers[q.id];
+        const isRev = !!revealed[q.id];
+        const correct = isRev ? ans === q.correct : null;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 7px;background:var(--card);border:1px solid ${correct===true?'rgba(0,230,118,0.25)':correct===false?'rgba(255,61,90,0.25)':'var(--border)'};font-size:0.63rem;">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:0.58rem;color:${i===currentQIdx?'var(--electric)':'var(--text-dim)'};">Q${i+1}</span>
+          <span style="flex:1;color:${i===currentQIdx?'var(--text)':'var(--text-dim)'};">${q.org.replace(/Scenario \d+ — /,'').substring(0,28)}…</span>
+          <span style="font-size:12px;">${correct===true?'✓':correct===false?'✗':'○'}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS + NAV
+// ════════════════════════════════════════════════════════════════════════
+let completedSet = new Set();
+
+function buildTabs() {
+  const c = document.getElementById('scenarioTabs');
+  c.innerHTML = '';
+  SCENARIOS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = `stab${i===0?' active':''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active',j===i));
+    });
+    c.appendChild(btn);
+  });
+}
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab,i) => {
+    tab.classList.toggle('active', i===currentScenarioIdx);
+    tab.classList.toggle('done', completedSet.has(i) && i!==currentScenarioIdx);
+    tab.querySelector('.snum').textContent = completedSet.has(i)?'✓':String(i+1).padStart(2,'0');
+  });
+}
+function resetScenario() { loadScenario(currentScenarioIdx); }
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════════════════════════
+function showModal(title, body, type, showNext) {
+  document.getElementById('modalTitle').className = `modal-title ${type}`;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalNext').style.display = showNext ? 'block' : 'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function showHintModal() {
+  const s = SCENARIOS[currentScenarioIdx];
+  const q = s.questions[currentQIdx];
+  showModal('💡 Hint', `<strong>Key Requirement:</strong> ${q.keyReq}<br><br>Focus on what the question is <em>specifically</em> asking for. One or more options will appear to be secure but will fail the stated requirement. Read each protocol's feature set carefully.<br><br><strong>Common trap this question:</strong> ${q.trapReason}`, 'info', false);
+}
+function nextQ() {
+  closeModal();
+  const s = SCENARIOS[currentScenarioIdx];
+  if (currentQIdx < s.questions.length - 1) {
+    loadQuestion(s, currentQIdx + 1);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildProtoRef();
+buildTabs();
+loadScenario(0);
+</script>
+</body>
+</html>

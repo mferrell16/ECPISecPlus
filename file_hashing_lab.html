@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HashGuard Lab — File Integrity & Hashing Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0b0f14;
+  --surface:   #111820;
+  --panel:     #141c26;
+  --panel2:    #0e1520;
+  --border:    #1e2d3d;
+  --border2:   #243348;
+  --blue:      #4f9cf9;
+  --blue-dim:  #1a3a6b;
+  --cyan:      #00d4ff;
+  --cyan-dim:  #083a4a;
+  --green:     #34d399;
+  --green-dim: #0a3328;
+  --red:       #f87171;
+  --red-dim:   #3d1515;
+  --amber:     #fbbf24;
+  --amber-dim: #3d2a05;
+  --purple:    #a78bfa;
+  --purple-dim:#2d1f5a;
+  --gray:      #4b6080;
+  --text:      #d4e4f7;
+  --text-dim:  #526880;
+  --text-muted:#3a5068;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(79,156,249,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,156,249,0.03) 1px, transparent 1px),
+    linear-gradient(rgba(79,156,249,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,156,249,0.015) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ── HEADER ── */
+header {
+  position: relative; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  display: flex; align-items: center; gap: 0;
+  height: 52px; flex-shrink: 0;
+}
+.logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.2rem; font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+.logo svg { width: 22px; height: 22px; }
+
+.scenario-tabs {
+  display: flex; overflow-x: auto; flex: 1;
+  padding: 0 4px;
+}
+.stab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 16px; height: 52px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+.stab.done   { color: var(--green); border-bottom-color: var(--green); }
+.stab .snum  {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  background: var(--border);
+  color: var(--text-dim);
+  padding: 1px 5px;
+}
+.stab.active .snum { background: var(--cyan-dim); color: var(--cyan); }
+.stab.done   .snum { background: var(--green-dim); color: var(--green); }
+
+.header-right {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center;
+}
+.hbtn {
+  padding: 5px 12px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.75rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-cyan  { border-color: var(--cyan);  color: var(--cyan);  background: rgba(0,212,255,0.07); }
+.hbtn-cyan:hover  { background: rgba(0,212,255,0.18); }
+.hbtn-green { border-color: var(--green); color: var(--green); background: rgba(52,211,153,0.07); }
+.hbtn-green:hover { background: rgba(52,211,153,0.18); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover  { color: var(--text); }
+
+/* ── MAIN LAYOUT ── */
+.workspace {
+  display: flex; flex: 1; overflow: hidden;
+  position: relative; z-index: 1;
+}
+
+/* ── LEFT: Brief Panel ── */
+.brief-panel {
+  width: 300px; flex-shrink: 0;
+  background: var(--panel2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.brief-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rpanel-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.rpanel-title::before { content:''; display:block; width:3px; height:14px; background: var(--cyan); }
+.brief-title {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.95rem; font-weight: 700;
+  color: var(--text); margin-bottom: 6px; line-height: 1.3;
+}
+.diff-pill {
+  display: inline-block; padding: 2px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.diff-easy   { color: var(--green);  border: 1px solid var(--green-dim);  background: rgba(52,211,153,0.08); }
+.diff-medium { color: var(--amber);  border: 1px solid var(--amber-dim);  background: rgba(251,191,36,0.08); }
+.diff-hard   { color: var(--red);    border: 1px solid var(--red-dim);    background: rgba(248,113,113,0.08); }
+.brief-desc {
+  font-size: 0.72rem; color: var(--text-dim);
+  line-height: 1.65;
+}
+
+/* File listing in brief */
+.file-listing {
+  margin: 10px 0 4px 0;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.file-listing-header {
+  padding: 4px 10px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.file-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+}
+.file-row:last-child { border-bottom: none; }
+.file-icon { font-size: 14px; }
+.file-name { color: var(--cyan); flex: 1; }
+.file-size { color: var(--text-muted); }
+
+/* Vendor hash display */
+.vendor-hash {
+  margin: 8px 0;
+  padding: 8px 10px;
+  background: rgba(251,191,36,0.04);
+  border: 1px solid rgba(251,191,36,0.25);
+}
+.vendor-hash-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--amber);
+  margin-bottom: 4px;
+}
+.vendor-hash-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--text);
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* Requirements */
+.req-section {
+  flex: 1; overflow-y: auto;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+.req-list { display: flex; flex-direction: column; gap: 5px; }
+.req-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 0.68rem; color: var(--text-dim);
+  line-height: 1.4;
+}
+.req-icon { flex-shrink: 0; margin-top: 1px; font-size: 12px; }
+.req-item.met    { background: rgba(52,211,153,0.06); border-color: rgba(52,211,153,0.25); color: var(--text); }
+.req-item.unmet  { background: rgba(248,113,113,0.06); border-color: rgba(248,113,113,0.2); }
+.req-item.met    .req-icon { color: var(--green); }
+.req-item.unmet  .req-icon { color: var(--red); }
+.req-item:not(.met):not(.unmet) .req-icon { color: var(--text-muted); }
+
+/* Score row */
+.score-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.8rem; font-weight: 900;
+  color: var(--cyan); line-height: 1;
+}
+.score-info { flex: 1; }
+.score-label { font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+.score-bar { height: 3px; background: var(--border); margin-top: 4px; }
+.score-fill { height: 100%; background: var(--cyan); transition: width 0.4s ease; }
+
+/* Hint box */
+.hint-box {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: rgba(251,191,36,0.04);
+  font-size: 0.65rem; color: var(--amber);
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+.hint-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* ── CENTER: Terminal ── */
+.terminal-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+}
+
+.terminal-titlebar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  height: 36px;
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.ttbar-dots { display: flex; gap: 5px; }
+.ttbar-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.ttbar-dot.red    { background: #ff5f57; }
+.ttbar-dot.yellow { background: #febc2e; }
+.ttbar-dot.green  { background: #28c840; }
+.ttbar-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem; color: var(--text-dim);
+  flex: 1; text-align: center;
+}
+.ttbar-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  padding: 2px 7px;
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  border: 1px solid rgba(0,212,255,0.2);
+}
+
+.terminal-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  scroll-behavior: smooth;
+}
+
+.terminal-output::-webkit-scrollbar { width: 6px; }
+.terminal-output::-webkit-scrollbar-track { background: var(--bg); }
+.terminal-output::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.t-line { display: block; white-space: pre-wrap; word-break: break-all; }
+.t-prompt { color: var(--blue); }
+.t-cmd    { color: var(--text); }
+.t-out    { color: var(--text-dim); }
+.t-out-obj { color: var(--text); }
+.t-hash   { color: var(--cyan); }
+.t-green  { color: var(--green); }
+.t-red    { color: var(--red); }
+.t-amber  { color: var(--amber); }
+.t-purple { color: var(--purple); }
+.t-error  { color: var(--red); }
+.t-sep    { color: var(--text-muted); }
+.t-var    { color: var(--purple); }
+
+/* animated cursor for last prompt line */
+.t-cursor::after {
+  content: '▋';
+  animation: blink 1s step-end infinite;
+  color: var(--cyan);
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Input row */
+.terminal-input-row {
+  display: flex; align-items: center; gap: 0;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+.t-input-prompt {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--blue);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-right: 6px;
+}
+.t-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text);
+  caret-color: var(--cyan);
+}
+.t-input::placeholder { color: var(--text-muted); }
+
+/* Autocomplete / hint strip */
+.autocomplete-strip {
+  display: flex; gap: 6px; align-items: center;
+  padding: 5px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.ac-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.6rem; color: var(--text-muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-right: 4px;
+}
+.ac-chip {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--cyan);
+  background: var(--cyan-dim);
+  border: 1px solid rgba(0,212,255,0.15);
+  padding: 1px 7px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.ac-chip:hover { background: rgba(0,212,255,0.2); border-color: rgba(0,212,255,0.4); }
+
+/* ── RIGHT: Reference panel ── */
+.ref-panel {
+  width: 260px; flex-shrink: 0;
+  background: var(--panel2);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.ref-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.ref-section.flex-grow { flex: 1; overflow-y: auto; }
+
+.ref-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.ref-title::before { content:''; display:block; width:3px; height:12px; background: var(--purple); }
+
+/* Syntax cards */
+.syntax-card {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  margin-bottom: 8px;
+}
+.syntax-card-header {
+  padding: 4px 8px;
+  background: rgba(167,139,250,0.06);
+  border-bottom: 1px solid var(--border);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--purple);
+}
+.syntax-code {
+  padding: 7px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--text);
+  line-height: 1.7;
+}
+.syntax-code .kw  { color: var(--cyan); }
+.syntax-code .prm { color: var(--amber); }
+.syntax-code .val { color: var(--green); }
+.syntax-code .cmt { color: var(--text-muted); }
+.syntax-code .dot { color: var(--purple); }
+.syntax-code .var { color: var(--purple); }
+
+/* Algorithm table */
+.algo-table { width: 100%; border-collapse: collapse; }
+.algo-table th {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left; padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.algo-table td {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(30,45,61,0.5);
+  vertical-align: top;
+}
+.algo-table td:first-child { color: var(--cyan); }
+.algo-table tr:last-child td { border-bottom: none; }
+.algo-badge {
+  display: inline-block; padding: 1px 4px;
+  font-size: 0.5rem;
+}
+.algo-badge.weak    { background: rgba(248,113,113,0.15); color: var(--red);   border: 1px solid rgba(248,113,113,0.3); }
+.algo-badge.strong  { background: rgba(52,211,153,0.15);  color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+.algo-badge.medium  { background: rgba(251,191,36,0.15);  color: var(--amber); border: 1px solid rgba(251,191,36,0.3); }
+
+/* ── MODAL ── */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 28px 32px;
+  max-width: 480px; width: 90%;
+  position: relative;
+  transform: translateY(8px);
+  transition: transform 0.2s;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-close {
+  position: absolute; top: 12px; right: 14px;
+  background: none; border: none;
+  color: var(--text-dim); cursor: pointer;
+  font-size: 1rem;
+}
+.modal-close:hover { color: var(--text); }
+.modal-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.3rem; font-weight: 900;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+.modal-title.win  { color: var(--green); }
+.modal-title.info { color: var(--cyan); }
+.modal-body {
+  font-size: 0.78rem; color: var(--text-dim);
+  line-height: 1.75; margin-bottom: 20px;
+}
+.modal-body code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--cyan);
+  background: var(--panel);
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="3" y="3" width="18" height="18" rx="1"/>
+      <path d="M3 9h18M9 21V9"/>
+      <circle cx="6" cy="6" r="0.8" fill="currentColor"/>
+      <path d="M13 13h5M13 16h3"/>
+    </svg>
+    HashGuard Lab
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-right">
+    <button class="hbtn hbtn-gray" onclick="resetScenario()">↺ Reset</button>
+    <button class="hbtn hbtn-cyan" onclick="showHintModal()">💡 Hint</button>
+    <button class="hbtn hbtn-green" onclick="checkAnswer()">✓ Check</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Left Brief Panel -->
+  <div class="brief-panel">
+    <div class="brief-header" id="briefHeader">
+      <!-- injected -->
+    </div>
+
+    <div class="req-section" style="flex:1; overflow-y:auto;">
+      <div class="rpanel-title">Objectives</div>
+      <div class="req-list" id="reqList"></div>
+    </div>
+
+    <div class="score-row">
+      <div class="score-num" id="scoreNum">—</div>
+      <div class="score-info">
+        <div class="score-label">Objectives Met</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="hint-box" id="hintBox">
+      <div class="hint-label">💡 Key Concept</div>
+      <div id="hintText"></div>
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="terminal-wrap">
+    <div class="terminal-titlebar">
+      <div class="ttbar-dots">
+        <div class="ttbar-dot red"></div>
+        <div class="ttbar-dot yellow"></div>
+        <div class="ttbar-dot green"></div>
+      </div>
+      <div class="ttbar-title">Windows PowerShell — C:\Downloads</div>
+      <div class="ttbar-badge" id="ttbarBadge">PS 7.4</div>
+    </div>
+
+    <div class="terminal-output" id="termOutput">
+      <!-- output lines injected here -->
+    </div>
+
+    <div class="terminal-input-row">
+      <div class="t-input-prompt" id="inputPrompt">PS C:\Downloads&gt;</div>
+      <input class="t-input" id="termInput" type="text"
+             placeholder="Type a PowerShell command…"
+             autocomplete="off" autocorrect="off" spellcheck="false"/>
+    </div>
+
+    <div class="autocomplete-strip" id="acStrip">
+      <span class="ac-label">Quick Insert:</span>
+      <!-- chips injected -->
+    </div>
+  </div>
+
+  <!-- Right Reference Panel -->
+  <div class="ref-panel">
+    <div class="ref-section">
+      <div class="ref-title">Syntax Reference</div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Basic Hash</div>
+        <div class="syntax-code">
+<span class="kw">Get-FileHash</span> <span class="val">file.txt</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Specify Algorithm</div>
+        <div class="syntax-code">
+<span class="kw">Get-FileHash</span> <span class="val">file.txt</span> <span class="prm">-Algorithm</span> <span class="val">SHA256</span>
+<span class="kw">Get-FileHash</span> <span class="val">file.txt</span> <span class="prm">-Algorithm</span> <span class="val">MD5</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Extract Just Hash Value</div>
+        <div class="syntax-code">
+(<span class="kw">Get-FileHash</span> <span class="val">file.txt</span>)<span class="dot">.Hash</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Store in Variable</div>
+        <div class="syntax-code">
+<span class="var">$h</span> = (<span class="kw">Get-FileHash</span> <span class="val">file.txt</span>)<span class="dot">.Hash</span>
+<span class="var">$h</span> <span class="cmt"># prints value</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Compare Two Hashes</div>
+        <div class="syntax-code">
+<span class="var">$a</span> = (<span class="kw">Get-FileHash</span> <span class="val">a.exe</span>)<span class="dot">.Hash</span>
+<span class="var">$b</span> = (<span class="kw">Get-FileHash</span> <span class="val">b.exe</span>)<span class="dot">.Hash</span>
+<span class="var">$a</span> <span class="cmt">-eq</span> <span class="var">$b</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-section flex-grow">
+      <div class="ref-title">Algorithm Reference</div>
+      <table class="algo-table">
+        <thead>
+          <tr><th>Algorithm</th><th>Bits</th><th>Use</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>MD5</td>
+            <td>128</td>
+            <td><span class="algo-badge weak">WEAK</span> Legacy only</td>
+          </tr>
+          <tr>
+            <td>SHA1</td>
+            <td>160</td>
+            <td><span class="algo-badge weak">WEAK</span> Deprecated</td>
+          </tr>
+          <tr>
+            <td>SHA256</td>
+            <td>256</td>
+            <td><span class="algo-badge strong">STRONG</span> Default</td>
+          </tr>
+          <tr>
+            <td>SHA384</td>
+            <td>384</td>
+            <td><span class="algo-badge strong">STRONG</span> High-sec</td>
+          </tr>
+          <tr>
+            <td>SHA512</td>
+            <td>512</td>
+            <td><span class="algo-badge strong">STRONG</span> Max bits</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO DATA
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+  {
+    id: 0,
+    title: "Basic Hash Verification",
+    difficulty: "easy",
+    desc: "You downloaded <strong>wireshark-4.2.0.exe</strong> from the Wireshark website. The vendor published the expected SHA256 hash. Run <code>Get-FileHash</code> to verify the file was downloaded without corruption.",
+    files: [
+      { name: "wireshark-4.2.0.exe", size: "67.4 MB", icon: "📦" },
+    ],
+    vendorHash: { algo: "SHA256", value: "3A7BD9F2E1C50B84D6F2A4E9C813F5D0A2B6E8F1C943702D5E8A1F4B27C90E6" },
+    hint: "The bare <code>Get-FileHash</code> command defaults to SHA256. The output object has three properties: Algorithm, Hash, and Path.",
+    keyHint: "Use Get-FileHash on the filename. The vendor hash uses SHA256 — that is the default algorithm so you don't need -Algorithm for this one.",
+    chips: ["Get-FileHash wireshark-4.2.0.exe", "Get-FileHash wireshark-4.2.0.exe -Algorithm SHA256"],
+    objectives: [
+      { id: "obj1", text: "Run Get-FileHash on wireshark-4.2.0.exe", check: s => s.ran("Get-FileHash", ["wireshark-4.2.0.exe"]) },
+      { id: "obj2", text: "Output shows the SHA256 hash value", check: s => s.outputContainsSHA256() },
+    ],
+    // Simulated file system
+    fs: {
+      "wireshark-4.2.0.exe": { type: "exe", sha256: "3A7BD9F2E1C50B84D6F2A4E9C813F5D0A2B6E8F1C943702D5E8A1F4B27C90E6", md5: "B3F921AE840C7D5E2914FCB08A3E09D2", sha1: "A1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4", sha512: "9F4A2B1C8D3E7F605142839A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7" },
+    },
+    welcome: [
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-amber",  text: "  SCENARIO 1 — Basic Hash Verification" },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "  Your manager asked you to verify a software download" },
+      { cls: "t-out",    text: "  before deploying to 200 workstations. Use PowerShell" },
+      { cls: "t-out",    text: "  to hash the file and compare it to the vendor value." },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "" },
+      { cls: "t-out",    text: "  Files in C:\\Downloads:" },
+      { cls: "t-cyan",   text: "    wireshark-4.2.0.exe   (67.4 MB)" },
+      { cls: "t-out",    text: "" },
+    ]
+  },
+  {
+    id: 1,
+    title: "Extract the Hash Value",
+    difficulty: "easy",
+    desc: "A script you're writing needs just the raw hash string — not the full object. Use the <strong>(Get-FileHash file).Hash</strong> pattern to extract only the hash value from <strong>patch_kb5031356.msp</strong>.",
+    files: [
+      { name: "patch_kb5031356.msp", size: "18.2 MB", icon: "🔧" },
+    ],
+    vendorHash: null,
+    hint: "The .Hash property extracts just the string. Try both approaches and compare the output.",
+    keyHint: "Wrap the command in parentheses and access the .Hash property: (Get-FileHash patch_kb5031356.msp).Hash — this returns only the hash string, not a formatted table.",
+    chips: ["Get-FileHash patch_kb5031356.msp", "(Get-FileHash patch_kb5031356.msp).Hash", "(Get-FileHash patch_kb5031356.msp -Algorithm MD5).Hash"],
+    objectives: [
+      { id: "obj1", text: "Run the full Get-FileHash command (returns object)", check: s => s.ran("Get-FileHash", ["patch_kb5031356.msp"]) },
+      { id: "obj2", text: "Use .Hash property to extract just the value", check: s => s.usedDotHash("patch_kb5031356.msp") },
+    ],
+    fs: {
+      "patch_kb5031356.msp": { type: "msp", sha256: "F2E9A3C7B51D80F6E4291C3A7B8D0F5E2A9C1B4D7E6F3A821C5B09D4E7F2A1C", md5: "4C8A7F3D2B91E506A4F7C3D9B2E50817", sha1: "D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F607", sha512: "1A2B3C4D5E6F7089AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF0011223344" },
+    },
+    welcome: [
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-amber",  text: "  SCENARIO 2 — Extract the Hash Value" },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "  You need to script an automated integrity check." },
+      { cls: "t-out",    text: "  Your script needs just the raw hash string, not the" },
+      { cls: "t-out",    text: "  formatted object. Learn the .Hash property pattern." },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "" },
+      { cls: "t-out",    text: "  Files in C:\\Downloads:" },
+      { cls: "t-cyan",   text: "    patch_kb5031356.msp   (18.2 MB)" },
+      { cls: "t-out",    text: "" },
+    ]
+  },
+  {
+    id: 2,
+    title: "Tampered File Detection",
+    difficulty: "medium",
+    desc: "You received two copies of a firmware binary: <strong>firmware_v3.bin</strong> (official) and <strong>firmware_v3_mirror.bin</strong> (from an unverified mirror). Store each hash in a variable and compare them. Determine if the mirror file has been tampered with.",
+    files: [
+      { name: "firmware_v3.bin",        size: "4.1 MB", icon: "💾" },
+      { name: "firmware_v3_mirror.bin", size: "4.1 MB", icon: "💾" },
+    ],
+    vendorHash: null,
+    hint: "Store hashes in $hash1 and $hash2 variables, then use -eq to compare. A False result means tampering!",
+    keyHint: "Use $a = (Get-FileHash firmware_v3.bin).Hash and $b = (Get-FileHash firmware_v3_mirror.bin).Hash, then compare with $a -eq $b. If False, the mirror copy has been modified.",
+    chips: [
+      '$a = (Get-FileHash firmware_v3.bin).Hash',
+      '$b = (Get-FileHash firmware_v3_mirror.bin).Hash',
+      '$a -eq $b',
+    ],
+    objectives: [
+      { id: "obj1", text: "Hash the official firmware file",            check: s => s.ran("Get-FileHash", ["firmware_v3.bin"]) },
+      { id: "obj2", text: "Hash the mirror firmware file",              check: s => s.ran("Get-FileHash", ["firmware_v3_mirror.bin"]) },
+      { id: "obj3", text: "Store hashes in variables",                  check: s => s.storedInVariable() },
+      { id: "obj4", text: "Compare variables — detect tampering",       check: s => s.comparedVariables() },
+    ],
+    fs: {
+      "firmware_v3.bin":        { type: "bin", sha256: "8C4F2A1E9D3B7056C4A8F2E9D3B70561C4A8F2E9D3B70561C4A8F2E9D3B70561", md5: "A1B2C3D4E5F60718293A4B5C6D7E8F90", sha1: "1A2B3C4D5E6F70819293A4B5C6D7E8F901B2C3D4", sha512: "AAAAAABBBBBBCCCCCCDDDDDDEEEEEEFFFFFFFF11111122222233333344444455555566666677777788888899999900000011111122222233333344444455555566666677" },
+      "firmware_v3_mirror.bin": { type: "bin", sha256: "DEADBEEF9D3B7056C4A8F2E9D3B70561C4A8F2E9D3B70561C4A8F2E9D3B70561", md5: "BADC0FFEE5F60718293A4B5C6D7E8F90", sha1: "CAFEBABE5E6F70819293A4B5C6D7E8F901B2C3D4", sha512: "BBBBBBBBCCCCCCDDDDDDEEEEEEFFFFFFFF11111122222233333344444455555566666677777788888899999900000011111122222233333344444455555566666677778888" },
+    },
+    welcome: [
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-amber",  text: "  SCENARIO 3 — Tampered File Detection" },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "  A vendor firmware update was posted on a third-party" },
+      { cls: "t-out",    text: "  mirror site. Before flashing 50 routers, compare the" },
+      { cls: "t-out",    text: "  mirror copy against the known-good official binary." },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "" },
+      { cls: "t-out",    text: "  Files in C:\\Downloads:" },
+      { cls: "t-cyan",   text: "    firmware_v3.bin          (4.1 MB)  [official]" },
+      { cls: "t-cyan",   text: "    firmware_v3_mirror.bin   (4.1 MB)  [unverified]" },
+      { cls: "t-out",    text: "" },
+    ]
+  },
+  {
+    id: 3,
+    title: "Algorithm Selection & MD5 Verification",
+    difficulty: "medium",
+    desc: "A legacy system's audit log uses MD5 checksums. You have <strong>audit_log_2024.zip</strong> and the vendor-provided MD5 checksum below. Use <code>-Algorithm MD5</code> to generate the MD5 hash, then manually verify it matches. Also run SHA256 to note the difference in length.",
+    files: [
+      { name: "audit_log_2024.zip", size: "2.8 MB", icon: "🗜️" },
+    ],
+    vendorHash: { algo: "MD5", value: "9E107D9D372BB6826BD81D3542A419D6" },
+    hint: "MD5 produces a 32-char hex string. SHA256 produces a 64-char hex string. MD5 is cryptographically broken for security use but still common for basic transfer integrity checks.",
+    keyHint: "Use -Algorithm MD5 to match the vendor checksum. Also try the default (SHA256) to see the different output lengths. Compare your MD5 output to the vendor value above.",
+    chips: [
+      "Get-FileHash audit_log_2024.zip -Algorithm MD5",
+      "(Get-FileHash audit_log_2024.zip -Algorithm MD5).Hash",
+      "Get-FileHash audit_log_2024.zip -Algorithm SHA256",
+    ],
+    objectives: [
+      { id: "obj1", text: "Run Get-FileHash with -Algorithm MD5",           check: s => s.ranWithAlgo("Get-FileHash", "audit_log_2024.zip", "MD5") },
+      { id: "obj2", text: "Output matches vendor MD5 checksum",             check: s => s.outputMatchesVendor("MD5") },
+      { id: "obj3", text: "Also run SHA256 to compare output lengths",      check: s => s.ranWithAlgo("Get-FileHash", "audit_log_2024.zip", "SHA256") },
+    ],
+    fs: {
+      "audit_log_2024.zip": { type: "zip", sha256: "7B1D3E9F2A4C8B0E5D7F1A3C9B0E5D7F1A3C9B0E5D7F1A3C9B0E5D7F1A3C9B0E", md5: "9E107D9D372BB6826BD81D3542A419D6", sha1: "2FD4E1C67A2D28FCED849EE1BB76E7391B93EB12", sha512: "CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E00" },
+    },
+    welcome: [
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-amber",  text: "  SCENARIO 4 — Algorithm Selection & MD5" },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "  A compliance audit requires you to verify log archive" },
+      { cls: "t-out",    text: "  integrity using the vendor-provided MD5 checksum." },
+      { cls: "t-out",    text: "  You must use the correct -Algorithm flag to match it." },
+      { cls: "t-sep",    text: "─────────────────────────────────────────────────────" },
+      { cls: "t-out",    text: "" },
+      { cls: "t-out",    text: "  Files in C:\\Downloads:" },
+      { cls: "t-cyan",   text: "    audit_log_2024.zip   (2.8 MB)" },
+      { cls: "t-out",    text: "" },
+    ]
+  }
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentIdx = 0;
+let completedScenarios = new Set();
+let history = [];
+let historyPos = -1;
+let variables = {};   // $var -> value
+let commandLog = [];  // all commands run this scenario
+let outputContainsSHA256Flag = false;
+let usedDotHashFiles = new Set();
+let storedVarFlag = false;
+let comparedVarFlag = false;
+let ranWithAlgoLog = []; // {file, algo}
+let outputMatchesVendorAlgo = new Set();
+
+// ════════════════════════════════════════════════════════════════════════
+// CHECK HELPERS
+// ════════════════════════════════════════════════════════════════════════
+const checker = {
+  ran(cmd, fileParts) {
+    return commandLog.some(c => {
+      const cl = c.toLowerCase();
+      return cl.includes(cmd.toLowerCase()) &&
+        fileParts.every(f => cl.includes(f.toLowerCase()));
+    });
+  },
+  outputContainsSHA256() { return outputContainsSHA256Flag; },
+  usedDotHash(file) { return usedDotHashFiles.has(file.toLowerCase()); },
+  storedInVariable() { return storedVarFlag; },
+  comparedVariables() { return comparedVarFlag; },
+  ranWithAlgo(cmd, file, algo) {
+    return ranWithAlgoLog.some(e => e.file === file.toLowerCase() && e.algo === algo.toUpperCase());
+  },
+  outputMatchesVendor(algo) { return outputMatchesVendorAlgo.has(algo.toUpperCase()); }
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// TERMINAL RENDERING
+// ════════════════════════════════════════════════════════════════════════
+function printLine(cls, text) {
+  const out = document.getElementById('termOutput');
+  const span = document.createElement('span');
+  span.className = `t-line ${cls}`;
+  span.textContent = text;
+  out.appendChild(span);
+  out.appendChild(document.createTextNode('\n'));
+  out.scrollTop = out.scrollHeight;
+}
+
+function printCommandLine(cmd) {
+  const out = document.getElementById('termOutput');
+  const span = document.createElement('span');
+  span.className = 't-line';
+  span.innerHTML = `<span class="t-prompt">PS C:\\Downloads&gt; </span><span class="t-cmd">${escHtml(cmd)}</span>`;
+  out.appendChild(span);
+  out.appendChild(document.createTextNode('\n'));
+  out.scrollTop = out.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function printBlank() { printLine('t-out', ''); }
+
+function printHashTable(algo, hash, path) {
+  printBlank();
+  printLine('t-out',     'Algorithm       Hash                                                                 Path');
+  printLine('t-sep',     '─────────       ────────────────────────────────────────────────────────────────── ─────────────────');
+  const hashDisplay = hash.length > 64 ? hash.substring(0,64) : hash.padEnd(64);
+  printLine('t-out-obj', `${algo.padEnd(16)}${hashDisplay} C:\\Downloads\\${path}`);
+  printBlank();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// COMMAND PROCESSING
+// ════════════════════════════════════════════════════════════════════════
+function processCommand(raw) {
+  const input = raw.trim();
+  if (!input) return;
+
+  commandLog.push(input);
+  printCommandLine(input);
+  history.unshift(input);
+  historyPos = -1;
+
+  const s = SCENARIOS[currentIdx];
+  const lower = input.toLowerCase();
+
+  // Variable assignment: $var = ...
+  const assignMatch = input.match(/^\$(\w+)\s*=\s*(.+)$/i);
+  if (assignMatch) {
+    const varName = assignMatch[1].toLowerCase();
+    const rhs = assignMatch[2].trim();
+    const val = evaluateExpression(rhs, s);
+    if (val !== null) {
+      variables[varName] = val;
+      storedVarFlag = true;
+      // silent (no output for assignments unless the value errors)
+    } else {
+      printLine('t-error', `Cannot evaluate: ${rhs}`);
+    }
+    updateRequirements();
+    return;
+  }
+
+  // Print variable: $var
+  const varPrintMatch = input.match(/^\$(\w+)$/i);
+  if (varPrintMatch) {
+    const varName = varPrintMatch[1].toLowerCase();
+    if (variables[varName] !== undefined) {
+      printLine('t-hash', variables[varName]);
+      printBlank();
+    } else {
+      printBlank();
+    }
+    updateRequirements();
+    return;
+  }
+
+  // Comparison: $a -eq $b
+  const cmpMatch = input.match(/^\$(\w+)\s+-eq\s+\$(\w+)$/i);
+  if (cmpMatch) {
+    const va = variables[cmpMatch[1].toLowerCase()];
+    const vb = variables[cmpMatch[2].toLowerCase()];
+    if (va !== undefined && vb !== undefined) {
+      const equal = va.toUpperCase() === vb.toUpperCase();
+      comparedVarFlag = true;
+      if (equal) {
+        printLine('t-green', 'True');
+      } else {
+        printLine('t-red', 'False');
+        printBlank();
+        printLine('t-amber', '⚠ INTEGRITY CHECK FAILED — hashes do not match!');
+      }
+      printBlank();
+    } else {
+      printLine('t-error', `One or both variables are not defined.`);
+      printBlank();
+    }
+    updateRequirements();
+    return;
+  }
+
+  // Bare string comparison: "hash1" -eq "hash2"  or  $a -eq "value"
+  const strCmpMatch = input.match(/^"?([A-F0-9]{32,128})"?\s+-eq\s+"?([A-F0-9]{32,128})"?$/i);
+  if (strCmpMatch) {
+    const equal = strCmpMatch[1].toUpperCase() === strCmpMatch[2].toUpperCase();
+    printLine(equal ? 't-green' : 't-red', equal ? 'True' : 'False');
+    printBlank();
+    updateRequirements();
+    return;
+  }
+
+  // Direct expression: (Get-FileHash ...).Hash
+  const dotHashMatch = input.match(/^\(\s*Get-FileHash\s+["']?([^\s"')-]+)["']?(?:\s+-Algorithm\s+(\w+))?\s*\)\.Hash$/i);
+  if (dotHashMatch) {
+    const file = dotHashMatch[1];
+    const algo = (dotHashMatch[2] || 'SHA256').toUpperCase();
+    const fileObj = s.fs[file];
+    if (!fileObj) {
+      printLine('t-error', `Get-FileHash : Cannot find path 'C:\\Downloads\\${file}'`);
+      printLine('t-error', `At line:1 char:1`);
+      printBlank();
+      updateRequirements();
+      return;
+    }
+    const hash = getHash(fileObj, algo);
+    if (!hash) {
+      printLine('t-error', `Get-FileHash : The hashing algorithm '${algo}' is not supported.`);
+      printBlank();
+      updateRequirements();
+      return;
+    }
+    usedDotHashFiles.add(file.toLowerCase());
+    if (algo === 'SHA256') outputContainsSHA256Flag = true;
+    checkVendorMatch(s, algo, hash);
+    ranWithAlgoLog.push({ file: file.toLowerCase(), algo });
+    printLine('t-hash', hash);
+    printBlank();
+    updateRequirements();
+    return;
+  }
+
+  // Get-FileHash (bare or with args)
+  const gfhMatch = input.match(/^Get-FileHash\s+["']?([^\s"']+)["']?(?:\s+-Algorithm\s+(\w+))?(?:\s+.*)?$/i);
+  if (gfhMatch) {
+    const file = gfhMatch[1];
+    const algo = (gfhMatch[2] || 'SHA256').toUpperCase();
+    const fileObj = s.fs[file];
+    if (!fileObj) {
+      printLine('t-error', `Get-FileHash : Cannot find path 'C:\\Downloads\\${file}'`);
+      printLine('t-error', `At line:1 char:1`);
+      printLine('t-error', `+ CategoryInfo          : ObjectNotFound: (...\\${file}:String)`);
+      printBlank();
+      updateRequirements();
+      return;
+    }
+    const hash = getHash(fileObj, algo);
+    if (!hash) {
+      printLine('t-error', `Get-FileHash : The specified algorithm '${algo}' is not supported.`);
+      printLine('t-error', `Supported: SHA256 (default), SHA1, SHA384, SHA512, MD5`);
+      printBlank();
+      updateRequirements();
+      return;
+    }
+    if (algo === 'SHA256') outputContainsSHA256Flag = true;
+    checkVendorMatch(s, algo, hash);
+    ranWithAlgoLog.push({ file: file.toLowerCase(), algo });
+    printHashTable(algo, hash, file);
+    updateRequirements();
+    return;
+  }
+
+  // ls / dir / Get-ChildItem
+  if (/^(ls|dir|get-childitem|gci)(\s.*)?$/i.test(input)) {
+    printBlank();
+    printLine('t-out', '    Directory: C:\\Downloads');
+    printBlank();
+    printLine('t-out', 'Mode                 LastWriteTime         Length Name');
+    printLine('t-sep', '────                 ─────────────         ────── ────');
+    Object.keys(s.fs).forEach(f => {
+      const info = s.fs[f];
+      printLine('t-out', `-a----        11/12/2024   9:31 AM            ${f}`);
+    });
+    printBlank();
+    updateRequirements();
+    return;
+  }
+
+  // cls / clear
+  if (/^(cls|clear|clear-host)$/i.test(input)) {
+    document.getElementById('termOutput').innerHTML = '';
+    return;
+  }
+
+  // help text
+  if (/^help$/i.test(input) || /^get-help get-filehash/i.test(input)) {
+    printBlank();
+    printLine('t-amber', 'NAME');
+    printLine('t-out',   '    Get-FileHash');
+    printBlank();
+    printLine('t-amber', 'SYNOPSIS');
+    printLine('t-out',   '    Computes the hash value for a file using a specified algorithm.');
+    printBlank();
+    printLine('t-amber', 'SYNTAX');
+    printLine('t-cyan',  '    Get-FileHash [-Path] <String> [-Algorithm <String>]');
+    printBlank();
+    printLine('t-amber', 'PARAMETERS');
+    printLine('t-out',   '    -Path       Path to the file.');
+    printLine('t-out',   '    -Algorithm  SHA256 (default), SHA1, SHA384, SHA512, MD5');
+    printBlank();
+    printLine('t-amber', 'EXAMPLES');
+    printLine('t-purple','    Get-FileHash file.txt');
+    printLine('t-purple','    Get-FileHash file.txt -Algorithm MD5');
+    printLine('t-purple','    (Get-FileHash file.txt).Hash');
+    printLine('t-purple','    $h = (Get-FileHash file.txt).Hash');
+    printBlank();
+    updateRequirements();
+    return;
+  }
+
+  // Unknown
+  printLine('t-error', `'${input.split(' ')[0]}' is not recognized. Try 'help' or 'Get-FileHash'.`);
+  printBlank();
+}
+
+function evaluateExpression(expr, s) {
+  // (Get-FileHash file).Hash
+  const dotHashMatch = expr.match(/^\(\s*Get-FileHash\s+["']?([^\s"')-]+)["']?(?:\s+-Algorithm\s+(\w+))?\s*\)\.Hash$/i);
+  if (dotHashMatch) {
+    const file = dotHashMatch[1];
+    const algo = (dotHashMatch[2] || 'SHA256').toUpperCase();
+    const fileObj = s.fs[file];
+    if (!fileObj) return null;
+    const hash = getHash(fileObj, algo);
+    if (!hash) return null;
+    usedDotHashFiles.add(file.toLowerCase());
+    if (algo === 'SHA256') outputContainsSHA256Flag = true;
+    checkVendorMatch(s, algo, hash);
+    ranWithAlgoLog.push({ file: file.toLowerCase(), algo });
+    storedVarFlag = true;
+    return hash;
+  }
+  // literal string
+  const litMatch = expr.match(/^["']([A-F0-9]{32,128})["']$/i);
+  if (litMatch) return litMatch[1].toUpperCase();
+  // $var reference
+  const varRef = expr.match(/^\$(\w+)$/i);
+  if (varRef) return variables[varRef[1].toLowerCase()] || null;
+  return null;
+}
+
+function getHash(fileObj, algo) {
+  switch (algo) {
+    case 'SHA256': return fileObj.sha256;
+    case 'SHA1':   return fileObj.sha1;
+    case 'MD5':    return fileObj.md5;
+    case 'SHA512': return fileObj.sha512;
+    case 'SHA384': return fileObj.sha512 ? fileObj.sha512.substring(0, 96) : null; // approximate
+    default:       return null;
+  }
+}
+
+function checkVendorMatch(s, algo, hash) {
+  if (s.vendorHash && s.vendorHash.algo === algo && s.vendorHash.value.toUpperCase() === hash.toUpperCase()) {
+    outputMatchesVendorAlgo.add(algo.toUpperCase());
+    printLine('t-green', '✓ Hash matches vendor-provided value. File integrity confirmed.');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// REQUIREMENTS CHECKING
+// ════════════════════════════════════════════════════════════════════════
+function updateRequirements() {
+  const s = SCENARIOS[currentIdx];
+  const reqList = document.getElementById('reqList');
+  const items = reqList.querySelectorAll('.req-item');
+  let passed = 0;
+  s.objectives.forEach((obj, i) => {
+    const met = obj.check(checker);
+    if (met) passed++;
+    const el = items[i];
+    if (el) {
+      el.classList.remove('met', 'unmet');
+      el.classList.add(met ? 'met' : '');
+      el.querySelector('.req-icon').textContent = met ? '✓' : '◈';
+    }
+  });
+  const total = s.objectives.length;
+  const pct = Math.round((passed / total) * 100);
+  document.getElementById('scoreNum').textContent = `${passed}/${total}`;
+  document.getElementById('scoreFill').style.width = pct + '%';
+  document.getElementById('scoreFill').style.background =
+    pct === 100 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--cyan)';
+  return { passed, total, pct };
+}
+
+function checkAnswer() {
+  const { passed, total, pct } = updateRequirements();
+  if (pct === 100) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    const s = SCENARIOS[currentIdx];
+    setTimeout(() => {
+      showModal(
+        '✓ Objectives Complete!',
+        `All ${total} objectives met for <strong>"${s.title}"</strong>.<br><br>${s.hint}<br><br>${currentIdx < SCENARIOS.length - 1 ? 'Ready for the next challenge?' : 'You have completed all four scenarios!'}`,
+        'win', currentIdx < SCENARIOS.length - 1
+      );
+    }, 200);
+  } else {
+    // show which ones are unmet
+    const s = SCENARIOS[currentIdx];
+    const unmet = s.objectives.filter((o, i) => !o.check(checker));
+    const list = unmet.map(o => `• ${o.text}`).join('<br>');
+    showModal(
+      `${passed}/${total} Objectives Met`,
+      `Still needed:<br><br>${list}<br><br><em>💡 ${s.keyHint}</em>`,
+      'info', false
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO LOADING
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentIdx = idx;
+  variables = {};
+  commandLog = [];
+  outputContainsSHA256Flag = false;
+  usedDotHashFiles = new Set();
+  storedVarFlag = false;
+  comparedVarFlag = false;
+  ranWithAlgoLog = [];
+  outputMatchesVendorAlgo = new Set();
+
+  const s = SCENARIOS[idx];
+  const out = document.getElementById('termOutput');
+  out.innerHTML = '';
+
+  // Print welcome lines
+  s.welcome.forEach(l => printLine(l.cls, l.text));
+
+  // Brief panel
+  const diffClass = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+  let extraHtml = '';
+  if (s.files && s.files.length) {
+    extraHtml += `<div class="file-listing"><div class="file-listing-header">Files in C:\\Downloads</div>`;
+    s.files.forEach(f => {
+      extraHtml += `<div class="file-row"><span class="file-icon">${f.icon}</span><span class="file-name">${f.name}</span><span class="file-size">${f.size}</span></div>`;
+    });
+    extraHtml += `</div>`;
+  }
+  if (s.vendorHash) {
+    extraHtml += `<div class="vendor-hash"><div class="vendor-hash-label">Vendor ${s.vendorHash.algo} Checksum</div><div class="vendor-hash-value">${s.vendorHash.value}</div></div>`;
+  }
+
+  document.getElementById('briefHeader').innerHTML = `
+    <div class="rpanel-title">Scenario Brief</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffClass}">${s.difficulty}</span>
+    <div class="brief-desc">${s.desc}${extraHtml}</div>
+  `;
+
+  // Objectives
+  const reqList = document.getElementById('reqList');
+  reqList.innerHTML = s.objectives.map(o => `
+    <div class="req-item">
+      <span class="req-icon">◈</span>
+      <span>${o.text}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('hintText').textContent = s.keyHint;
+  document.getElementById('scoreNum').textContent = `0/${s.objectives.length}`;
+  document.getElementById('scoreFill').style.width = '0%';
+  document.getElementById('scoreFill').style.background = 'var(--cyan)';
+
+  // Chips
+  const strip = document.getElementById('acStrip');
+  strip.innerHTML = '<span class="ac-label">Quick Insert:</span>';
+  s.chips.forEach(chip => {
+    const btn = document.createElement('button');
+    btn.className = 'ac-chip';
+    btn.textContent = chip;
+    btn.addEventListener('click', () => {
+      document.getElementById('termInput').value = chip;
+      document.getElementById('termInput').focus();
+    });
+    strip.appendChild(btn);
+  });
+
+  updateTabStates();
+  document.getElementById('termInput').focus();
+}
+
+function resetScenario() { loadScenario(currentIdx); }
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function buildTabs() {
+  const container = document.getElementById('scenarioTabs');
+  container.innerHTML = '';
+  SCENARIOS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = `stab${i === 0 ? ' active' : ''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t, j) => t.classList.toggle('active', j === i));
+    });
+    container.appendChild(btn);
+  });
+}
+
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === currentIdx);
+    tab.classList.toggle('done', completedScenarios.has(i) && i !== currentIdx);
+    const snum = tab.querySelector('.snum');
+    snum.textContent = completedScenarios.has(i) ? '✓' : String(i+1).padStart(2,'0');
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════════════════════════
+function showModal(title, body, type, showNext) {
+  document.getElementById('modalTitle').className = `modal-title ${type}`;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalNext').style.display = showNext ? 'block' : 'none';
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+function showHintModal() {
+  const s = SCENARIOS[currentIdx];
+  showModal('💡 Hint', s.keyHint, 'info', false);
+}
+
+function nextScenario() {
+  closeModal();
+  currentIdx++;
+  loadScenario(currentIdx);
+  document.querySelectorAll('.stab').forEach((t, j) => t.classList.toggle('active', j === currentIdx));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INPUT HANDLING
+// ════════════════════════════════════════════════════════════════════════
+const termInput = document.getElementById('termInput');
+
+termInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = termInput.value;
+    termInput.value = '';
+    processCommand(val);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (historyPos < history.length - 1) {
+      historyPos++;
+      termInput.value = history[historyPos] || '';
+    }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyPos > 0) {
+      historyPos--;
+      termInput.value = history[historyPos] || '';
+    } else {
+      historyPos = -1;
+      termInput.value = '';
+    }
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    // Simple tab complete for filenames
+    const s = SCENARIOS[currentIdx];
+    const partial = termInput.value;
+    const files = Object.keys(s.fs);
+    const match = files.find(f => {
+      const lp = partial.toLowerCase();
+      return lp.endsWith(f.substring(0, f.length)) || f.toLowerCase().startsWith(partial.split(' ').pop().toLowerCase());
+    });
+    if (match) {
+      const parts = partial.split(' ');
+      parts[parts.length - 1] = match;
+      termInput.value = parts.join(' ');
+    }
+  }
+});
+
+// Keep focus on input
+document.getElementById('termOutput').addEventListener('click', () => termInput.focus());
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildTabs();
+loadScenario(0);
+</script>
+</body>
+</html>

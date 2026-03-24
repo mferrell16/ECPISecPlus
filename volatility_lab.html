@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forensic Acquisition Lab — Order of Volatility</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inconsolata:wght@300;400;500;700;900&family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #030805;
+  --surface:     #060e08;
+  --panel:       #091210;
+  --card:        #0c1812;
+  --card-hi:     #101f18;
+  --border:      #122018;
+  --border2:     #1a3025;
+
+  --green:       #00ff88;
+  --green-dim:   #002e14;
+  --green-mid:   #00c466;
+  --green-faint: rgba(0,255,136,0.06);
+  --green-glow:  rgba(0,255,136,0.15);
+
+  --teal:        #00e5cc;
+  --teal-dim:    #003830;
+
+  --red:         #ff4060;
+  --red-dim:     #2a0510;
+  --amber:       #ffb020;
+  --amber-dim:   #2a1c04;
+  --yellow:      #ffe040;
+
+  --lost:        #ff4060;
+  --lost-dim:    rgba(255,64,96,0.08);
+
+  --text:        #9dffcc;
+  --text-dim:    #2a6040;
+  --text-muted:  #153020;
+
+  /* Volatility decay spectrum */
+  --v1: #ff4060;   /* RAM - most volatile */
+  --v2: #ff7040;
+  --v3: #ffb020;
+  --v4: #e8d020;
+  --v5: #80e040;
+  --v6: #00c466;
+  --v7: #00a0cc;
+  --v8: #4080ff;   /* archives - least volatile */
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  overflow: hidden;
+}
+
+/* CRT phosphor scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.018) 2px, rgba(0,255,136,0.018) 4px),
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(0,255,136,0.05) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+/* Subtle grid */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,255,136,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* ══ HEADER ══ */
+header {
+  position: relative; z-index: 50;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 18px; gap: 0;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 11px;
+  padding-right: 18px;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo-icon {
+  width: 34px; height: 34px;
+  border: 1px solid rgba(0,255,136,0.35);
+  background: var(--green-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  box-shadow: 0 0 12px rgba(0,255,136,0.1), inset 0 0 8px rgba(0,255,136,0.05);
+}
+.logo-text {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.25rem; letter-spacing: 0.1em;
+  color: var(--green);
+  text-shadow: 0 0 8px rgba(0,255,136,0.4);
+  line-height: 1;
+}
+.logo-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.52rem; color: var(--text-dim);
+  letter-spacing: 0.12em; display: block;
+  margin-top: 1px;
+}
+
+.scenario-tabs {
+  display: flex; flex: 1; overflow-x: auto;
+  padding: 0 6px;
+}
+.stab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 14px; height: 52px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.75rem; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--green); border-bottom-color: var(--green); }
+.stab.done   { color: #4ade80; border-bottom-color: #4ade80; }
+.stab .snum {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; padding: 1px 5px;
+  background: var(--border); color: var(--text-dim);
+}
+.stab.active .snum { background: var(--green-dim); color: var(--green); }
+.stab.done   .snum { background: #0a2010; color: #4ade80; }
+.mode-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.49rem; padding: 1px 5px;
+  border: 1px solid;
+}
+.tag-seq  { color: var(--teal);  border-color: rgba(0,229,204,0.3); background: rgba(0,229,204,0.05); }
+.tag-diag { color: var(--amber); border-color: rgba(255,176,32,0.3); background: rgba(255,176,32,0.05); }
+.tag-loss { color: var(--red);   border-color: rgba(255,64,96,0.3);  background: rgba(255,64,96,0.05); }
+
+.header-right {
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 7px; align-items: center;
+}
+.hbtn {
+  padding: 5px 13px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-green { border-color: var(--green-mid); color: var(--green-mid); background: rgba(0,196,102,0.06); }
+.hbtn-green:hover { background: rgba(0,196,102,0.16); }
+.hbtn-amber { border-color: var(--amber); color: var(--amber); background: rgba(255,176,32,0.06); }
+.hbtn-amber:hover { background: rgba(255,176,32,0.15); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover { color: var(--text); }
+
+/* ══ WORKSPACE ══ */
+.workspace {
+  display: grid;
+  grid-template-columns: 268px 1fr 268px;
+  height: calc(100vh - 52px);
+  position: relative; z-index: 1;
+}
+
+/* ══ SIDE PANELS ══ */
+.side-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.side-panel.right { border-right: none; border-left: 1px solid var(--border); }
+
+.sp-sec {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sp-sec.grow { flex: 1; overflow-y: auto; }
+.sp-sec.grow::-webkit-scrollbar { width: 4px; }
+.sp-sec.grow::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.sp-lbl {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.72rem; letter-spacing: 0.18em;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 7px;
+}
+.sp-lbl::before { content:''; display:block; width:3px; height:11px; background: var(--green); }
+.sp-lbl.amber::before  { background: var(--amber); }
+.sp-lbl.red::before    { background: var(--red); }
+.sp-lbl.teal::before   { background: var(--teal); }
+
+.brief-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem; letter-spacing: 0.06em;
+  color: var(--green); margin-bottom: 5px; line-height: 1.2;
+  text-shadow: 0 0 6px rgba(0,255,136,0.3);
+}
+.diff-pill {
+  display: inline-block; padding: 2px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.diff-easy   { color: var(--green-mid);  border: 1px solid rgba(0,196,102,0.3);  background: rgba(0,196,102,0.06); }
+.diff-medium { color: var(--amber);      border: 1px solid rgba(255,176,32,0.3); background: rgba(255,176,32,0.06); }
+.diff-hard   { color: var(--red);        border: 1px solid rgba(255,64,96,0.3);  background: rgba(255,64,96,0.06); }
+
+.brief-body {
+  font-size: 0.7rem; line-height: 1.7; color: var(--text-dim);
+  font-family: 'Rajdhani', sans-serif;
+}
+.brief-body strong { color: var(--text); }
+
+/* Score */
+.score-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem; letter-spacing: 0.06em;
+  line-height: 1; color: var(--green);
+  text-shadow: 0 0 10px rgba(0,255,136,0.4);
+}
+.score-meta { flex: 1; }
+.score-lbl { font-size: 0.54rem; color: var(--text-dim); letter-spacing: 0.12em; text-transform: uppercase; font-family: 'Share Tech Mono', monospace; }
+.score-bar { height: 2px; background: var(--border); margin-top: 6px; }
+.score-fill { height: 100%; background: var(--green); transition: width 0.5s ease; box-shadow: 0 0 6px rgba(0,255,136,0.4); }
+
+/* ══ VOLATILITY SPECTRUM — Right panel ══ */
+.vol-spectrum { display: flex; flex-direction: column; gap: 3px; }
+
+.vol-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.vol-row::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.vol-bar-bg {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  opacity: 0.04;
+}
+.vol-rank {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem; font-weight: 700;
+  width: 18px; text-align: center; flex-shrink: 0;
+  position: relative;
+}
+.vol-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem; font-weight: 700;
+  flex: 1; position: relative;
+}
+.vol-decay {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.54rem;
+  position: relative; white-space: nowrap;
+}
+.vol-sub {
+  font-size: 0.58rem; color: var(--text-dim);
+  line-height: 1.35; margin-top: 1px;
+  position: relative;
+}
+
+/* Volatility flash */
+.vol-row:nth-child(1) { border-color: rgba(255,64,96,0.3); }
+.vol-row:nth-child(2) { border-color: rgba(255,112,64,0.25); }
+.vol-row:nth-child(3) { border-color: rgba(255,176,32,0.25); }
+.vol-row:nth-child(4) { border-color: rgba(232,208,32,0.2); }
+.vol-row:nth-child(5) { border-color: rgba(128,224,64,0.2); }
+.vol-row:nth-child(6) { border-color: rgba(0,196,102,0.2); }
+.vol-row:nth-child(7) { border-color: rgba(0,160,204,0.2); }
+.vol-row:nth-child(8) { border-color: rgba(64,128,255,0.2); }
+
+/* Trap box */
+.trap-box {
+  background: rgba(255,64,96,0.04);
+  border: 1px solid rgba(255,64,96,0.25);
+  padding: 9px 10px;
+  font-family: 'Rajdhani', sans-serif;
+}
+.trap-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.68rem; letter-spacing: 0.12em;
+  color: var(--red); margin-bottom: 6px;
+}
+.trap-item {
+  font-size: 0.64rem; color: var(--text-dim);
+  line-height: 1.6; margin-bottom: 5px;
+  padding-left: 12px; position: relative;
+}
+.trap-item::before { content:'//'; position:absolute; left:0; color: var(--red); font-family:'Share Tech Mono',monospace; font-size:0.55rem; }
+.trap-item strong { color: var(--text); }
+
+/* ══ CENTER PANEL ══ */
+.center-panel {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.center-hdr {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0;
+}
+.center-mode {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.72rem; letter-spacing: 0.18em;
+  color: var(--text-dim);
+}
+.center-instr {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--text-muted);
+  flex: 1;
+}
+
+/* ══ SEQUENCE AREA ══ */
+.seq-area {
+  flex: 1; overflow-y: auto;
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.seq-area::-webkit-scrollbar { width: 5px; }
+.seq-area::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* Evidence tile */
+.ev-tile {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 13px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  transition: border-color 0.12s, background 0.12s;
+  position: relative;
+  flex-shrink: 0;
+}
+.ev-tile:hover { border-color: var(--border2); background: var(--card-hi); }
+.ev-tile.dragging { opacity: 0.25; cursor: grabbing; }
+.ev-tile.drag-over { border-color: var(--green); box-shadow: 0 0 0 1px var(--green), inset 0 0 12px rgba(0,255,136,0.04); }
+.ev-tile.correct { border-color: rgba(0,255,136,0.5); background: rgba(0,255,136,0.04); }
+.ev-tile.wrong   { border-color: rgba(255,64,96,0.5); background: rgba(255,64,96,0.04); }
+.ev-tile.partial { border-color: rgba(255,176,32,0.4); background: rgba(255,176,32,0.03); }
+
+/* Volatility indicator bar on left edge */
+.ev-vol-bar {
+  width: 4px; height: 100%;
+  position: absolute; left: 0; top: 0;
+  opacity: 0.7;
+}
+
+.ev-rank-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem; letter-spacing: 0.06em;
+  color: var(--text-muted);
+  min-width: 22px; text-align: center;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.ev-tile.correct .ev-rank-num { color: var(--green); text-shadow: 0 0 6px rgba(0,255,136,0.4); }
+.ev-tile.wrong   .ev-rank-num { color: var(--red); }
+
+.ev-vol-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px currentColor;
+}
+.ev-body { flex: 1; min-width: 0; }
+.ev-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem; font-weight: 700;
+  color: var(--text); line-height: 1;
+}
+.ev-sub {
+  font-size: 0.62rem; color: var(--text-dim);
+  margin-top: 2px; line-height: 1.4;
+}
+.ev-contains {
+  margin-top: 4px;
+  display: flex; gap: 4px; flex-wrap: wrap;
+}
+.ev-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem; padding: 1px 5px;
+  border: 1px solid rgba(0,255,136,0.15);
+  color: rgba(0,255,136,0.5);
+  background: rgba(0,255,136,0.04);
+}
+.ev-tag.critical { border-color: rgba(255,64,96,0.3); color: rgba(255,64,96,0.7); background: rgba(255,64,96,0.05); }
+
+.ev-decay {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  text-align: right; min-width: 60px;
+  flex-shrink: 0;
+}
+.ev-result {
+  font-size: 13px; margin-left: 4px;
+  opacity: 0; transition: opacity 0.2s; flex-shrink: 0;
+}
+.ev-tile.correct .ev-result,
+.ev-tile.wrong   .ev-result { opacity: 1; }
+
+/* Connector */
+.tile-conn {
+  display: flex; align-items: center;
+  padding-left: 33px; height: 14px;
+  color: var(--text-muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; flex-shrink: 0;
+}
+
+/* Drop zone (empty slot) */
+.drop-zone {
+  height: 50px;
+  border: 1px dashed var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--text-muted);
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.drop-zone.drag-over {
+  border-color: var(--green);
+  background: rgba(0,255,136,0.04);
+  color: var(--green);
+  box-shadow: inset 0 0 10px rgba(0,255,136,0.05);
+}
+
+/* Pool */
+.ev-pool-wrap {
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.pool-lbl {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.54rem; color: var(--text-muted);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.ev-pool {
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.pool-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: grab; user-select: none;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.7rem; font-weight: 600;
+  color: var(--text);
+  transition: all 0.12s;
+}
+.pool-chip:hover { border-color: var(--border2); background: var(--card-hi); }
+.pool-chip.dragging { opacity: 0.3; }
+.pool-chip .cdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* ══ LOSS VISUALIZATION MODE ══ */
+.loss-area {
+  flex: 1; overflow-y: auto;
+  padding: 14px 18px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.loss-area::-webkit-scrollbar { width: 5px; }
+.loss-area::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.loss-scenario-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+.loss-scenario-hdr {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.78rem; letter-spacing: 0.12em;
+  color: var(--amber); margin-bottom: 6px;
+}
+.loss-scenario-body {
+  font-size: 0.68rem; line-height: 1.65; color: var(--text-dim);
+}
+.loss-scenario-body strong { color: var(--text); }
+
+/* Wrong order timeline */
+.wrong-order-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 11px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 0.68rem;
+}
+.wo-step {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem; letter-spacing: 0.06em;
+  color: var(--text-muted); min-width: 22px;
+  flex-shrink: 0;
+}
+.wo-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.wo-name { font-family: 'Rajdhani', sans-serif; font-size: 0.76rem; font-weight: 700; color: var(--text); flex: 1; }
+.wo-status {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem; padding: 2px 7px; border: 1px solid;
+}
+.wo-ok     { color: var(--green-mid);  border-color: rgba(0,196,102,0.3);  background: rgba(0,196,102,0.06); }
+.wo-wrong  { color: var(--red);        border-color: rgba(255,64,96,0.35); background: rgba(255,64,96,0.06); }
+.wo-lost   { color: var(--amber);      border-color: rgba(255,176,32,0.3); background: rgba(255,176,32,0.06); }
+
+/* Lost evidence panel */
+.lost-panel {
+  background: var(--lost-dim);
+  border: 1px solid rgba(255,64,96,0.35);
+  padding: 12px 14px;
+}
+.lost-hdr {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.78rem; letter-spacing: 0.14em;
+  color: var(--red); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 7px;
+}
+.lost-hdr::before { content:'⚠'; font-size: 12px; }
+.lost-item {
+  display: flex; gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255,64,96,0.06);
+  border: 1px solid rgba(255,64,96,0.2);
+  margin-bottom: 4px;
+  font-size: 0.64rem; color: var(--text-dim);
+  line-height: 1.5;
+}
+.lost-icon { flex-shrink: 0; font-size: 13px; }
+.lost-bold { color: var(--red); font-weight: 600; }
+
+/* Loss question choices */
+.loss-choices { display: flex; flex-direction: column; gap: 5px; }
+.loss-choice {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 9px 11px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.7rem; color: var(--text-dim);
+  text-align: left; transition: all 0.12s;
+  line-height: 1.4;
+}
+.loss-choice:hover:not(:disabled) { border-color: var(--green-mid); color: var(--text); background: rgba(0,196,102,0.04); }
+.loss-choice.selected { border-color: var(--green); color: var(--text); background: rgba(0,255,136,0.04); }
+.loss-choice.rev-correct { border-color: rgba(0,255,136,0.5); color: var(--green); background: rgba(0,255,136,0.05); }
+.loss-choice.rev-wrong   { border-color: rgba(255,64,96,0.45); color: var(--red);   background: rgba(255,64,96,0.05); }
+.loss-choice:disabled { cursor: default; }
+.lc-letter {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  width: 20px; height: 20px;
+  background: var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-weight: 600;
+}
+.loss-choice.selected .lc-letter { background: var(--green-dim); color: var(--green); }
+.loss-choice.rev-correct .lc-letter { background: rgba(0,255,136,0.15); color: var(--green); }
+.loss-choice.rev-wrong   .lc-letter { background: rgba(255,64,96,0.15); color: var(--red); }
+
+/* ══ MODAL ══ */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.9);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 24px 28px;
+  max-width: 560px; width: 92%;
+  position: relative;
+  transform: translateY(8px); transition: transform 0.2s;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-close {
+  position: absolute; top: 10px; right: 12px;
+  background: none; border: none;
+  color: var(--text-dim); cursor: pointer; font-size: 1rem;
+}
+.modal-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.25rem; letter-spacing: 0.08em;
+  margin-bottom: 13px;
+}
+.modal-title.win  { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.4); }
+.modal-title.info { color: var(--teal); }
+.modal-title.warn { color: var(--amber); }
+.modal-title.fail { color: var(--red); }
+.modal-body {
+  font-size: 0.72rem; color: var(--text-dim);
+  line-height: 1.8; margin-bottom: 18px;
+  font-family: 'Rajdhani', sans-serif;
+}
+.modal-body strong { color: var(--text); }
+.modal-body code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.64rem; color: var(--green);
+  background: var(--card); padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+.modal-ev-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 7px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.mer-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem; letter-spacing: 0.06em;
+  min-width: 22px; flex-shrink: 0; line-height: 1;
+}
+.mer-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.74rem; }
+.mer-why  { font-size: 0.62rem; color: var(--text-dim); margin-top: 2px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 7px; justify-content: flex-end; }
+
+@keyframes evIn {
+  from { opacity:0; transform: translateX(-5px); }
+  to   { opacity:1; transform: translateX(0); }
+}
+.ev-tile { animation: evIn 0.22s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔬</div>
+    <div>
+      <div class="logo-text">Forensic Acquisition Lab</div>
+      <span class="logo-sub">Order of Volatility — Live System Evidence</span>
+    </div>
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-right">
+    <button class="hbtn hbtn-gray" onclick="resetScenario()">↺ Reset</button>
+    <button class="hbtn hbtn-amber" onclick="showHintModal()">💡 Hint</button>
+    <button class="hbtn hbtn-green" id="submitBtn" onclick="handleSubmit()">✓ Submit</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT PANEL -->
+  <div class="side-panel">
+    <div class="sp-sec" id="briefSection"></div>
+    <div class="sp-sec grow" id="leftExtra"></div>
+    <div class="score-row">
+      <div class="score-big" id="scoreNum">—</div>
+      <div class="score-meta">
+        <div class="score-lbl">Score</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center-panel" id="centerPanel">
+    <div class="center-hdr">
+      <div class="center-mode" id="cMode">Sequence Mode</div>
+      <div class="center-instr" id="cInstr">Drag evidence sources into correct collection order — most volatile first</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="side-panel right">
+    <div class="sp-sec">
+      <div class="sp-lbl teal">Order of Volatility</div>
+      <div class="vol-spectrum" id="volSpectrum"></div>
+    </div>
+    <div class="sp-sec grow">
+      <div class="sp-lbl red">Exam Traps</div>
+      <div class="trap-box">
+        <div class="trap-title">⚠ Common Mistakes</div>
+        <div class="trap-item"><strong>Disk image before RAM</strong> — The most common wrong answer. Students think "save the files" but RAM holds running processes, encryption keys, and network state that vanish on shutdown.</div>
+        <div class="trap-item"><strong>Swap / page file confusion</strong> — Swap is more volatile than disk but LESS volatile than RAM. It's a memory overflow area on disk — collect RAM first, swap second.</div>
+        <div class="trap-item"><strong>Network state overlooked</strong> — Active connections, ARP cache, and routing tables are in RAM and disappear immediately. Capture <code>netstat</code> and ARP before anything.</div>
+        <div class="trap-item"><strong>Logs are NOT volatile</strong> — System event logs persist on disk. They are collected near-last, not first.</div>
+        <div class="trap-item"><strong>Shutting down first</strong> — Powering off to "preserve" the disk destroys all RAM evidence. Never shut down a live system before capturing volatile data.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// EVIDENCE SOURCES — canonical order of volatility
+// ════════════════════════════════════════════════════════════════════════
+const EVIDENCE = [
+  {
+    id: "cpu_regs",
+    name: "CPU Registers & Cache",
+    decay: "Nanoseconds",
+    color: "var(--v1)",
+    sub: "Processor state, instruction pointer, flags",
+    tags: ["EXECUTION STATE", "ENCRYPTION OPS"],
+    tagCritical: true,
+    why: "CPU register state lasts nanoseconds. In practice, forensic tools capture this as part of memory acquisition. Collected first or alongside RAM.",
+  },
+  {
+    id: "ram",
+    name: "RAM / Physical Memory",
+    decay: "Minutes–Hours",
+    color: "var(--v1)",
+    sub: "Running processes, opened files, network sockets, encryption keys in-use",
+    tags: ["PROCESSES", "ENCRYPTION KEYS", "NETWORK STATE", "MALWARE"],
+    tagCritical: true,
+    why: "RAM is the most critical and time-sensitive acquisition. Contains decrypted data, running malware, active network connections, and artifacts that exist nowhere else. Volatile on shutdown — always first.",
+  },
+  {
+    id: "network_state",
+    name: "Network State (ARP / Connections)",
+    decay: "Minutes",
+    color: "var(--v2)",
+    sub: "netstat output, ARP cache, routing table, active sessions",
+    tags: ["C2 CONNECTIONS", "LATERAL MOVEMENT"],
+    tagCritical: true,
+    why: "Active TCP connections, the ARP cache (who was talking to whom), and routing tables exist only in live memory. Run netstat, arp -a, route print before any system changes.",
+  },
+  {
+    id: "running_procs",
+    name: "Running Processes & Services",
+    decay: "Minutes",
+    color: "var(--v2)",
+    sub: "Process list, parent-child relationships, loaded DLLs",
+    tags: ["MALWARE PROCESSES", "INJECTED CODE"],
+    tagCritical: true,
+    why: "Malicious processes visible in tasklist/ps may not exist on disk (fileless malware). Capturing the process tree before shutdown is essential — they vanish with the system.",
+  },
+  {
+    id: "swap",
+    name: "Swap / Page File",
+    decay: "Hours",
+    color: "var(--v3)",
+    sub: "Overflow of RAM spilled to disk (pagefile.sys / swapfile.sys)",
+    tags: ["MEMORY OVERFLOW", "PARTIAL KEYS"],
+    tagCritical: false,
+    why: "The page file is a RAM overflow area on disk. More persistent than RAM but may contain fragments of decrypted data, passwords, and process memory. Collect after RAM — it survives a reboot but can be overwritten.",
+  },
+  {
+    id: "disk_image",
+    name: "Disk Image (Full Drive)",
+    decay: "Days–Weeks",
+    color: "var(--v5)",
+    sub: "Bitstream copy of entire storage device, includes deleted files",
+    tags: ["FILES", "DELETED DATA", "MFT"],
+    tagCritical: false,
+    why: "Disk imaging is important but the data persists far longer than RAM. Using write blockers to image the disk can happen after volatile sources are captured. Never do this first.",
+  },
+  {
+    id: "logs",
+    name: "System & Application Logs",
+    decay: "Days–Weeks",
+    color: "var(--v6)",
+    sub: "Windows Event Logs, syslog, application logs stored on disk",
+    tags: ["EVENT IDS", "AUTH LOGS"],
+    tagCritical: false,
+    why: "Logs are written to disk and persist across reboots. They are not volatile. Collect these after all memory and network state is captured — they will still be there.",
+  },
+  {
+    id: "remote_logs",
+    name: "Remote / Cloud Logs",
+    decay: "Weeks–Months",
+    color: "var(--v7)",
+    sub: "SIEM data, cloud provider logs, third-party audit records",
+    tags: ["SIEM", "CLOUD TRAIL"],
+    tagCritical: false,
+    why: "Remote logs stored by third parties or SIEM platforms are the least volatile — they persist the longest and can be retrieved well after the incident. Lowest collection urgency.",
+  },
+];
+
+const EV_MAP = Object.fromEntries(EVIDENCE.map(e => [e.id, e]));
+const CORRECT_ORDER = EVIDENCE.map(e => e.id);
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIOS
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+
+  // ─── S1: Pure sequence, all 8 items ──────────────────────────────────
+  {
+    id: 0, mode: "sequence",
+    title: "Live System: Order Your Collection",
+    difficulty: "easy",
+    desc: "You arrive at a <strong>running Windows workstation</strong> suspected of malware infection. The system is powered on and connected to the network. <strong>Sequence all eight evidence sources from most volatile (collect first) to least volatile (collect last).</strong>",
+    hint: "RAM always leads. CPU registers/cache are captured as part of memory acquisition. Network state and running processes are in memory and disappear instantly. Disk, logs, and remote data persist — they wait. Never shut down a live system before capturing volatile evidence.",
+    startPool: [...EVIDENCE].sort(() => Math.random() - 0.5).map(e => e.id),
+    correctOrder: [...CORRECT_ORDER],
+    explanations: EVIDENCE.map((e,i) => ({ id: e.id, rank: i+1, why: e.why })),
+  },
+
+  // ─── S2: Sequence — 5-item focused ───────────────────────────────────
+  {
+    id: 1, mode: "sequence",
+    title: "Ransomware Response — Triage Order",
+    difficulty: "medium",
+    desc: "Active ransomware is encrypting files on <strong>FILESERV-01</strong>. You have five evidence sources available before you must decide whether to isolate. Rank them in collection order. <strong>CPU registers/cache and remote logs are already secured — sequence the remaining five.</strong>",
+    hint: "RAM holds the live encryption keys being used right now — capturing it may allow key recovery and file decryption. Network state shows C2 connections. Running processes show the ransomware binary (possibly fileless). Swap and disk come after all volatile sources. Disk image LAST — do not shut down first.",
+    prefilled: ["cpu_regs", "remote_logs"],
+    startPool: ["ram", "network_state", "running_procs", "swap", "disk_image"].sort(() => Math.random() - 0.5),
+    correctOrder: [...CORRECT_ORDER],
+    explanations: EVIDENCE.map((e,i) => ({ id: e.id, rank: i+1, why: e.why })),
+  },
+
+  // ─── S3: Loss scenario — disk imaged first ───────────────────────────
+  {
+    id: 2, mode: "loss",
+    title: "What Evidence Was Destroyed?",
+    difficulty: "medium",
+    desc: "A junior analyst arrived at an infected endpoint and <strong>immediately began a full disk image</strong> using FTK Imager. By the time they finished (47 minutes later), the SOC decided to isolate the host — so the system was powered off. Review what was collected and identify what critical evidence is now unrecoverable.",
+    hint: "The disk image preserved file system data. But 47 minutes elapsed and then the system was powered off without capturing RAM. Everything that lived only in memory — running processes, active network connections, encryption keys, the malware's decrypted payload — is gone permanently.",
+    wrongOrder: [
+      { id:"disk_image",    step:1, status:"collected" },
+      { id:"logs",          step:2, status:"collected" },
+      { id:"ram",           step:3, status:"lost" },
+      { id:"network_state", step:4, status:"lost" },
+      { id:"running_procs", step:5, status:"lost" },
+      { id:"swap",          step:6, status:"lost" },
+      { id:"cpu_regs",      step:7, status:"lost" },
+      { id:"remote_logs",   step:8, status:"collected" },
+    ],
+    lostItems: [
+      { icon:"🔑", bold:"Encryption keys in RAM", text:" — The ransomware's active encryption keys were in memory. With them, files could have been decrypted without paying the ransom. Now gone." },
+      { icon:"🔌", bold:"Active C2 connections", text:" — netstat would have revealed the command-and-control server IP. The ARP cache showed lateral movement. Both cleared on shutdown." },
+      { icon:"👾", bold:"Fileless malware payload", text:" — The ransomware loaded entirely into memory with no file on disk. No disk image will find it. The process tree and injected code are permanently lost." },
+      { icon:"🔐", bold:"Decrypted credentials in memory", text:" — Lsass.exe held decrypted credentials for logged-in users. A memory dump would have recovered them. Not capturable post-shutdown." },
+    ],
+    question: "The junior analyst's primary error in collection order was:",
+    choices: [
+      { id:"A", text:"Collecting system logs before the disk image — logs should always be captured before any disk acquisition begins." },
+      { id:"B", text:"Starting with a full disk image before capturing volatile evidence — RAM, network state, and running processes were destroyed when the system was eventually powered off." },
+      { id:"C", text:"Using FTK Imager instead of a write-blocker device — the tool choice caused evidence contamination of the disk image." },
+      { id:"D", text:"Isolating the host before completing the disk image — network isolation should always wait until all evidence is collected." },
+    ],
+    correctChoice: "B",
+    explanation: "The cardinal rule of forensic acquisition is <strong>most volatile first</strong>. The disk image can wait 47 minutes — it will be the same 47 minutes later. RAM cannot wait. The moment the analyst started imaging the disk instead of capturing memory, the countdown began on all volatile evidence. When the system was eventually powered off, the encryption keys, C2 connections, fileless malware, and decrypted credentials were permanently destroyed. The disk image itself may be forensically sound, but the case-critical evidence was lost.",
+  },
+
+  // ─── S4: Loss scenario — system shut down first ───────────────────────
+  {
+    id: 3, mode: "loss",
+    title: "Analyst Powered Off the System First",
+    difficulty: "medium",
+    desc: "An analyst responding to a suspected insider data exfiltration <strong>powered off the laptop immediately</strong> to 'preserve evidence,' then transported it to the forensics lab for imaging. By the time disk acquisition started, 6 hours had passed. Identify what critical evidence was destroyed.",
+    hint: "Powering off is the single most destructive action you can take on a live system from a forensics standpoint. All RAM is cleared instantly — running processes, open file handles, network connections, and any in-memory decryption keys are permanently gone the moment power is cut.",
+    wrongOrder: [
+      { id:"disk_image",    step:1, status:"collected", note:"6 hours later, at the lab" },
+      { id:"logs",          step:2, status:"collected" },
+      { id:"remote_logs",   step:3, status:"collected" },
+      { id:"ram",           step:4, status:"lost" },
+      { id:"network_state", step:5, status:"lost" },
+      { id:"running_procs", step:6, status:"lost" },
+      { id:"swap",          step:7, status:"partial", note:"May retain some fragments" },
+      { id:"cpu_regs",      step:8, status:"lost" },
+    ],
+    lostItems: [
+      { icon:"📡", bold:"Active upload sessions", text:" — The exfiltration tool was actively uploading to an external server. The destination IP, port, and session tokens were in the network state. All cleared on power-off." },
+      { icon:"🧠", bold:"Process memory with staged data", text:" — The staging tool held file paths, cloud credentials, and an in-memory list of exfiltrated files. No on-disk artifact preserved this." },
+      { icon:"🔓", bold:"BitLocker/VeraCrypt keys", text:" — If encrypted containers were mounted, the decryption keys were held in RAM. Post-shutdown, those volumes are locked and may be unrecoverable without the passphrase." },
+      { icon:"🤝", bold:"Authentication tokens in memory", text:" — OAuth tokens and Kerberos tickets held in lsass.exe and browser memory show which cloud services were accessed and as whom." },
+    ],
+    question: "Which statement best describes why powering off the system first violated forensic best practices?",
+    choices: [
+      { id:"A", text:"Powering off breaks the chain of custody because the system state changes during transport." },
+      { id:"B", text:"Powering off immediately cleared all RAM, permanently destroying volatile evidence including active connections, process memory, in-memory credentials, and any mounted encryption keys." },
+      { id:"C", text:"The 6-hour delay before disk imaging allowed anti-forensics tools to wipe evidence from the disk." },
+      { id:"D", text:"Disk imaging should have been done on-site before transport to prevent evidence tampering." },
+    ],
+    correctChoice: "B",
+    explanation: "RAM is cleared the instant power is removed. Every volatile artifact — active network sessions, running process memory, in-memory credentials, mounted encryption keys, OAuth tokens — is instantly and permanently destroyed. The disk image collected 6 hours later is forensically intact, but the case-critical evidence of <em>how</em> the exfiltration happened and <em>where</em> the data went was obliterated at the moment the power button was pressed. The correct procedure is to capture RAM, network state, and running processes before making any decision to shut down.",
+  },
+
+  // ─── S5: Sequence — only volatile items, no disk/logs ─────────────────
+  {
+    id: 4, mode: "sequence",
+    title: "Memory-Only Triage: First 10 Minutes",
+    difficulty: "hard",
+    desc: "You have <strong>10 minutes</strong> before IT will remotely wipe this endpoint. You can only capture volatile, in-memory sources. Disk and logs are handled separately by another analyst. <strong>Sequence the five volatile sources in the correct collection order.</strong> Every second matters — a wrong order could mean lost evidence before the wipe.",
+    hint: "CPU registers/cache and RAM are essentially simultaneous — memory acquisition tools capture register state as part of the dump. Network state (netstat, ARP) must be captured before any commands disturb the network stack. Process list second. Swap file is on disk but reflects RAM overflow — capture it last of the volatile group.",
+    startPool: ["cpu_regs", "ram", "network_state", "running_procs", "swap"].sort(() => Math.random() - 0.5),
+    correctOrder: ["cpu_regs", "ram", "network_state", "running_procs", "swap"],
+    explanations: [
+      { id:"cpu_regs",     rank:1, why:"CPU register state is captured as part of memory acquisition — tools like WinPmem and LiME grab this simultaneously with RAM. Listed first as it is the most ephemeral." },
+      { id:"ram",          rank:2, why:"Full physical memory dump is the highest priority acquisition. Contains running processes, opened handles, network sockets, decrypted data, and malware artifacts." },
+      { id:"network_state",rank:3, why:"netstat, arp -a, and routing tables must be captured before the network is disturbed. These live in kernel memory and reflect live session state." },
+      { id:"running_procs",rank:4, why:"Process list with parent PIDs, memory maps, and loaded modules — especially important for fileless malware that has no on-disk artifact." },
+      { id:"swap",         rank:5, why:"The page file (pagefile.sys) is on disk but is a memory overflow area. Less volatile than RAM but can contain memory fragments, partial keys, and process data. Capture last in this volatile-only triage." },
+    ],
+  },
+
+  // ─── S6: Hard sequence — analyst must distinguish disk/swap/logs ───────
+  {
+    id: 5, mode: "sequence",
+    title: "Full Acquisition: Distinguish Volatility Tiers",
+    difficulty: "hard",
+    desc: "A forensic examiner must acquire all evidence from a <strong>live Linux server</strong> suspected of acting as a C2 relay. Sequence all eight sources. This scenario is designed to test whether you can correctly place <strong>swap above disk image</strong>, <strong>disk image above system logs</strong>, and <strong>system logs above remote logs</strong> — four tiers that students frequently scramble.",
+    hint: "The four tiers: (1) CPU regs + RAM — nanoseconds to minutes. (2) Network state + running processes — minutes. (3) Swap — hours (on disk but memory overflow). (4) Disk image — days. (5) System logs — days (on disk but smaller, copy fast). (6) Remote/SIEM logs — weeks. Swap beats disk because it contains memory fragments. System logs beat remote because they're local.",
+    startPool: [...EVIDENCE].sort(() => Math.random() - 0.5).map(e => e.id),
+    correctOrder: [...CORRECT_ORDER],
+    explanations: EVIDENCE.map((e,i) => ({ id: e.id, rank: i+1, why: e.why })),
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// VOLATILITY SIDEBAR
+// ════════════════════════════════════════════════════════════════════════
+const VOL_DATA = [
+  { color:"var(--v1)", name:"CPU Registers / RAM",   decay:"Nanoseconds–Minutes",  rank:1 },
+  { color:"var(--v2)", name:"Network State",          decay:"Minutes",              rank:2 },
+  { color:"var(--v3)", name:"Running Processes",      decay:"Minutes",              rank:3 },
+  { color:"var(--v4)", name:"Swap / Page File",       decay:"Hours",                rank:4 },
+  { color:"var(--v5)", name:"Disk Image",             decay:"Days–Weeks",           rank:5 },
+  { color:"var(--v6)", name:"System Logs",            decay:"Days–Weeks",           rank:6 },
+  { color:"var(--v7)", name:"Remote / SIEM Logs",     decay:"Weeks–Months",         rank:7 },
+];
+
+function buildVolSpectrum() {
+  const c = document.getElementById('volSpectrum');
+  c.innerHTML = '';
+  VOL_DATA.forEach(v => {
+    const row = document.createElement('div');
+    row.className = 'vol-row';
+    row.innerHTML = `
+      <div class="vol-bar-bg" style="width:${(8-v.rank)/7*100}%;background:${v.color};"></div>
+      <div class="vol-rank" style="color:${v.color};">${v.rank}</div>
+      <div>
+        <div class="vol-name" style="color:${v.color};">${v.name}</div>
+        <div class="vol-sub">${v.decay}</div>
+      </div>`;
+    c.appendChild(row);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentIdx = 0;
+let completedScenarios = new Set();
+let seqSlots = [], seqPool = [];
+let dragEvId = null, dragFromSlot = null;
+let lossChoice = null, lossRevealed = false;
+
+// ════════════════════════════════════════════════════════════════════════
+// LOAD SCENARIO
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentIdx = idx;
+  const s = SCENARIOS[idx];
+  seqSlots = []; seqPool = [];
+  dragEvId = null; dragFromSlot = null;
+  lossChoice = null; lossRevealed = false;
+
+  document.getElementById('scoreNum').textContent = '—';
+  document.getElementById('scoreFill').style.width = '0%';
+  document.getElementById('scoreFill').style.background = 'var(--green)';
+
+  // Brief
+  const diffCls = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+  const modeTag = s.mode === 'sequence' ? '<span class="mode-tag tag-seq">SEQ</span>' :
+                  s.mode === 'loss'     ? '<span class="mode-tag tag-loss">LOSS</span>' :
+                                          '<span class="mode-tag tag-diag">DIAG</span>';
+  document.getElementById('briefSection').innerHTML = `
+    <div class="sp-lbl">Scenario Brief</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffCls}">${s.difficulty}</span> ${modeTag}
+    <div class="brief-body" style="margin-top:8px;">${s.desc}</div>`;
+
+  // Left extra — evidence reference for sequence, guide for loss
+  const le = document.getElementById('leftExtra');
+  if (s.mode === 'sequence') {
+    let html = '<div class="sp-lbl amber">Evidence Reference</div>';
+    const relevant = s.correctOrder.map(id => EV_MAP[id]).filter(Boolean);
+    relevant.forEach(ev => {
+      html += `<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 6px;border-bottom:1px solid var(--border);">
+        <div style="width:8px;height:8px;border-radius:50%;background:${ev.color};margin-top:4px;flex-shrink:0;box-shadow:0 0 4px ${ev.color};"></div>
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:0.7rem;font-weight:700;color:var(--text);">${ev.name}</div>
+          <div style="font-size:0.58rem;color:var(--text-dim);font-family:'Share Tech Mono',monospace;">${ev.decay}</div>
+        </div>
+      </div>`;
+    });
+    le.innerHTML = html;
+  } else {
+    le.innerHTML = `
+      <div class="sp-lbl red">Diagnosis Guide</div>
+      <div style="font-size:0.66rem;color:var(--text-dim);line-height:1.7;">
+        <p style="margin-bottom:8px;">Review the collection sequence. Items marked <span style="color:var(--red);">LOST</span> indicate evidence that was destroyed because the acquisition order was wrong.</p>
+        <p style="margin-bottom:8px;">Then select the answer that best identifies the root error in the analyst's approach.</p>
+        <p>Focus on <strong style="color:var(--text);">what was lost and why</strong> — not just that an error occurred.</p>
+      </div>`;
+  }
+
+  // Center header
+  document.getElementById('cMode').textContent =
+    s.mode === 'sequence' ? 'Sequence Mode — Drag to Order' :
+    s.mode === 'loss'     ? 'Evidence Loss Analysis' : 'Diagnosis Mode';
+  document.getElementById('cInstr').textContent =
+    s.mode === 'sequence' ? 'Drag evidence sources — most volatile first (top) to least volatile (bottom)' :
+                            'Review the wrong-order timeline, then identify the primary error';
+  document.getElementById('submitBtn').textContent =
+    s.mode === 'sequence' ? '✓ Submit Order' : '✓ Submit Answer';
+
+  if (s.mode === 'sequence') buildSeqUI(s);
+  else buildLossUI(s);
+
+  updateTabStates();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SEQUENCE UI
+// ════════════════════════════════════════════════════════════════════════
+function buildSeqUI(s) {
+  const cp = document.getElementById('centerPanel');
+  ['seqArea','lossArea','evPoolWrap'].forEach(id => { const el = document.getElementById(id); if(el) el.remove(); });
+
+  const prefilled = s.prefilled || [];
+  seqSlots = s.correctOrder.map(id => prefilled.includes(id) ? id : null);
+  seqPool  = [...(s.startPool || [])];
+
+  const area = document.createElement('div');
+  area.className = 'seq-area'; area.id = 'seqArea';
+  cp.appendChild(area);
+  renderSeq(s, area);
+
+  const poolWrap = document.createElement('div');
+  poolWrap.className = 'ev-pool-wrap'; poolWrap.id = 'evPoolWrap';
+  poolWrap.innerHTML = `<div class="pool-lbl">Evidence Pool — Drag chips into numbered slots above</div><div class="ev-pool" id="evPool"></div>`;
+  cp.appendChild(poolWrap);
+  renderPool(s);
+}
+
+function renderSeq(s, area) {
+  if (!area) area = document.getElementById('seqArea');
+  area.innerHTML = '';
+  const prefilled = s.prefilled || [];
+
+  s.correctOrder.forEach((correctId, i) => {
+    if (i > 0) { const c = document.createElement('div'); c.className = 'tile-conn'; c.textContent = '↓'; area.appendChild(c); }
+
+    const slotVal = seqSlots[i];
+    const isPre   = prefilled.includes(correctId);
+
+    if (slotVal) {
+      const ev = EV_MAP[slotVal];
+      if (!ev) return;
+      const tile = document.createElement('div');
+      tile.className = 'ev-tile'; tile.dataset.slotIndex = i;
+      tile.style.animationDelay = `${i * 0.045}s`;
+
+      if (!isPre) {
+        tile.draggable = true;
+        tile.addEventListener('dragstart', e => { dragEvId = slotVal; dragFromSlot = i; tile.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+        tile.addEventListener('dragend', () => { tile.classList.remove('dragging'); clearDragOver(); });
+        tile.addEventListener('dragover', e => { e.preventDefault(); if(dragEvId!==slotVal) tile.classList.add('drag-over'); });
+        tile.addEventListener('dragleave', () => tile.classList.remove('drag-over'));
+        tile.addEventListener('drop', e => { e.preventDefault(); tile.classList.remove('drag-over'); handleDropSlot(i); });
+      }
+
+      const tagsHtml = ev.tags.map(t => `<span class="ev-tag${ev.tagCritical?' critical':''}">${t}</span>`).join('');
+      tile.innerHTML = `
+        <div class="ev-vol-bar" style="background:${ev.color};"></div>
+        <div class="ev-rank-num">${i+1}</div>
+        <div class="ev-vol-dot" style="background:${ev.color};color:${ev.color};"></div>
+        <div class="ev-body">
+          <div class="ev-name">${ev.name}</div>
+          <div class="ev-sub">${ev.sub}</div>
+          <div class="ev-contains">${tagsHtml}</div>
+        </div>
+        <div class="ev-decay" style="color:${ev.color};">${ev.decay}</div>
+        <div class="ev-result"></div>`;
+      area.appendChild(tile);
+    } else {
+      const dz = document.createElement('div');
+      dz.className = 'drop-zone'; dz.dataset.slotIndex = i;
+      dz.textContent = `Slot ${i+1} — drop evidence here`;
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+      dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleDropSlot(i); });
+      area.appendChild(dz);
+    }
+  });
+}
+
+function renderPool(s) {
+  const pool = document.getElementById('evPool');
+  if (!pool) return;
+  pool.innerHTML = '';
+  seqPool.forEach(id => {
+    const ev = EV_MAP[id]; if (!ev) return;
+    const chip = document.createElement('div');
+    chip.className = 'pool-chip'; chip.dataset.evId = id;
+    chip.innerHTML = `<div class="cdot" style="background:${ev.color};box-shadow:0 0 4px ${ev.color};"></div>${ev.name}`;
+    chip.draggable = true;
+    chip.addEventListener('dragstart', e => { dragEvId = id; dragFromSlot = 'pool'; chip.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    pool.appendChild(chip);
+  });
+}
+
+function handleDropSlot(targetIdx) {
+  if (!dragEvId) return;
+  const s = SCENARIOS[currentIdx];
+  const prefilled = s.prefilled || [];
+  if (prefilled.includes(s.correctOrder[targetIdx])) return;
+
+  const existing = seqSlots[targetIdx];
+  if (dragFromSlot === 'pool') {
+    seqPool = seqPool.filter(id => id !== dragEvId);
+  } else if (dragFromSlot !== null && dragFromSlot !== targetIdx) {
+    seqSlots[dragFromSlot] = null;
+  }
+  if (existing && existing !== dragEvId) {
+    if (dragFromSlot !== 'pool' && dragFromSlot !== null) seqSlots[dragFromSlot] = existing;
+    else seqPool.push(existing);
+  }
+  seqSlots[targetIdx] = dragEvId;
+  dragEvId = null; dragFromSlot = null;
+
+  renderSeq(s, document.getElementById('seqArea'));
+  renderPool(s);
+  calcSeqScore();
+}
+
+function clearDragOver() {
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+function calcSeqScore() {
+  const s = SCENARIOS[currentIdx];
+  const prefilled = s.prefilled || [];
+  let correct = 0, total = 0;
+  s.correctOrder.forEach((id,i) => {
+    if (prefilled.includes(id)) return;
+    total++;
+    if (seqSlots[i] === id) correct++;
+  });
+  if (!total) return;
+  const pct = Math.round(correct/total*100);
+  document.getElementById('scoreNum').textContent = `${correct}/${total}`;
+  document.getElementById('scoreFill').style.width = pct+'%';
+  document.getElementById('scoreFill').style.background = pct===100?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
+}
+
+function submitSequence() {
+  const s = SCENARIOS[currentIdx];
+  const prefilled = s.prefilled || [];
+  const unfilled = seqSlots.filter((v,i) => !v && !prefilled.includes(s.correctOrder[i]));
+  if (unfilled.length) { showModal('Incomplete','Fill all slots before submitting.','warn',false); return; }
+
+  calcSeqScore();
+  const area = document.getElementById('seqArea');
+  s.correctOrder.forEach((correctId,i) => {
+    if (prefilled.includes(correctId)) return;
+    const tile = area.querySelector(`[data-slot-index="${i}"]`);
+    if (!tile) return;
+    tile.classList.remove('correct','wrong');
+    const res = tile.querySelector('.ev-result');
+    if (seqSlots[i] === correctId) { tile.classList.add('correct'); if(res) res.textContent='✓'; }
+    else                            { tile.classList.add('wrong');   if(res) res.textContent='✗'; }
+  });
+
+  const correct = seqSlots.filter((id,i) => !prefilled.includes(s.correctOrder[i]) && id===s.correctOrder[i]).length;
+  const total   = s.correctOrder.filter(id => !prefilled.includes(id)).length;
+  const pct = Math.round(correct/total*100);
+
+  if (pct===100) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    setTimeout(() => showModal('✓ Correct Acquisition Order!', buildSeqExplain(s), 'win', currentIdx<SCENARIOS.length-1), 300);
+  } else {
+    setTimeout(() => showModal(`${correct}/${total} Correct`, 'Review the reasoning for each position:<br><br>'+buildSeqExplain(s), 'warn', false), 200);
+  }
+}
+
+function buildSeqExplain(s) {
+  let html = '';
+  s.correctOrder.forEach((id,i) => {
+    const ev = EV_MAP[id]; if(!ev) return;
+    const expl = s.explanations && s.explanations.find(e => e.id===id);
+    html += `<div class="modal-ev-row">
+      <div class="mer-num" style="color:${ev.color};">${i+1}</div>
+      <div>
+        <div class="mer-name" style="color:${ev.color};">${ev.name}</div>
+        <div class="mer-why">${expl ? expl.why : ev.why}</div>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// LOSS UI
+// ════════════════════════════════════════════════════════════════════════
+function buildLossUI(s) {
+  const cp = document.getElementById('centerPanel');
+  ['seqArea','lossArea','evPoolWrap'].forEach(id => { const el=document.getElementById(id); if(el) el.remove(); });
+
+  const la = document.createElement('div');
+  la.className = 'loss-area'; la.id = 'lossArea';
+
+  // Scenario box
+  const sb = document.createElement('div');
+  sb.className = 'loss-scenario-box';
+  sb.innerHTML = `<div class="loss-scenario-hdr">⚡ ANALYST ACTION LOG — WHAT HAPPENED</div>
+    <div class="loss-scenario-body">${s.desc}</div>`;
+  la.appendChild(sb);
+
+  // Wrong order timeline
+  const tlLabel = document.createElement('div');
+  tlLabel.style.cssText = 'font-family:"Bebas Neue",sans-serif;font-size:0.68rem;letter-spacing:0.14em;color:var(--text-dim);margin-bottom:4px;';
+  tlLabel.textContent = 'Collection Sequence — As Performed';
+  la.appendChild(tlLabel);
+
+  s.wrongOrder.forEach(item => {
+    const ev = EV_MAP[item.id];
+    if (!ev) return;
+    const row = document.createElement('div');
+    row.className = 'wrong-order-row';
+    const statusCls = item.status==='collected' ? 'wo-ok' : item.status==='partial' ? 'wo-lost' : 'wo-wrong';
+    const statusTxt = item.status==='collected' ? '✓ COLLECTED' : item.status==='partial' ? '~ PARTIAL' : '✗ LOST';
+    row.innerHTML = `
+      <div class="wo-step">${item.step}</div>
+      <div class="wo-dot" style="background:${ev.color};box-shadow:0 0 4px ${ev.color};"></div>
+      <div class="wo-name">${ev.name}${item.note?` <span style="font-size:0.56rem;color:var(--text-muted);font-family:'Share Tech Mono',monospace;">(${item.note})</span>`:''}</div>
+      <div class="wo-status ${statusCls}">${statusTxt}</div>`;
+    la.appendChild(row);
+  });
+
+  // Lost items panel
+  const lp = document.createElement('div');
+  lp.className = 'lost-panel';
+  lp.innerHTML = `<div class="lost-hdr">Evidence Permanently Destroyed</div>` +
+    s.lostItems.map(li => `<div class="lost-item"><span class="lost-icon">${li.icon}</span><div><span class="lost-bold">${li.bold}</span>${li.text}</div></div>`).join('');
+  la.appendChild(lp);
+
+  // Question
+  const qBox = document.createElement('div');
+  qBox.style.cssText = 'padding:10px 12px;background:var(--card);border:1px solid var(--border);';
+  qBox.innerHTML = `<div style="font-family:'Bebas Neue',sans-serif;font-size:0.72rem;letter-spacing:0.12em;color:var(--amber);margin-bottom:5px;">🔍 ${s.question}</div>
+    <div style="font-size:0.64rem;color:var(--text-dim);">Select the answer that best identifies the core forensic acquisition error.</div>`;
+  la.appendChild(qBox);
+
+  // Choices
+  const cw = document.createElement('div');
+  cw.className = 'loss-choices'; cw.id = 'lossChoices';
+  s.choices.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.className = 'loss-choice'; btn.dataset.cid = ch.id;
+    btn.innerHTML = `<div class="lc-letter">${ch.id}</div><div>${ch.text}</div>`;
+    btn.addEventListener('click', () => {
+      if (lossRevealed) return;
+      lossChoice = ch.id;
+      document.querySelectorAll('.loss-choice').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    cw.appendChild(btn);
+  });
+  la.appendChild(cw);
+  cp.appendChild(la);
+}
+
+function submitLoss() {
+  const s = SCENARIOS[currentIdx];
+  if (!lossChoice) { showModal('No Answer','Select an answer first.','warn',false); return; }
+  lossRevealed = true;
+  const correct = lossChoice === s.correctChoice;
+
+  document.querySelectorAll('.loss-choice').forEach(btn => {
+    btn.disabled = true;
+    btn.classList.remove('selected');
+    const id = btn.dataset.cid;
+    if (id===s.correctChoice) btn.classList.add('rev-correct');
+    else if (id===lossChoice) btn.classList.add('rev-wrong');
+  });
+
+  const pct = correct ? 100 : 0;
+  document.getElementById('scoreNum').textContent = correct?'100%':'0%';
+  document.getElementById('scoreFill').style.width = pct+'%';
+  document.getElementById('scoreFill').style.background = correct?'var(--green)':'var(--red)';
+
+  if (correct) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    setTimeout(() => showModal('✓ Correct Analysis!',`<strong>Answer ${s.correctChoice} is correct.</strong><br><br>${s.explanation}`,'win',currentIdx<SCENARIOS.length-1),300);
+  } else {
+    setTimeout(() => showModal('Incorrect',`The correct answer is <strong>${s.correctChoice}</strong>.<br><br>${s.explanation}`,'fail',false),200);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SUBMIT ROUTER
+// ════════════════════════════════════════════════════════════════════════
+function handleSubmit() {
+  if (SCENARIOS[currentIdx].mode==='sequence') submitSequence();
+  else submitLoss();
+}
+function resetScenario() { loadScenario(currentIdx); }
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function buildTabs() {
+  const c = document.getElementById('scenarioTabs');
+  c.innerHTML = '';
+  SCENARIOS.forEach((s,i) => {
+    const btn = document.createElement('button');
+    const tag = s.mode==='sequence' ? '<span class="mode-tag tag-seq">SEQ</span>' :
+                                      '<span class="mode-tag tag-loss">LOSS</span>';
+    btn.className = `stab${i===0?' active':''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title} ${tag}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active',j===i));
+    });
+    c.appendChild(btn);
+  });
+}
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab,i) => {
+    tab.classList.toggle('active', i===currentIdx);
+    tab.classList.toggle('done', completedScenarios.has(i) && i!==currentIdx);
+    tab.querySelector('.snum').textContent = completedScenarios.has(i)?'✓':String(i+1).padStart(2,'0');
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL + HINT
+// ════════════════════════════════════════════════════════════════════════
+function showModal(title,body,type,showNext) {
+  document.getElementById('modalTitle').className=`modal-title ${type}`;
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modalNext').style.display=showNext?'block':'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function showHintModal() { showModal('💡 Hint',SCENARIOS[currentIdx].hint,'info',false); }
+function nextScenario() {
+  closeModal(); currentIdx++;
+  loadScenario(currentIdx);
+  document.querySelectorAll('.stab').forEach((t,j)=>t.classList.toggle('active',j===currentIdx));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildVolSpectrum();
+buildTabs();
+loadScenario(0);
+</script>
+</body>
+</html>

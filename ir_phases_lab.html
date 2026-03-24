@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IR Command Lab — Incident Response Phase Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&family=Syne+Mono&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:         #0e0c08;
+  --surface:    #141109;
+  --panel:      #1a1610;
+  --card:       #1e1b12;
+  --card-hi:    #242016;
+  --border:     #2e2918;
+  --border2:    #3d3620;
+
+  --amber:      #f59e0b;
+  --amber-dim:  #2d1e04;
+  --amber-glow: rgba(245,158,11,0.12);
+  --amber-soft: rgba(245,158,11,0.06);
+  --gold:       #fbbf24;
+  --orange:     #f97316;
+
+  --green:      #4ade80;
+  --green-dim:  #0a2010;
+  --red:        #f87171;
+  --red-dim:    #200a0a;
+  --cyan:       #67e8f9;
+  --cyan-dim:   #062530;
+  --purple:     #c084fc;
+
+  --text:       #e8dfc8;
+  --text-dim:   #6b5e3e;
+  --text-muted: #3d3420;
+
+  --phase-prep:    #67e8f9;
+  --phase-detect:  #a78bfa;
+  --phase-analyze: #818cf8;
+  --phase-contain: #f97316;
+  --phase-erad:    #ef4444;
+  --phase-recover: #4ade80;
+  --phase-lessons: #fbbf24;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  overflow: hidden;
+}
+
+/* Amber scanline glow */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(245,158,11,0.04) 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(245,158,11,0.008) 3px, rgba(245,158,11,0.008) 4px);
+  pointer-events: none;
+}
+
+/* ══ HEADER ══ */
+header {
+  position: relative; z-index: 50;
+  height: 54px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 0;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 12px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo-mark {
+  width: 32px; height: 32px;
+  border: 1px solid rgba(245,158,11,0.4);
+  background: var(--amber-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  position: relative;
+}
+.logo-mark::after {
+  content: '';
+  position: absolute; inset: -3px;
+  border: 1px solid rgba(245,158,11,0.15);
+}
+.logo-text-wrap { line-height: 1; }
+.logo-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem; font-weight: 800;
+  color: var(--amber);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.logo-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.54rem; color: var(--text-dim);
+  letter-spacing: 0.1em; display: block;
+}
+
+.scenario-tabs {
+  display: flex; flex: 1; overflow-x: auto;
+  padding: 0 6px;
+}
+.stab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 15px; height: 54px;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--amber); border-bottom-color: var(--amber); }
+.stab.done   { color: var(--green); border-bottom-color: var(--green); }
+.stab .snum {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  padding: 1px 5px;
+  background: var(--border);
+  color: var(--text-dim);
+}
+.stab.active .snum { background: var(--amber-dim); color: var(--amber); }
+.stab.done   .snum { background: var(--green-dim); color: var(--green); }
+.mode-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem; padding: 1px 5px;
+  border: 1px solid; letter-spacing: 0.06em;
+}
+.mode-seq  { color: var(--cyan);   border-color: rgba(103,232,249,0.3); background: rgba(103,232,249,0.05); }
+.mode-diag { color: var(--purple); border-color: rgba(192,132,252,0.3); background: rgba(192,132,252,0.05); }
+
+.header-right {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center;
+}
+.hbtn {
+  padding: 5px 14px;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-amber { border-color: var(--amber); color: var(--amber); background: var(--amber-soft); }
+.hbtn-amber:hover { background: var(--amber-glow); }
+.hbtn-green { border-color: var(--green); color: var(--green); background: rgba(74,222,128,0.06); }
+.hbtn-green:hover { background: rgba(74,222,128,0.14); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover { color: var(--text); }
+
+/* ══ WORKSPACE ══ */
+.workspace {
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  height: calc(100vh - 54px);
+  position: relative; z-index: 1;
+}
+
+/* ══ LEFT PANEL ══ */
+.side-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.side-panel.right-panel {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+.sp-section {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sp-section.grow { flex: 1; overflow-y: auto; }
+.sp-section.grow::-webkit-scrollbar { width: 4px; }
+.sp-section.grow::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.sp-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 7px;
+}
+.sp-label::before { content:''; display:block; width:3px; height:11px; background: var(--amber); }
+.sp-label.green::before  { background: var(--green); }
+.sp-label.cyan::before   { background: var(--cyan); }
+.sp-label.purple::before { background: var(--purple); }
+.sp-label.red::before    { background: var(--red); }
+
+/* Brief */
+.brief-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.92rem; font-weight: 800;
+  color: var(--text); margin-bottom: 5px; line-height: 1.25;
+}
+.diff-pill {
+  display: inline-block; padding: 2px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.54rem; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.diff-easy   { color: var(--green);  border: 1px solid rgba(74,222,128,0.25);   background: rgba(74,222,128,0.06); }
+.diff-medium { color: var(--amber);  border: 1px solid rgba(245,158,11,0.25);   background: rgba(245,158,11,0.06); }
+.diff-hard   { color: var(--red);    border: 1px solid rgba(248,113,113,0.25);  background: rgba(248,113,113,0.06); }
+
+.brief-body {
+  font-size: 0.7rem; line-height: 1.75; color: var(--text-dim);
+}
+.brief-body strong { color: var(--text); }
+
+/* NIST phase reference */
+.phase-ref-list { display: flex; flex-direction: column; gap: 4px; }
+.phase-ref-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.phase-ref-item:hover { border-color: var(--border2); }
+.phase-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.phase-ref-num {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--text-muted);
+  width: 16px; flex-shrink: 0;
+}
+.phase-ref-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.68rem; font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+.phase-ref-desc {
+  font-size: 0.59rem; color: var(--text-dim);
+  margin-top: 1px; line-height: 1.4;
+}
+
+/* Common mistakes */
+.mistake-list { display: flex; flex-direction: column; gap: 5px; }
+.mistake-item {
+  padding: 7px 9px;
+  background: var(--card);
+  border: 1px solid rgba(248,113,113,0.2);
+  background: rgba(248,113,113,0.04);
+  font-size: 0.64rem; color: var(--text-dim);
+  line-height: 1.5;
+  display: flex; gap: 7px; align-items: flex-start;
+}
+.mistake-icon { flex-shrink: 0; font-size: 12px; }
+.mistake-bold { color: var(--red); font-weight: 600; }
+
+/* Score */
+.score-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 15px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-big {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.8rem; font-weight: 800;
+  line-height: 1; color: var(--amber);
+}
+.score-meta { flex: 1; }
+.score-lbl { font-size: 0.54rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
+.score-bar { height: 2px; background: var(--border); margin-top: 6px; }
+.score-fill { height: 100%; background: var(--amber); transition: width 0.4s ease; }
+
+/* ══ CENTER ══ */
+.center-panel {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.center-header {
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 14px;
+  flex-shrink: 0;
+}
+.center-mode-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.center-instruction {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; color: var(--text-muted);
+  flex: 1;
+}
+
+/* ══ SEQUENCE MODE ══ */
+.seq-area {
+  flex: 1; overflow-y: auto; padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.seq-area::-webkit-scrollbar { width: 5px; }
+.seq-area::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* Drop zones */
+.drop-zone {
+  height: 52px;
+  border: 1px dashed var(--border2);
+  background: rgba(255,255,255,0.01);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; color: var(--text-muted);
+  transition: border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.drop-zone.drag-over {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+/* Phase tile (draggable in pool and placed) */
+.phase-tile {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  position: relative;
+  flex-shrink: 0;
+}
+.phase-tile:hover { border-color: var(--border2); background: var(--card-hi); }
+.phase-tile.dragging { opacity: 0.3; cursor: grabbing; }
+.phase-tile.placed-correct { border-color: rgba(74,222,128,0.5); background: rgba(74,222,128,0.04); }
+.phase-tile.placed-wrong   { border-color: rgba(248,113,113,0.45); background: rgba(248,113,113,0.04); }
+.phase-tile.drag-over-tile { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+
+.tile-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem; font-weight: 800;
+  color: var(--text-muted);
+  width: 24px; flex-shrink: 0; text-align: center;
+  transition: color 0.2s;
+}
+.phase-tile.placed-correct .tile-num { color: var(--green); }
+.phase-tile.placed-wrong   .tile-num { color: var(--red); }
+
+.tile-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.tile-body { flex: 1; }
+.tile-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.8rem; font-weight: 700;
+  color: var(--text); line-height: 1;
+}
+.tile-sub {
+  font-size: 0.62rem; color: var(--text-dim);
+  margin-top: 3px; line-height: 1.4;
+}
+.tile-result {
+  font-size: 14px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.phase-tile.placed-correct .tile-result,
+.phase-tile.placed-wrong   .tile-result { opacity: 1; }
+
+/* Connector arrow between tiles */
+.tile-connector {
+  display: flex; align-items: center; justify-content: center;
+  height: 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Phase pool (source of draggable tiles) */
+.phase-pool-wrap {
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.pool-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--text-muted);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.phase-pool {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.pool-chip {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 11px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  transition: all 0.12s;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.7rem; font-weight: 700;
+  color: var(--text);
+}
+.pool-chip:hover { border-color: var(--border2); background: var(--card-hi); }
+.pool-chip.dragging { opacity: 0.3; }
+.pool-chip.used { opacity: 0.2; pointer-events: none; }
+.pool-chip .chip-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ══ DIAGNOSIS MODE ══ */
+.diag-area {
+  flex: 1; overflow-y: auto; padding: 16px 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.diag-area::-webkit-scrollbar { width: 5px; }
+.diag-area::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* Timeline of events */
+.timeline {
+  position: relative;
+  padding-left: 28px;
+}
+.timeline::before {
+  content: '';
+  position: absolute; left: 10px; top: 8px; bottom: 8px;
+  width: 1px; background: var(--border2);
+}
+
+.tl-event {
+  position: relative;
+  margin-bottom: 8px;
+}
+.tl-event::before {
+  content: '';
+  position: absolute;
+  left: -22px; top: 14px;
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: var(--bg);
+  transition: border-color 0.2s, background 0.2s;
+}
+.tl-event.selected-correct::before { border-color: var(--red); background: var(--red); }
+.tl-event.selected-wrong::before   { border-color: var(--border2); background: var(--border2); }
+
+.tl-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 10px 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.tl-card:hover { border-color: var(--border2); background: var(--card-hi); }
+.tl-card.selected { border-color: var(--amber); background: var(--amber-soft); }
+.tl-card.revealed-correct { border-color: rgba(248,113,113,0.6); background: rgba(248,113,113,0.06); }
+.tl-card.revealed-wrong   { border-color: rgba(74,222,128,0.4);  background: rgba(74,222,128,0.03); }
+
+.tl-phase-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem; color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.tl-phase-tag .tag-dot { width: 6px; height: 6px; border-radius: 50%; }
+.tl-time {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem; color: var(--text-muted);
+  float: right;
+}
+.tl-action {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.78rem; font-weight: 700;
+  color: var(--text); margin-bottom: 3px;
+}
+.tl-detail {
+  font-size: 0.65rem; color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.tl-error-flag {
+  display: none;
+  margin-top: 6px;
+  padding: 5px 8px;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.3);
+  font-size: 0.62rem; color: var(--red);
+  line-height: 1.5;
+}
+.tl-card.revealed-correct .tl-error-flag { display: block; }
+
+/* Diagnosis question */
+.diag-question {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  flex-shrink: 0;
+}
+.dq-prompt {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.8rem; font-weight: 700;
+  color: var(--amber); margin-bottom: 8px;
+}
+.dq-sub {
+  font-size: 0.66rem; color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* Answer choices for diagnosis */
+.answer-choices {
+  display: flex; flex-direction: column; gap: 5px;
+  flex-shrink: 0;
+}
+.choice-btn {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 13px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.7rem; color: var(--text-dim);
+  text-align: left;
+  transition: all 0.12s;
+  line-height: 1.4;
+}
+.choice-btn:hover:not(:disabled) { border-color: var(--amber); color: var(--text); background: var(--amber-soft); }
+.choice-btn.selected { border-color: var(--amber); color: var(--text); background: var(--amber-soft); }
+.choice-btn.revealed-correct { border-color: rgba(248,113,113,0.6); color: var(--red); background: rgba(248,113,113,0.06); }
+.choice-btn.revealed-wrong   { border-color: rgba(74,222,128,0.4);  color: var(--green); background: rgba(74,222,128,0.04); }
+.choice-btn:disabled { cursor: default; }
+.choice-letter {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  width: 20px; height: 20px;
+  background: var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+.choice-btn.selected .choice-letter { background: var(--amber-dim); color: var(--amber); }
+.choice-btn.revealed-correct .choice-letter { background: rgba(248,113,113,0.2); color: var(--red); }
+.choice-btn.revealed-wrong .choice-letter   { background: rgba(74,222,128,0.1); color: var(--green); }
+
+/* ══ NIST REFERENCE (right panel) ══ */
+.nist-flow {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.nist-step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 0.64rem;
+}
+.nist-num {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  width: 16px; color: var(--text-muted);
+  text-align: center; flex-shrink: 0;
+}
+.nist-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.nist-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.68rem; font-weight: 700;
+  color: var(--text); flex: 1;
+}
+.nist-arrow {
+  text-align: center; color: var(--text-muted);
+  font-size: 10px; padding: 1px 0;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.trap-card {
+  background: rgba(248,113,113,0.04);
+  border: 1px solid rgba(248,113,113,0.2);
+  padding: 9px 11px;
+}
+.trap-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.62rem; font-weight: 700;
+  color: var(--red); letter-spacing: 0.08em;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.trap-item {
+  font-size: 0.63rem; color: var(--text-dim);
+  line-height: 1.6; margin-bottom: 4px;
+  padding-left: 10px; position: relative;
+}
+.trap-item::before { content:'→'; position:absolute; left:0; color: var(--red); }
+.trap-item strong { color: var(--text); }
+
+/* ══ MODAL ══ */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 26px 30px;
+  max-width: 540px; width: 92%;
+  position: relative;
+  transform: translateY(8px); transition: transform 0.2s;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-close {
+  position: absolute; top: 10px; right: 13px;
+  background: none; border: none;
+  color: var(--text-dim); cursor: pointer; font-size: 1rem;
+}
+.modal-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.2rem; font-weight: 800;
+  letter-spacing: 0.04em; margin-bottom: 14px;
+}
+.modal-title.win  { color: var(--green); }
+.modal-title.info { color: var(--cyan); }
+.modal-title.warn { color: var(--amber); }
+.modal-title.fail { color: var(--red); }
+.modal-body {
+  font-size: 0.74rem; color: var(--text-dim);
+  line-height: 1.8; margin-bottom: 20px;
+}
+.modal-body strong { color: var(--text); }
+.modal-body code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.66rem; color: var(--amber);
+  background: var(--card); padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+.modal-explain-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 7px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.me-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem; font-weight: 800;
+  color: var(--amber); min-width: 22px; line-height: 1;
+}
+.me-name { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--text); font-size: 0.72rem; }
+.me-why  { font-size: 0.64rem; color: var(--text-dim); margin-top: 2px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Animations */
+@keyframes tileIn {
+  from { opacity:0; transform:translateX(-6px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+.phase-tile, .tl-event { animation: tileIn 0.25s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">⚡</div>
+    <div class="logo-text-wrap">
+      <div class="logo-title">IR Command</div>
+      <span class="logo-sub">Incident Response Phase Lab</span>
+    </div>
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-right">
+    <button class="hbtn hbtn-gray" onclick="resetScenario()">↺ Reset</button>
+    <button class="hbtn hbtn-amber" onclick="showHintModal()">💡 Hint</button>
+    <button class="hbtn hbtn-green" id="submitBtn" onclick="handleSubmit()">✓ Submit</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT PANEL -->
+  <div class="side-panel" id="leftPanel">
+    <div class="sp-section" id="briefSection"></div>
+    <div class="sp-section grow" id="leftBottom"></div>
+    <div class="score-row">
+      <div class="score-big" id="scoreNum">—</div>
+      <div class="score-meta">
+        <div class="score-lbl">Score</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center-panel" id="centerPanel">
+    <div class="center-header">
+      <div class="center-mode-label" id="centerModeLabel">Sequence Mode</div>
+      <div class="center-instruction" id="centerInstruction">Drag phases into the correct NIST IR order</div>
+    </div>
+    <!-- content injected -->
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="side-panel right-panel">
+    <div class="sp-section">
+      <div class="sp-label cyan">NIST IR Framework</div>
+      <div class="nist-flow" id="nistFlow"></div>
+    </div>
+    <div class="sp-section grow">
+      <div class="sp-label red">Common Exam Traps</div>
+      <div class="trap-card">
+        <div class="trap-title">⚠ Frequently Missed</div>
+        <div class="trap-item"><strong>Skipping Eradication:</strong> Going Containment → Recovery without removing the root cause means reinfection is almost guaranteed.</div>
+        <div class="trap-item"><strong>Skipping Lessons Learned:</strong> Recovery is not the last step. Post-incident review is required by NIST.</div>
+        <div class="trap-item"><strong>Detection ≠ Analysis:</strong> These are two separate phases. Detection identifies an event; Analysis determines scope, type, and impact.</div>
+        <div class="trap-item"><strong>Preparation is Phase 1:</strong> Not "Detection" — preparation includes building runbooks, training, and tooling <em>before</em> an incident.</div>
+        <div class="trap-item"><strong>Containment has two stages:</strong> Short-term (stop the bleeding) and long-term (stable temporary fix) both fall under Containment.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// PHASE DEFINITIONS
+// ════════════════════════════════════════════════════════════════════════
+const PHASES = [
+  { id:"prep",     num:1, name:"Preparation",       color:"var(--phase-prep)",    sub:"Build capabilities before incidents occur" },
+  { id:"detect",   num:2, name:"Detection",          color:"var(--phase-detect)",  sub:"Identify potential security events" },
+  { id:"analyze",  num:3, name:"Analysis",           color:"var(--phase-analyze)", sub:"Determine scope, type, and severity" },
+  { id:"contain",  num:4, name:"Containment",        color:"var(--phase-contain)", sub:"Limit damage — short-term and long-term" },
+  { id:"erad",     num:5, name:"Eradication",        color:"var(--phase-erad)",    sub:"Remove root cause and threat artifacts" },
+  { id:"recover",  num:6, name:"Recovery",           color:"var(--phase-recover)", sub:"Restore systems to normal operation" },
+  { id:"lessons",  num:7, name:"Lessons Learned",   color:"var(--phase-lessons)", sub:"Post-incident review and improvement" },
+];
+
+const PHASE_MAP = Object.fromEntries(PHASES.map(p => [p.id, p]));
+const CORRECT_ORDER = PHASES.map(p => p.id);
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIOS
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+
+  // ── SCENARIO 1: Pure Sequence (easy) ─────────────────────────────────
+  {
+    id: 0,
+    mode: "sequence",
+    title: "Order the IR Phases",
+    difficulty: "easy",
+    desc: "Arrange the seven NIST SP 800-61 incident response phases in the correct order from first to last. <strong>Drag the phase chips from the pool into the numbered slots.</strong>",
+    hint: "NIST IR order: Preparation → Detection → Analysis → Containment → Eradication → Recovery → Lessons Learned. Note that Detection and Analysis are separate phases — not one combined step.",
+    leftContent: "phases",
+    startPool: [...PHASES].sort(() => Math.random() - 0.5).map(p => p.id),
+    correctOrder: [...CORRECT_ORDER],
+  },
+
+  // ── SCENARIO 2: Partial Sequence — 4 phases scrambled (medium) ───────
+  {
+    id: 1,
+    mode: "sequence",
+    title: "Mid-Incident Phase Order",
+    difficulty: "medium",
+    desc: "An analyst correctly completed <strong>Preparation</strong> and <strong>Detection</strong>. Now they need to sequence the remaining five phases. <strong>Drag all five into the correct order.</strong> Watch for the Containment → Eradication → Recovery trap.",
+    hint: "After Detection: Analysis → Containment → Eradication → Recovery → Lessons Learned. Students who skip Eradication and go straight from Containment to Recovery will get reinfected — the threat artifacts are still present.",
+    leftContent: "phases",
+    prefilled: ["prep","detect"],
+    startPool: ["analyze","contain","erad","recover","lessons"].sort(() => Math.random() - 0.5),
+    correctOrder: CORRECT_ORDER,
+  },
+
+  // ── SCENARIO 3: Diagnosis — Skipped Eradication (medium) ─────────────
+  {
+    id: 2,
+    mode: "diagnosis",
+    title: "What Went Wrong? — Ransomware Response",
+    difficulty: "medium",
+    desc: "Review the timeline of actions taken during a ransomware incident at Meridian Financial. <strong>Identify which step represents the critical IR mistake.</strong>",
+    hint: "Look at what happened between Containment and Recovery. The team jumped straight to restoring from backup without removing the ransomware binaries, persistence mechanisms, or the initial access vector. Three days later — reinfection.",
+    events: [
+      { phase:"prep",    time:"Prior to incident", action:"IR Runbook Established",     detail:"Meridian's IR team maintains documented runbooks, contact trees, and backup validation procedures.",                badStep: false },
+      { phase:"detect",  time:"Day 1  08:14",      action:"EDR Alert — Suspicious Encryption Activity", detail:"CrowdStrike Falcon triggered on bulk file rename events matching ransomware behavior on three workstations.", badStep: false },
+      { phase:"analyze", time:"Day 1  08:31",      action:"Scope Analysis Conducted",   detail:"IR lead confirmed REvil variant. Identified patient-zero workstation, mapped lateral movement to two additional hosts, confirmed no DC compromise.", badStep: false },
+      { phase:"contain", time:"Day 1  09:05",      action:"Network Isolation Executed", detail:"Affected segments isolated via VLAN ACL. VPN access disabled. Infected hosts quarantined. C2 domains blocked at perimeter.", badStep: false },
+      { phase:"recover", time:"Day 1  14:00",      action:"Systems Restored from Backup", detail:"IT team immediately restored all affected systems from last-known-good backups and returned to production. No forensic image taken of infected hosts.", badStep: true, errorNote:"ERADICATION SKIPPED — Ransomware binaries, scheduled tasks, and the initial access vector (phishing macro) were never removed. The persistence mechanism was still present in the restored environment. Reinfection occurred 72 hours later." },
+      { phase:"lessons", time:"Day 5  10:00",      action:"Post-Incident Review",       detail:"Lessons learned review conducted. Team identified backup gap. Did NOT identify the skipped eradication step as the cause of reinfection.", badStep: false },
+    ],
+    question: "Which action in this timeline represents the critical incident response failure?",
+    choices: [
+      { id:"A", text:"The EDR alert on Day 1 at 08:14 — the detection was too slow and should have fired earlier." },
+      { id:"B", text:"The scope analysis did not identify the ransomware variant quickly enough." },
+      { id:"C", text:"Systems were restored from backup on Day 1 without performing Eradication first — ransomware artifacts and persistence mechanisms were not removed." },
+      { id:"D", text:"Network isolation should have happened before Analysis was complete." },
+    ],
+    correctChoice: "C",
+    explanation: "The team jumped from Containment directly to Recovery, skipping Eradication entirely. Restoring from backup does not remove malware binaries, scheduled tasks, or the initial access vector. The phishing macro dropper was still present on a network share, causing immediate reinfection when systems came back online. Eradication must happen before Recovery: verify systems clean, remove persistence, patch the entry point.",
+  },
+
+  // ── SCENARIO 4: Diagnosis — Skipped Lessons Learned (medium) ─────────
+  {
+    id: 3,
+    mode: "diagnosis",
+    title: "What Went Wrong? — Data Breach Response",
+    difficulty: "medium",
+    desc: "Review how Apex Corp handled a credential-stuffing attack that exposed 14,000 customer records. <strong>Identify the phase that was skipped or improperly handled.</strong>",
+    hint: "The technical steps look correct at first glance. But look at what happened after Recovery — or rather, what didn't happen. Six months later the same attack vector succeeded again because no post-incident review updated the controls.",
+    events: [
+      { phase:"prep",    time:"Baseline",          action:"MFA Policy Exists (Partial)", detail:"MFA enforced on admin accounts. Customer-facing portal requires only password. IR plan last reviewed 18 months ago.", badStep: false },
+      { phase:"detect",  time:"Day 0  23:41",      action:"SIEM Alert — Credential Stuffing Pattern", detail:"Splunk correlation rule fired on >500 failed logins from 14 different IPs over 6 minutes. SOC analyst acknowledged alert.", badStep: false },
+      { phase:"analyze", time:"Day 1  00:15",      action:"Confirmed Breach of 14,000 Accounts", detail:"IR team confirmed successful logins from threat actor IPs. 14,000 accounts accessed. PII exported via API. Source was leaked credential list from prior breach at a third party.", badStep: false },
+      { phase:"contain", time:"Day 1  01:00",      action:"Accounts Locked, IPs Blocked",    detail:"All 14,000 affected accounts force-locked. Attacker IPs blocked at WAF. Rate limiting applied to login endpoint.", badStep: false },
+      { phase:"erad",    time:"Day 1  06:00",      action:"Malicious Sessions Terminated, Tokens Revoked", detail:"All active sessions for affected accounts invalidated. OAuth tokens rotated. API keys reset.", badStep: false },
+      { phase:"recover", time:"Day 2  09:00",      action:"Accounts Restored, Customers Notified", detail:"Accounts unlocked with forced password reset and MFA enrollment required. Breach notification sent per state law.", badStep: false },
+      { phase:"lessons", time:"(None conducted)",  action:"No Post-Incident Review Held",    detail:"Management declared the incident closed after customer notification. No formal PIR was scheduled. No review of controls, no policy updates, no tabletop exercise follow-up. IR plan not updated.", badStep: true, errorNote:"LESSONS LEARNED SKIPPED — Without a post-incident review, the team never identified that MFA should be enforced on all customer accounts (not just admins), that the IR plan was 18 months stale, or that the rate-limiting applied was insufficient. Six months later, the same attack vector succeeded again." },
+    ],
+    question: "Which phase of the NIST IR lifecycle was improperly executed or skipped in this response?",
+    choices: [
+      { id:"A", text:"Detection — the SIEM alert fired too late; the breach had already occurred before it triggered." },
+      { id:"B", text:"Containment — locking accounts and blocking IPs was insufficient; full network isolation should have been performed." },
+      { id:"C", text:"Eradication — revoking tokens and sessions does not fully eradicate the threat from credential stuffing attacks." },
+      { id:"D", text:"Lessons Learned — no post-incident review was conducted, so control gaps (MFA enforcement, rate limiting, stale IR plan) were never identified or corrected." },
+    ],
+    correctChoice: "D",
+    explanation: "The Lessons Learned phase was completely skipped. NIST SP 800-61 requires a post-incident review to document what happened, what worked, what failed, and what needs to change. Without it, the team never identified that customer-facing MFA should be mandatory, that their rate limiting was inadequate, or that their IR plan was 18 months out of date. The same credential-stuffing attack succeeded again six months later through the identical vector.",
+  },
+
+  // ── SCENARIO 5: Diagnosis — Detection vs Analysis confusion (hard) ────
+  {
+    id: 4,
+    mode: "diagnosis",
+    title: "Phase Misidentification — Insider Threat",
+    difficulty: "hard",
+    desc: "A SOC analyst filed this incident timeline. <strong>Identify which labeled phase is incorrect</strong> — the analyst mislabeled one of the actions, assigning it to the wrong NIST phase. This is a phase identification question, not a mistake in the response itself.",
+    hint: "Look carefully at what was labeled 'Detection' versus 'Analysis'. Detection means an event was identified as a potential incident. Analysis means determining its scope, nature, and impact. One of these entries has its label wrong — the action described belongs to the other phase.",
+    events: [
+      { phase:"prep",    time:"Ongoing",            action:"[Preparation] DLP & UEBA Configured",         detail:"Data Loss Prevention and User Entity Behavior Analytics tools deployed. Insider threat runbook published.", badStep: false },
+      { phase:"detect",  time:"Day 0  14:22",       action:"[Detection] UEBA Anomaly Score Exceeded Threshold", detail:"UEBA platform flagged user jsmith with anomaly score of 94/100 due to after-hours access pattern and large file transfers to personal cloud storage.", badStep: false },
+      { phase:"detect",  time:"Day 0  15:10",       action:"[Detection] Analyst Determines Data Exfiltration Scope", detail:"SOC analyst reviewed UEBA alert, correlated with DLP logs, identified 4.2 GB of IP transferred to personal Dropbox over 3 days, confirmed active exfiltration, mapped all affected data categories.", badStep: true, errorNote:"MISLABELED — This action (determining scope, correlating logs, confirming the exfiltration, mapping affected data) is Analysis, not Detection. Detection is the trigger event (the UEBA alert). Analysis is the investigative work that follows to understand scope and severity. This entry should be labeled [Analysis]." },
+      { phase:"contain", time:"Day 0  16:30",       action:"[Containment] Account Suspended, Endpoint Quarantined", detail:"jsmith's AD account disabled, workstation isolated from network, Dropbox OAuth token revoked, manager and HR notified.", badStep: false },
+      { phase:"erad",    time:"Day 1  09:00",       action:"[Eradication] Data Recovery Initiated from Dropbox", detail:"Legal hold placed on Dropbox account. Law enforcement liaison initiated. Copies of exfiltrated data recovery requested via legal process.", badStep: false },
+      { phase:"recover", time:"Day 1  14:00",       action:"[Recovery] Normal Operations Restored",       detail:"Verified no other accounts compromised. Network monitoring enhanced. Business operations confirmed unaffected.", badStep: false },
+      { phase:"lessons", time:"Day 14  10:00",      action:"[Lessons Learned] PIR Conducted",             detail:"Post-incident review completed. Updated DLP policy, enhanced UEBA thresholds, added quarterly insider threat tabletop exercises.", badStep: false },
+    ],
+    question: "Which timeline entry has been assigned to the wrong NIST IR phase by the analyst?",
+    choices: [
+      { id:"A", text:'The first "Detection" entry — the UEBA anomaly alert. This should be labeled Preparation since the tool was pre-configured.' },
+      { id:"B", text:'The second "Detection" entry — correlating logs, determining exfiltration scope, and mapping affected data is Analysis work, not Detection.' },
+      { id:"C", text:'The "Eradication" entry — initiating data recovery from Dropbox is a Recovery action, not Eradication.' },
+      { id:"D", text:'The "Containment" entry — disabling the account and quarantining the endpoint is actually an Eradication step.' },
+    ],
+    correctChoice: "B",
+    explanation: "The second entry labeled '[Detection]' is actually Analysis. Detection is the moment an event is identified as a potential incident — in this case, the UEBA threshold trigger. Analysis is the subsequent investigative work: reviewing logs, correlating events, determining scope, confirming the incident type, and mapping affected data. The analyst mislabeled the investigative correlation work as 'Detection' when it clearly belongs in 'Analysis'. This Detection vs. Analysis confusion is one of the most commonly tested distinctions on the Security+ exam.",
+  },
+
+  // ── SCENARIO 6: Full Scramble with Context (hard) ─────────────────────
+  {
+    id: 5,
+    mode: "sequence",
+    title: "Reorder the Broken IR Response",
+    difficulty: "hard",
+    desc: "The actions below represent a real ransomware IR response — but they have been <strong>recorded in the wrong order</strong>. Drag them into the correct NIST phase sequence. Note that some phases are combined with a realistic action description, not just the phase name.",
+    hint: "Map each action to its NIST phase, then order the phases. 'Restore from verified clean backup' = Recovery. 'Remove malware binaries and scheduled tasks' = Eradication. 'Document IOCs and update SIEM rules' = Lessons Learned. 'Block C2 and isolate hosts' = Containment.",
+    leftContent: "actions",
+    startPool: [
+      { id:"erad",    label:"Remove malware binaries, scheduled tasks, and persistence keys from all affected hosts" },
+      { id:"detect",  label:"IDS alert fires on lateral movement — SOC analyst opens incident ticket" },
+      { id:"recover", label:"Restore systems from verified clean backups, re-enable network access in stages" },
+      { id:"lessons", label:"Conduct PIR, document IOCs, update detection rules and IR runbook" },
+      { id:"prep",    label:"Test backup restoration procedures and validate EDR coverage across all endpoints" },
+      { id:"contain", label:"Block C2 IPs at perimeter, isolate affected VLAN, disable compromised service accounts" },
+      { id:"analyze", label:"Confirm ransomware family, map blast radius, identify patient-zero via Splunk correlation" },
+    ].sort(() => Math.random() - 0.5),
+    correctOrder: [...CORRECT_ORDER],
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentIdx = 0;
+let completedScenarios = new Set();
+
+// Sequence mode state
+let seqSlots = [];      // array of phase ids (null = empty)
+let seqPool = [];       // phase ids still in pool
+let dragPhaseId = null;
+let dragFromSlot = null; // slot index or 'pool'
+
+// Diagnosis mode state
+let selectedTimelineEvent = null;
+let selectedChoice = null;
+let diagRevealed = false;
+
+// ════════════════════════════════════════════════════════════════════════
+// NIST REFERENCE SIDEBAR
+// ════════════════════════════════════════════════════════════════════════
+function buildNistFlow() {
+  const c = document.getElementById('nistFlow');
+  c.innerHTML = '';
+  PHASES.forEach((p, i) => {
+    const step = document.createElement('div');
+    step.className = 'nist-step';
+    step.innerHTML = `
+      <div class="nist-num">${p.num}</div>
+      <div class="nist-dot" style="background:${p.color};"></div>
+      <div class="nist-name">${p.name}</div>`;
+    c.appendChild(step);
+    if (i < PHASES.length - 1) {
+      const arrow = document.createElement('div');
+      arrow.className = 'nist-arrow'; arrow.textContent = '↓';
+      c.appendChild(arrow);
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO LOADER
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentIdx = idx;
+  const s = SCENARIOS[idx];
+
+  // Reset state
+  seqSlots = []; seqPool = [];
+  selectedTimelineEvent = null; selectedChoice = null; diagRevealed = false;
+  document.getElementById('scoreNum').textContent = '—';
+  document.getElementById('scoreFill').style.width = '0%';
+  document.getElementById('scoreFill').style.background = 'var(--amber)';
+
+  // Brief
+  const diffCls = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+  const modeBadge = s.mode === 'sequence'
+    ? '<span class="mode-badge mode-seq">SEQUENCE</span>'
+    : '<span class="mode-badge mode-diag">DIAGNOSIS</span>';
+  document.getElementById('briefSection').innerHTML = `
+    <div class="sp-label">Scenario Brief</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffCls}">${s.difficulty}</span> ${modeBadge}
+    <div class="brief-body" style="margin-top:8px;">${s.desc}</div>`;
+
+  // Left bottom content
+  const lb = document.getElementById('leftBottom');
+  if (s.mode === 'sequence') {
+    lb.innerHTML = `
+      <div class="sp-label green">Phase Reference</div>
+      <div class="phase-ref-list">${PHASES.map(p=>`
+        <div class="phase-ref-item">
+          <div class="phase-dot" style="background:${p.color};"></div>
+          <div class="phase-ref-num">${p.num}</div>
+          <div>
+            <div class="phase-ref-name">${p.name}</div>
+            <div class="phase-ref-desc">${p.sub}</div>
+          </div>
+        </div>`).join('')}
+      </div>`;
+  } else {
+    lb.innerHTML = `
+      <div class="sp-label purple">Diagnosis Guide</div>
+      <div class="mistake-list">
+        <div class="mistake-item"><span class="mistake-icon">🔍</span><div>Read each timeline entry carefully and match the <span class="mistake-bold">labeled phase</span> against the NIST definition.</div></div>
+        <div class="mistake-item"><span class="mistake-icon">⚠</span><div>Look for <span class="mistake-bold">actions in wrong phase order</span>, <span class="mistake-bold">skipped phases</span>, or <span class="mistake-bold">mislabeled actions</span>.</div></div>
+        <div class="mistake-item"><span class="mistake-icon">📋</span><div>Click a timeline card to flag it, then select your answer from the choices below.</div></div>
+      </div>`;
+  }
+
+  // Center
+  document.getElementById('centerModeLabel').textContent =
+    s.mode === 'sequence' ? 'Sequence Mode' : 'Diagnosis Mode';
+  document.getElementById('centerInstruction').textContent =
+    s.mode === 'sequence'
+      ? 'Drag phase chips from the pool into the numbered slots in the correct order'
+      : 'Click the timeline entry containing the IR mistake, then select your answer';
+  document.getElementById('submitBtn').textContent =
+    s.mode === 'sequence' ? '✓ Submit Order' : '✓ Submit Answer';
+
+  if (s.mode === 'sequence') buildSequenceUI(s);
+  else buildDiagnosisUI(s);
+
+  updateTabStates();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SEQUENCE MODE
+// ════════════════════════════════════════════════════════════════════════
+function buildSequenceUI(s) {
+  const cp = document.getElementById('centerPanel');
+  // Remove old seq/diag area and pool if present
+  ['seqArea','diagArea','phasePoolWrap'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+
+  const slotCount = s.correctOrder.length;
+  const prefilled = s.prefilled || [];
+
+  // Initialize slot state
+  seqSlots = s.correctOrder.map((id, i) => prefilled.includes(id) ? id : null);
+  seqPool = [...(s.startPool || [])];
+
+  // Build seq area
+  const area = document.createElement('div');
+  area.className = 'seq-area'; area.id = 'seqArea';
+  cp.appendChild(area);
+
+  renderSeqSlots(s, area);
+
+  // Pool
+  const poolWrap = document.createElement('div');
+  poolWrap.className = 'phase-pool-wrap'; poolWrap.id = 'phasePoolWrap';
+  poolWrap.innerHTML = `<div class="pool-label">Phase Pool — Drag into slots above</div><div class="phase-pool" id="phasePool"></div>`;
+  cp.appendChild(poolWrap);
+
+  renderPool(s);
+}
+
+function renderSeqSlots(s, area) {
+  if (!area) area = document.getElementById('seqArea');
+  area.innerHTML = '';
+  const prefilled = s.prefilled || [];
+
+  s.correctOrder.forEach((correctId, i) => {
+    const slotVal = seqSlots[i];
+    const isPrefilled = prefilled.includes(correctId);
+
+    // Connector above slot (except first)
+    if (i > 0) {
+      const conn = document.createElement('div');
+      conn.className = 'tile-connector'; conn.textContent = '↓';
+      area.appendChild(conn);
+    }
+
+    if (slotVal && slotVal !== '__empty__') {
+      // Filled tile
+      const phase = PHASE_MAP[slotVal];
+      const tile = document.createElement('div');
+      tile.className = `phase-tile${isPrefilled ? ' prefilled' : ''}`;
+      tile.dataset.slotIndex = i;
+      tile.style.animationDelay = `${i * 0.05}s`;
+      if (!isPrefilled) {
+        tile.draggable = true;
+        tile.addEventListener('dragstart', e => { dragPhaseId = slotVal; dragFromSlot = i; tile.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+        tile.addEventListener('dragend', () => { tile.classList.remove('dragging'); clearDragOver(); });
+        tile.addEventListener('dragover', e => { e.preventDefault(); if(dragPhaseId !== slotVal){ tile.classList.add('drag-over-tile'); } });
+        tile.addEventListener('dragleave', () => tile.classList.remove('drag-over-tile'));
+        tile.addEventListener('drop', e => { e.preventDefault(); tile.classList.remove('drag-over-tile'); handleDropOnSlot(i); });
+      }
+      tile.innerHTML = `
+        <div class="tile-num">${i + 1}</div>
+        <div class="tile-dot" style="background:${phase.color};"></div>
+        <div class="tile-body">
+          <div class="tile-name">${phase.name}</div>
+          <div class="tile-sub">${s.mode === 'sequence' && s.startPool && s.startPool[0] && typeof s.startPool[0] === 'object'
+            ? (s.startPool.find ? (SCENARIOS[currentIdx].startPool.find(x => x.id === slotVal)||{}).label||phase.sub : phase.sub)
+            : phase.sub}</div>
+        </div>
+        <div class="tile-result"></div>`;
+      // For action-based scenario
+      if (SCENARIOS[currentIdx].startPool && SCENARIOS[currentIdx].startPool[0] && typeof SCENARIOS[currentIdx].startPool[0] === 'object') {
+        const actionItem = SCENARIOS[currentIdx].startPool.find(x => x.id === slotVal);
+        if (actionItem) tile.querySelector('.tile-sub').textContent = actionItem.label;
+      }
+      area.appendChild(tile);
+    } else {
+      // Empty drop zone
+      const dz = document.createElement('div');
+      dz.className = 'drop-zone'; dz.dataset.slotIndex = i;
+      dz.textContent = `Drop phase ${i + 1} here`;
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+      dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleDropOnSlot(i); });
+      area.appendChild(dz);
+    }
+  });
+}
+
+function renderPool(s) {
+  const pool = document.getElementById('phasePool');
+  if (!pool) return;
+  pool.innerHTML = '';
+  seqPool.forEach(id => {
+    const phase = PHASE_MAP[id];
+    if (!phase) return;
+    const chip = document.createElement('div');
+    chip.className = 'pool-chip';
+    chip.dataset.phaseId = id;
+
+    // Label — action scenario vs normal
+    let label = phase.name;
+    if (s.startPool && s.startPool[0] && typeof s.startPool[0] === 'object') {
+      const actionItem = s.startPool.find(x => x.id === id);
+      if (actionItem) label = actionItem.label.substring(0, 45) + (actionItem.label.length > 45 ? '…' : '');
+    }
+    chip.innerHTML = `<div class="chip-dot" style="background:${phase.color};"></div>${label}`;
+    chip.draggable = true;
+    chip.addEventListener('dragstart', e => {
+      dragPhaseId = id; dragFromSlot = 'pool';
+      chip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    pool.appendChild(chip);
+  });
+}
+
+function handleDropOnSlot(targetSlotIndex) {
+  if (!dragPhaseId) return;
+  const s = SCENARIOS[currentIdx];
+  const prefilled = s.prefilled || [];
+
+  // Can't drop on a prefilled slot
+  if (prefilled.includes(s.correctOrder[targetSlotIndex])) return;
+
+  const existingInSlot = seqSlots[targetSlotIndex];
+
+  // Remove from source
+  if (dragFromSlot === 'pool') {
+    seqPool = seqPool.filter(id => id !== dragPhaseId);
+  } else if (dragFromSlot !== null && dragFromSlot !== targetSlotIndex) {
+    seqSlots[dragFromSlot] = null;
+  }
+
+  // If target slot has something, push it back to pool (or back to source slot)
+  if (existingInSlot && existingInSlot !== dragPhaseId) {
+    if (dragFromSlot !== 'pool' && dragFromSlot !== null) {
+      seqSlots[dragFromSlot] = existingInSlot;
+    } else {
+      seqPool.push(existingInSlot);
+    }
+  }
+
+  seqSlots[targetSlotIndex] = dragPhaseId;
+  dragPhaseId = null; dragFromSlot = null;
+
+  const area = document.getElementById('seqArea');
+  renderSeqSlots(s, area);
+  renderPool(s);
+  calcSeqScore();
+}
+
+function clearDragOver() {
+  document.querySelectorAll('.drag-over, .drag-over-tile').forEach(el => el.classList.remove('drag-over','drag-over-tile'));
+}
+
+function calcSeqScore() {
+  const s = SCENARIOS[currentIdx];
+  let correct = 0, total = 0;
+  s.correctOrder.forEach((id, i) => {
+    if (s.prefilled && s.prefilled.includes(id)) return;
+    total++;
+    if (seqSlots[i] === id) correct++;
+  });
+  if (total === 0) return;
+  const pct = Math.round((correct/total)*100);
+  document.getElementById('scoreNum').textContent = `${correct}/${total}`;
+  document.getElementById('scoreFill').style.width = pct + '%';
+  document.getElementById('scoreFill').style.background =
+    pct === 100 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
+}
+
+function submitSequence() {
+  const s = SCENARIOS[currentIdx];
+  // Check all slots filled
+  const unfilled = seqSlots.filter((v,i) => {
+    const isPre = s.prefilled && s.prefilled.includes(s.correctOrder[i]);
+    return !v && !isPre;
+  });
+  if (unfilled.length > 0) {
+    showModal('Incomplete','Please fill all phase slots before submitting.','warn',false);
+    return;
+  }
+
+  calcSeqScore();
+  const area = document.getElementById('seqArea');
+
+  // Annotate tiles
+  s.correctOrder.forEach((correctId, i) => {
+    if (s.prefilled && s.prefilled.includes(correctId)) return;
+    const tile = area.querySelector(`[data-slot-index="${i}"]`);
+    if (!tile) return;
+    tile.classList.remove('placed-correct','placed-wrong');
+    const resultEl = tile.querySelector('.tile-result');
+    if (seqSlots[i] === correctId) {
+      tile.classList.add('placed-correct');
+      if (resultEl) resultEl.textContent = '✓';
+    } else {
+      tile.classList.add('placed-wrong');
+      if (resultEl) resultEl.textContent = '✗';
+    }
+  });
+
+  const correct = seqSlots.filter((id,i) => {
+    if (s.prefilled && s.prefilled.includes(s.correctOrder[i])) return false;
+    return id === s.correctOrder[i];
+  }).length;
+  const total = s.correctOrder.filter((id,i) => !(s.prefilled && s.prefilled.includes(id))).length;
+  const pct = Math.round((correct/total)*100);
+
+  if (pct === 100) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    setTimeout(() => showModal('✓ Correct Order!',
+      buildSeqExplanation(s),
+      'win', currentIdx < SCENARIOS.length - 1), 300);
+  } else {
+    setTimeout(() => showModal(`${correct}/${total} Correct`,
+      `Some phases are out of order. Review the correct NIST sequence:<br><br>` + buildSeqExplanation(s),
+      'warn', false), 200);
+  }
+}
+
+function buildSeqExplanation(s) {
+  let html = '';
+  s.correctOrder.forEach((id, i) => {
+    const p = PHASE_MAP[id];
+    let label = p.name;
+    if (s.startPool && s.startPool[0] && typeof s.startPool[0] === 'object') {
+      const a = s.startPool.find(x => x.id === id);
+      if (a) label = a.label;
+    }
+    html += `<div class="modal-explain-row">
+      <div class="me-num">${i+1}</div>
+      <div><div class="me-name" style="color:${p.color};">${p.name}</div>
+      <div class="me-why">${label !== p.name ? label : p.sub}</div></div>
+    </div>`;
+  });
+  return html;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// DIAGNOSIS MODE
+// ════════════════════════════════════════════════════════════════════════
+function buildDiagnosisUI(s) {
+  const cp = document.getElementById('centerPanel');
+  ['seqArea','diagArea','phasePoolWrap'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.remove();
+  });
+
+  const diagArea = document.createElement('div');
+  diagArea.className = 'diag-area'; diagArea.id = 'diagArea';
+
+  // Question card
+  const qCard = document.createElement('div');
+  qCard.className = 'diag-question';
+  qCard.innerHTML = `<div class="dq-prompt">🔍 ${s.question}</div>
+    <div class="dq-sub">Review the timeline below. Click the entry you believe contains the error to highlight it, then select from the answer choices.</div>`;
+  diagArea.appendChild(qCard);
+
+  // Timeline
+  const tl = document.createElement('div');
+  tl.className = 'timeline';
+  s.events.forEach((ev, i) => {
+    const phase = PHASE_MAP[ev.phase];
+    const evEl = document.createElement('div');
+    evEl.className = 'tl-event'; evEl.dataset.eventIndex = i;
+    evEl.style.animationDelay = `${i * 0.06}s`;
+    const card = document.createElement('div');
+    card.className = 'tl-card'; card.dataset.eventIndex = i;
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div class="tl-phase-tag">
+          <div class="tag-dot" style="background:${phase.color};"></div>
+          ${phase.name.toUpperCase()}
+        </div>
+        <div class="tl-time">${ev.time}</div>
+      </div>
+      <div class="tl-action">${ev.action}</div>
+      <div class="tl-detail">${ev.detail}</div>
+      ${ev.badStep ? `<div class="tl-error-flag">⚠ ${ev.errorNote}</div>` : ''}`;
+    card.addEventListener('click', () => {
+      if (diagRevealed) return;
+      selectedTimelineEvent = i;
+      document.querySelectorAll('.tl-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+    evEl.appendChild(card);
+    tl.appendChild(evEl);
+  });
+  diagArea.appendChild(tl);
+
+  // Answer choices
+  const choicesWrap = document.createElement('div');
+  choicesWrap.className = 'answer-choices'; choicesWrap.id = 'choicesWrap';
+  s.choices.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn'; btn.dataset.choiceId = ch.id;
+    btn.innerHTML = `<div class="choice-letter">${ch.id}</div><div>${ch.text}</div>`;
+    btn.addEventListener('click', () => {
+      if (diagRevealed) return;
+      selectedChoice = ch.id;
+      document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    choicesWrap.appendChild(btn);
+  });
+  diagArea.appendChild(choicesWrap);
+
+  cp.appendChild(diagArea);
+}
+
+function submitDiagnosis() {
+  const s = SCENARIOS[currentIdx];
+  if (selectedChoice === null) {
+    showModal('No Answer Selected', 'Please click an answer choice before submitting.','warn',false);
+    return;
+  }
+  diagRevealed = true;
+
+  const correct = selectedChoice === s.correctChoice;
+
+  // Reveal timeline
+  s.events.forEach((ev, i) => {
+    const card = document.querySelector(`.tl-card[data-event-index="${i}"]`);
+    const evEl = document.querySelector(`.tl-event[data-event-index="${i}"]`);
+    if (!card || !evEl) return;
+    card.classList.remove('selected');
+    if (ev.badStep) {
+      card.classList.add('revealed-correct');
+      evEl.classList.add('selected-correct');
+    }
+  });
+
+  // Reveal choices
+  document.querySelectorAll('.choice-btn').forEach(btn => {
+    btn.disabled = true;
+    btn.classList.remove('selected');
+    const id = btn.dataset.choiceId;
+    if (id === s.correctChoice) btn.classList.add('revealed-correct');
+    else if (id === selectedChoice) btn.classList.add('revealed-wrong');
+  });
+
+  // Score
+  document.getElementById('scoreNum').textContent = correct ? '100%' : '0%';
+  document.getElementById('scoreFill').style.width = correct ? '100%' : '0%';
+  document.getElementById('scoreFill').style.background = correct ? 'var(--green)' : 'var(--red)';
+
+  if (correct) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    setTimeout(() => showModal('✓ Correct Diagnosis!',
+      `<strong>You identified the IR failure correctly.</strong><br><br>${s.explanation}`,
+      'win', currentIdx < SCENARIOS.length - 1), 300);
+  } else {
+    setTimeout(() => showModal('Incorrect',
+      `The correct answer was <strong>${s.correctChoice}</strong>.<br><br>${s.explanation}`,
+      'fail', false), 200);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SUBMIT ROUTER
+// ════════════════════════════════════════════════════════════════════════
+function handleSubmit() {
+  const s = SCENARIOS[currentIdx];
+  if (s.mode === 'sequence') submitSequence();
+  else submitDiagnosis();
+}
+
+function resetScenario() { loadScenario(currentIdx); }
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function buildTabs() {
+  const c = document.getElementById('scenarioTabs');
+  c.innerHTML = '';
+  SCENARIOS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    const badge = s.mode === 'sequence'
+      ? `<span class="mode-badge mode-seq">SEQ</span>`
+      : `<span class="mode-badge mode-diag">DIAG</span>`;
+    btn.className = `stab${i === 0 ? ' active' : ''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title} ${badge}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active', j===i));
+    });
+    c.appendChild(btn);
+  });
+}
+
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === currentIdx);
+    tab.classList.toggle('done', completedScenarios.has(i) && i !== currentIdx);
+    tab.querySelector('.snum').textContent = completedScenarios.has(i) ? '✓' : String(i+1).padStart(2,'0');
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL + HINT
+// ════════════════════════════════════════════════════════════════════════
+function showModal(title, body, type, showNext) {
+  document.getElementById('modalTitle').className = `modal-title ${type}`;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalNext').style.display = showNext ? 'block' : 'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function showHintModal() { showModal('💡 Hint', SCENARIOS[currentIdx].hint, 'info', false); }
+function nextScenario() {
+  closeModal();
+  currentIdx++;
+  loadScenario(currentIdx);
+  document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active', j===currentIdx));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildNistFlow();
+buildTabs();
+loadScenario(0);
+</script>
+</body>
+</html>

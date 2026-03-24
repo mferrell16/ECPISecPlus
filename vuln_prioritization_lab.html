@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VulnTriage Lab — Vulnerability Prioritization Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #07090d;
+  --surface:     #0d1117;
+  --card:        #111820;
+  --card-hover:  #151f2a;
+  --border:      #1c2a38;
+  --border2:     #243445;
+  --glow:        rgba(0,200,255,0.06);
+
+  --cyan:        #00c8ff;
+  --cyan-dim:    #062535;
+  --green:       #22c55e;
+  --green-dim:   #072912;
+  --red:         #ef4444;
+  --red-dim:     #2c0a0a;
+  --red-bright:  #ff2222;
+  --amber:       #f59e0b;
+  --amber-dim:   #2d1e04;
+  --orange:      #f97316;
+  --orange-dim:  #2a1204;
+  --purple:      #8b5cf6;
+  --purple-dim:  #1e1040;
+  --slate:       #94a3b8;
+  --slate-dim:   #0f1924;
+
+  --text:        #c9daea;
+  --text-dim:    #4a6278;
+  --text-muted:  #2a3d52;
+
+  --cvss-critical: #ef4444;
+  --cvss-high:     #f97316;
+  --cvss-medium:   #f59e0b;
+  --cvss-low:      #22c55e;
+
+  --rank-bg: #0a1218;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
+}
+
+/* Fine noise texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* ══ HEADER ══ */
+header {
+  position: relative; z-index: 50;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 0;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+}
+.logo-icon {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--red-dim), var(--amber-dim));
+  border: 1px solid rgba(239,68,68,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.logo-text {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.1rem; font-weight: 900;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text);
+  line-height: 1;
+}
+.logo-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  display: block;
+}
+
+.scenario-tabs {
+  display: flex; flex: 1;
+  padding: 0 6px;
+  overflow-x: auto;
+}
+.stab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 16px; height: 52px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.75rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--amber); border-bottom-color: var(--amber); }
+.stab.done   { color: var(--green); border-bottom-color: var(--green); }
+.stab .snum  {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6rem;
+  background: var(--border);
+  color: var(--text-dim);
+  padding: 1px 5px;
+}
+.stab.active .snum { background: var(--amber-dim); color: var(--amber); }
+.stab.done   .snum { background: var(--green-dim); color: var(--green); }
+
+.header-actions {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center;
+}
+.hbtn {
+  padding: 5px 14px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-amber { border-color: var(--amber); color: var(--amber); background: rgba(245,158,11,0.07); }
+.hbtn-amber:hover { background: rgba(245,158,11,0.18); }
+.hbtn-green { border-color: var(--green); color: var(--green); background: rgba(34,197,94,0.07); }
+.hbtn-green:hover { background: rgba(34,197,94,0.18); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover { color: var(--text); }
+
+/* ══ MAIN LAYOUT ══ */
+.workspace {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 52px);
+  position: relative; z-index: 1;
+}
+
+/* ══ LEFT PANEL ══ */
+.left-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.panel-section.grow {
+  flex: 1; overflow-y: auto;
+}
+.panel-section.grow::-webkit-scrollbar { width: 4px; }
+.panel-section.grow::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.panel-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 7px;
+}
+.panel-label::before {
+  content: '';
+  display: block; width: 3px; height: 12px;
+  background: var(--amber);
+}
+.panel-label.green::before { background: var(--green); }
+.panel-label.red::before   { background: var(--red); }
+.panel-label.cyan::before  { background: var(--cyan); }
+
+.brief-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem; font-weight: 900;
+  color: var(--text);
+  margin-bottom: 5px; line-height: 1.2;
+}
+.diff-pill {
+  display: inline-block; padding: 2px 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.55rem; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.diff-easy   { color: var(--green);  border: 1px solid rgba(34,197,94,0.25);   background: rgba(34,197,94,0.07); }
+.diff-medium { color: var(--amber);  border: 1px solid rgba(245,158,11,0.25);  background: rgba(245,158,11,0.07); }
+.diff-hard   { color: var(--red);    border: 1px solid rgba(239,68,68,0.25);   background: rgba(239,68,68,0.07); }
+
+.brief-desc {
+  font-size: 0.71rem; line-height: 1.75;
+  color: var(--text-dim);
+}
+.brief-desc strong { color: var(--text); }
+
+/* Context facts */
+.context-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 5px; margin-top: 4px;
+}
+.ctx-fact {
+  padding: 6px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 0.62rem;
+}
+.ctx-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.54rem; color: var(--text-muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.ctx-value {
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.68rem;
+}
+.ctx-value.red    { color: var(--red); }
+.ctx-value.amber  { color: var(--amber); }
+.ctx-value.green  { color: var(--green); }
+.ctx-value.cyan   { color: var(--cyan); }
+
+/* Priority framework */
+.framework-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.67rem; color: var(--text-dim);
+  line-height: 1.4;
+}
+.framework-row:last-child { border-bottom: none; }
+.fw-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6rem;
+  width: 18px; height: 18px;
+  background: var(--border);
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+.fw-num.active { background: var(--amber-dim); color: var(--amber); }
+
+/* Score section */
+.score-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-big {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2rem; font-weight: 900;
+  line-height: 1; color: var(--amber);
+}
+.score-meta { flex: 1; }
+.score-lbl {
+  font-size: 0.55rem; color: var(--text-dim);
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.score-bar { height: 3px; background: var(--border); margin-top: 5px; }
+.score-fill { height: 100%; background: var(--amber); transition: width 0.5s ease; }
+
+/* ══ CENTER — DRAG AREA ══ */
+.center-panel {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.center-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(13,17,23,0.9);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.center-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.drag-hint {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.drag-hint-icon { font-size: 12px; }
+
+.drag-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.drag-area::-webkit-scrollbar { width: 5px; }
+.drag-area::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* ══ VULN CARD ══ */
+.vuln-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 0;
+  cursor: grab;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s, box-shadow 0.15s;
+  user-select: none;
+  position: relative;
+}
+.vuln-card:hover {
+  border-color: var(--border2);
+  background: var(--card-hover);
+}
+.vuln-card.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+.vuln-card.drag-over {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber), inset 0 0 20px rgba(245,158,11,0.04);
+}
+.vuln-card.correct { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.04); }
+.vuln-card.wrong   { border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.04); }
+.vuln-card.partial { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.03); }
+
+/* Drag handle */
+.card-handle {
+  display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: grab;
+  padding: 0 8px;
+  flex-direction: column; gap: 3px;
+}
+.handle-dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: var(--text-muted);
+}
+.card-rank-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Card body */
+.card-body {
+  padding: 11px 13px;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.card-top {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+}
+.card-cve {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem; font-weight: 500;
+  color: var(--cyan);
+}
+.card-name {
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+  flex: 1;
+  margin-top: 1px;
+}
+.card-badges {
+  display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.53rem;
+  padding: 2px 6px;
+  border: 1px solid;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.badge-kev      { color: var(--red);    border-color: rgba(239,68,68,0.4);   background: rgba(239,68,68,0.1);   }
+.badge-internet { color: var(--orange); border-color: rgba(249,115,22,0.4);  background: rgba(249,115,22,0.08); }
+.badge-internal { color: var(--slate);  border-color: rgba(148,163,184,0.2); background: rgba(148,163,184,0.05); }
+.badge-critical-asset { color: var(--purple); border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.08); }
+.badge-patched  { color: var(--green);  border-color: rgba(34,197,94,0.3);   background: rgba(34,197,94,0.07); }
+.badge-no-patch { color: var(--amber);  border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.07); }
+
+/* Card stats row */
+.card-stats {
+  display: flex; gap: 16px; align-items: center;
+  flex-wrap: wrap;
+}
+.stat-item {
+  display: flex; align-items: center; gap: 5px;
+}
+.stat-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.54rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.stat-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem; font-weight: 500;
+}
+
+/* CVSS gauge */
+.cvss-gauge {
+  display: flex; align-items: center; gap: 6px;
+}
+.cvss-track {
+  width: 52px; height: 5px;
+  background: var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.cvss-fill {
+  position: absolute; top: 0; left: 0;
+  height: 100%;
+  transition: width 0.4s ease;
+}
+.cvss-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem; font-weight: 500;
+  min-width: 28px;
+}
+
+/* EPSS bar */
+.epss-track {
+  width: 40px; height: 5px;
+  background: var(--border);
+  position: relative; overflow: hidden;
+}
+.epss-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--purple); }
+
+/* Card description */
+.card-desc {
+  font-size: 0.67rem; color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* Card right — priority control */
+.card-right {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 10px 10px;
+  border-left: 1px solid var(--border);
+  gap: 4px;
+  width: 50px;
+}
+.priority-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.48rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  text-align: center;
+}
+.priority-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.6rem; font-weight: 900;
+  color: var(--border2);
+  line-height: 1;
+  transition: color 0.2s;
+}
+.vuln-card.priority-1 .priority-num { color: var(--red); }
+.vuln-card.priority-2 .priority-num { color: var(--orange); }
+.vuln-card.priority-3 .priority-num { color: var(--amber); }
+.vuln-card.priority-4 .priority-num { color: #84cc16; }
+.vuln-card.priority-5 .priority-num { color: var(--green); }
+.vuln-card.priority-6 .priority-num { color: var(--cyan); }
+
+/* Result overlay on card */
+.card-result-icon {
+  position: absolute;
+  top: 8px; right: 62px;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.vuln-card.correct .card-result-icon,
+.vuln-card.wrong .card-result-icon,
+.vuln-card.partial .card-result-icon { opacity: 1; }
+
+/* ══ RIGHT PANEL — Reference ══ */
+.right-panel {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.right-panel::-webkit-scrollbar { width: 4px; }
+.right-panel::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.ref-section {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ref-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 9px;
+  display: flex; align-items: center; gap: 6px;
+}
+.ref-label::before { content:''; display:block; width:3px; height:11px; background: var(--cyan); }
+.ref-label.amber::before { background: var(--amber); }
+.ref-label.red::before   { background: var(--red); }
+.ref-label.green::before { background: var(--green); }
+
+/* CVSS legend */
+.cvss-legend { display: flex; flex-direction: column; gap: 4px; }
+.cvss-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.62rem;
+}
+.cvss-swatch {
+  width: 28px; height: 5px; flex-shrink: 0;
+}
+.cvss-range { font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--text-muted); width: 38px; }
+.cvss-name { color: var(--text-dim); }
+
+/* Priority factors */
+.factor-list { display: flex; flex-direction: column; gap: 5px; }
+.factor-item {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 6px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 0.64rem; color: var(--text-dim);
+  line-height: 1.4;
+}
+.factor-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+.factor-label { font-weight: 600; color: var(--text); }
+
+/* Trap warning */
+.trap-box {
+  background: rgba(239,68,68,0.05);
+  border: 1px solid rgba(239,68,68,0.2);
+  padding: 9px 10px;
+  font-size: 0.63rem; color: rgba(239,68,68,0.8);
+  line-height: 1.65;
+}
+.trap-box strong { color: var(--red); }
+
+/* ══ MODAL ══ */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 28px 32px;
+  max-width: 560px; width: 92%;
+  position: relative;
+  transform: translateY(10px);
+  transition: transform 0.2s;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-close {
+  position: absolute; top: 10px; right: 13px;
+  background: none; border: none;
+  color: var(--text-dim); cursor: pointer; font-size: 1rem;
+}
+.modal-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.3rem; font-weight: 900;
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+}
+.modal-title.win  { color: var(--green); }
+.modal-title.info { color: var(--cyan); }
+.modal-title.warn { color: var(--amber); }
+.modal-body {
+  font-size: 0.76rem; color: var(--text-dim);
+  line-height: 1.85; margin-bottom: 20px;
+}
+.modal-body strong { color: var(--text); }
+.modal-body code {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem; color: var(--amber);
+  background: var(--card); padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+.modal-body .explain-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  margin-bottom: 5px;
+  font-size: 0.71rem;
+}
+.explain-rank {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.1rem; font-weight: 900;
+  min-width: 24px; color: var(--amber);
+  line-height: 1;
+}
+.explain-name { font-weight: 600; color: var(--text); font-size: 0.72rem; }
+.explain-why  { color: var(--text-dim); margin-top: 2px; line-height: 1.5; font-size: 0.67rem; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Animate cards in */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.vuln-card { animation: cardIn 0.3s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚠</div>
+    <div>
+      <div class="logo-text">VulnTriage</div>
+      <span class="logo-sub">Prioritization Lab</span>
+    </div>
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-actions">
+    <button class="hbtn hbtn-gray" onclick="resetScenario()">↺ Reset</button>
+    <button class="hbtn hbtn-amber" onclick="showHint()">💡 Hint</button>
+    <button class="hbtn hbtn-green" onclick="checkAnswer()">✓ Submit Ranking</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="panel-section" id="briefSection"></div>
+    <div class="panel-section" id="contextSection"></div>
+    <div class="panel-section grow" id="frameworkSection"></div>
+    <div class="score-row">
+      <div class="score-big" id="scoreNum">—</div>
+      <div class="score-meta">
+        <div class="score-lbl">Ranking Score</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER DRAG AREA -->
+  <div class="center-panel">
+    <div class="center-header">
+      <div class="center-title">Drag to Rank — Highest Priority (1) → Lowest Priority</div>
+      <div class="drag-hint"><span class="drag-hint-icon">⠿</span> Drag cards to reorder</div>
+    </div>
+    <div class="drag-area" id="dragArea"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="ref-section">
+      <div class="ref-label amber">Prioritization Factors</div>
+      <div class="factor-list">
+        <div class="factor-item">
+          <span class="factor-icon">🌐</span>
+          <div><span class="factor-label">Internet Exposure</span><br>External-facing assets have direct attacker reach — multiplies risk significantly.</div>
+        </div>
+        <div class="factor-item">
+          <span class="factor-icon">🔥</span>
+          <div><span class="factor-label">KEV Catalog (CISA)</span><br>Known Exploited Vulnerabilities are actively weaponized in real attacks right now.</div>
+        </div>
+        <div class="factor-item">
+          <span class="factor-icon">📊</span>
+          <div><span class="factor-label">EPSS Score</span><br>Probability of exploitation in the next 30 days. High EPSS &gt; high CVSS alone.</div>
+        </div>
+        <div class="factor-item">
+          <span class="factor-icon">🏛</span>
+          <div><span class="factor-label">Asset Criticality</span><br>Domain controllers, payment systems, and PHI stores demand faster remediation.</div>
+        </div>
+        <div class="factor-item">
+          <span class="factor-icon">🩹</span>
+          <div><span class="factor-label">Patch Available</span><br>No-patch vulns require compensating controls. Patch availability affects timeline.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-section">
+      <div class="ref-label red">CVSS Score Bands</div>
+      <div class="cvss-legend">
+        <div class="cvss-row">
+          <div class="cvss-swatch" style="background:#ef4444;"></div>
+          <div class="cvss-range">9.0–10.0</div>
+          <div class="cvss-name" style="color:#ef4444;">Critical</div>
+        </div>
+        <div class="cvss-row">
+          <div class="cvss-swatch" style="background:#f97316;"></div>
+          <div class="cvss-range">7.0–8.9</div>
+          <div class="cvss-name" style="color:#f97316;">High</div>
+        </div>
+        <div class="cvss-row">
+          <div class="cvss-swatch" style="background:#f59e0b;"></div>
+          <div class="cvss-range">4.0–6.9</div>
+          <div class="cvss-name" style="color:#f59e0b;">Medium</div>
+        </div>
+        <div class="cvss-row">
+          <div class="cvss-swatch" style="background:#22c55e;"></div>
+          <div class="cvss-range">0.1–3.9</div>
+          <div class="cvss-name" style="color:#22c55e;">Low</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-section">
+      <div class="ref-label red">⚠ Common Exam Trap</div>
+      <div class="trap-box">
+        <strong>Never rank by CVSS alone.</strong> A CVSS 9.8 on an internal, air-gapped dev server with no patch in sight and EPSS 2% ranks <em>lower</em> than a CVSS 7.2 on an internet-facing payment API with a KEV listing and EPSS 78%.<br><br>
+        The exam tests whether you apply <strong>context</strong>, not just score lookup.
+      </div>
+    </div>
+
+    <div class="ref-section">
+      <div class="ref-label green">EPSS Scale</div>
+      <div style="font-size:0.62rem; color:var(--text-dim); line-height:1.7;">
+        <span style="color:var(--red);">≥ 70%</span> — Patch immediately<br>
+        <span style="color:var(--orange);">30–69%</span> — Patch this sprint<br>
+        <span style="color:var(--amber);">10–29%</span> — Schedule soon<br>
+        <span style="color:var(--green);">&lt; 10%</span> — Routine cycle
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO DATA
+// Each vuln: { id, cve, name, cvss, epss (0-100), kev, exposure,
+//              asset, patchAvail, desc, badges[] }
+// correctOrder: array of vuln ids from highest→lowest priority
+// ════════════════════════════════════════════════════════════════════════
+const SCENARIOS = [
+  // ─────────────────────────────────────────────────────────────────────
+  // SCENARIO 1 — Classic CVSS Trap (easy)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 0,
+    title: "Web Server Vulnerability Report",
+    difficulty: "easy",
+    desc: "Your organization's vulnerability scanner returned four findings across the web infrastructure. <strong>Rank all four from highest to lowest remediation priority.</strong> Focus on what can be exploited right now.",
+    hint: "The CVSS 9.8 is on an internal system with no exploit activity. The CVSS 7.2 with a KEV listing on an internet-facing server should jump to #1. Ask yourself: can an attacker reach it, and is it being exploited today?",
+    context: [
+      { label: "Org Type",    value: "E-Commerce",    cls: "" },
+      { label: "Scanner",     value: "Qualys",        cls: "" },
+      { label: "Environment", value: "Mixed",         cls: "" },
+      { label: "SLA",         value: "Critical: 24h", cls: "red" },
+    ],
+    framework: [
+      { num: 1, text: "Is the asset internet-facing?" },
+      { num: 2, text: "Is it in the CISA KEV catalog?" },
+      { num: 3, text: "What is the EPSS probability?" },
+      { num: 4, text: "How critical is the asset?" },
+      { num: 5, text: "CVSS score (context matters)" },
+    ],
+    vulns: [
+      {
+        id: "V1",
+        cve: "CVE-2023-44487",
+        name: "HTTP/2 Rapid Reset (DoS)",
+        cvss: 7.5,
+        epss: 82,
+        kev: true,
+        exposure: "internet",
+        asset: "Public API Gateway",
+        assetCriticality: "critical",
+        patchAvail: true,
+        desc: "Active DDoS amplification exploit. Weaponized in largest-ever DDoS attacks. Publicly accessible payment API endpoint.",
+        extraBadges: ["badge-kev", "badge-internet", "badge-critical-asset"],
+      },
+      {
+        id: "V2",
+        cve: "CVE-2021-44228",
+        name: "Log4Shell RCE",
+        cvss: 10.0,
+        epss: 14,
+        kev: true,
+        exposure: "internal",
+        asset: "Internal Dev Server",
+        assetCriticality: "low",
+        patchAvail: true,
+        desc: "Critical RCE via JNDI lookup. However this instance is on an isolated internal dev server not reachable from the internet, already partially mitigated.",
+        extraBadges: ["badge-kev", "badge-internal"],
+      },
+      {
+        id: "V3",
+        cve: "CVE-2023-27997",
+        name: "FortiOS SSL-VPN Heap Overflow",
+        cvss: 9.8,
+        epss: 71,
+        kev: true,
+        exposure: "internet",
+        asset: "VPN Concentrator",
+        assetCriticality: "critical",
+        patchAvail: true,
+        desc: "Pre-auth heap overflow in FortiOS SSL-VPN. Unauthenticated remote code execution. Widely exploited by nation-state actors.",
+        extraBadges: ["badge-kev", "badge-internet", "badge-critical-asset"],
+      },
+      {
+        id: "V4",
+        cve: "CVE-2023-38408",
+        name: "OpenSSH Agent Forwarding RCE",
+        cvss: 9.8,
+        epss: 4,
+        kev: false,
+        exposure: "internal",
+        asset: "Dev Workstations",
+        assetCriticality: "low",
+        patchAvail: true,
+        desc: "RCE via SSH agent forwarding. Requires attacker to already be on the network. Not in KEV, low EPSS, internal workstations only.",
+        extraBadges: ["badge-internal"],
+      },
+    ],
+    // Priority order: V3 (KEV+internet+critical+high EPSS) > V1 (KEV+internet+critical+highest EPSS) > V2 (KEV but internal) > V4 (no KEV, internal, low EPSS)
+    // Accept V1 or V3 as either #1 or #2 (both are valid top-2)
+    correctOrder: ["V3", "V1", "V2", "V4"],
+    acceptableOrders: [
+      ["V3", "V1", "V2", "V4"],
+      ["V1", "V3", "V2", "V4"],
+    ],
+    explanations: {
+      "V3": { rank: 1, why: "KEV-listed, pre-auth RCE, internet-facing VPN (perimeter device), EPSS 71%. Nation-state targeting active — patch within 24h." },
+      "V1": { rank: 2, why: "KEV-listed, actively weaponized in largest DDoS on record, internet-facing payment API, EPSS 82%. Tie with V3 for #1 is acceptable." },
+      "V2": { rank: 3, why: "Despite CVSS 10.0 and KEV status, the internal isolated placement and low current EPSS (14%) drop this to #3. Not externally reachable." },
+      "V4": { rank: 4, why: "CVSS 9.8 but no KEV, EPSS only 4%, requires network access already. Internal workstations — lowest urgency of the four." },
+    },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // SCENARIO 2 — No-Patch Complication (medium)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 1,
+    title: "Healthcare Network — Mixed Findings",
+    difficulty: "medium",
+    desc: "A healthcare org's quarterly scan returned five findings. <strong>Rank all five by remediation priority.</strong> Consider that PHI data stores and patient systems elevate criticality, and one finding has no vendor patch available.",
+    hint: "When no patch is available, you still prioritize it — but the action is 'implement compensating controls' not 'apply patch'. A zero-day with no patch on an internet-facing system still ranks high. The CVSS 8.8 on a workstation with low EPSS drops despite looking scary.",
+    context: [
+      { label: "Industry",  value: "Healthcare / PHI", cls: "red" },
+      { label: "Regulation", value: "HIPAA",           cls: "red" },
+      { label: "Exposure",  value: "Hybrid",           cls: "" },
+      { label: "SLA",       value: "Critical: 24h",    cls: "red" },
+    ],
+    framework: [
+      { num: 1, text: "PHI / patient safety impact?" },
+      { num: 2, text: "Internet-facing + KEV?" },
+      { num: 3, text: "EPSS exploit probability?" },
+      { num: 4, text: "Compensating control available?" },
+      { num: 5, text: "Standard CVSS + asset scope" },
+    ],
+    vulns: [
+      {
+        id: "V1",
+        cve: "CVE-2023-4966",
+        name: "Citrix Bleed (Session Token Leak)",
+        cvss: 9.4,
+        epss: 88,
+        kev: true,
+        exposure: "internet",
+        asset: "Citrix NetScaler (Patient Portal)",
+        assetCriticality: "critical",
+        patchAvail: true,
+        desc: "Unauthenticated session token hijack affecting patient portal. Actively exploited by ransomware groups targeting healthcare. EPSS highest in set.",
+        extraBadges: ["badge-kev", "badge-internet", "badge-critical-asset"],
+      },
+      {
+        id: "V2",
+        cve: "CVE-2024-3400",
+        name: "PAN-OS Zero-Day Command Injection",
+        cvss: 10.0,
+        epss: 55,
+        kev: true,
+        exposure: "internet",
+        asset: "Perimeter Firewall",
+        assetCriticality: "critical",
+        patchAvail: false,
+        desc: "Zero-day with no vendor patch. Active exploitation in the wild. Compensating control (disable telemetry) available from vendor advisory. Perimeter device.",
+        extraBadges: ["badge-kev", "badge-internet", "badge-critical-asset", "badge-no-patch"],
+      },
+      {
+        id: "V3",
+        cve: "CVE-2023-20198",
+        name: "Cisco IOS XE Web UI Priv Escalation",
+        cvss: 10.0,
+        epss: 63,
+        kev: true,
+        exposure: "internal",
+        asset: "Core Network Switch (internal)",
+        assetCriticality: "high",
+        patchAvail: true,
+        desc: "Creates rogue admin account. Actively exploited. Internal network switch — not directly internet-exposed but provides lateral movement path to PHI systems.",
+        extraBadges: ["badge-kev", "badge-internal", "badge-critical-asset"],
+      },
+      {
+        id: "V4",
+        cve: "CVE-2022-40684",
+        name: "Fortinet Auth Bypass",
+        cvss: 9.8,
+        epss: 44,
+        kev: true,
+        exposure: "internet",
+        asset: "Secondary VPN (Staff Access)",
+        assetCriticality: "medium",
+        patchAvail: true,
+        desc: "Authentication bypass on admin interface. KEV-listed, internet-facing, but on secondary VPN used for non-clinical staff — lower asset criticality than primary systems.",
+        extraBadges: ["badge-kev", "badge-internet"],
+      },
+      {
+        id: "V5",
+        cve: "CVE-2021-34527",
+        name: "PrintNightmare (Print Spooler RCE)",
+        cvss: 8.8,
+        epss: 6,
+        kev: false,
+        exposure: "internal",
+        asset: "Nurse Station Workstations",
+        assetCriticality: "medium",
+        patchAvail: true,
+        desc: "RCE via Windows Print Spooler. Not in current KEV, EPSS has dropped significantly since 2021. Internal workstations. Lower urgency relative to other findings.",
+        extraBadges: ["badge-internal"],
+      },
+    ],
+    correctOrder: ["V1", "V2", "V3", "V4", "V5"],
+    acceptableOrders: [
+      ["V1", "V2", "V3", "V4", "V5"],
+      ["V2", "V1", "V3", "V4", "V5"],
+      ["V1", "V2", "V4", "V3", "V5"],
+    ],
+    explanations: {
+      "V1": { rank: 1, why: "Highest EPSS (88%), KEV-listed, internet-facing, directly affects patient portal (PHI access). Ransomware groups actively targeting this CVE in healthcare." },
+      "V2": { rank: 2, why: "CVSS 10.0 zero-day on perimeter firewall with active exploitation and no patch — compensating controls must be deployed immediately. Internet-facing perimeter = #2." },
+      "V3": { rank: 3, why: "KEV, CVSS 10.0, EPSS 63% — but internal placement drops it one tier. Still critical: lateral movement to PHI is a direct HIPAA risk." },
+      "V4": { rank: 4, why: "KEV + internet-facing + auth bypass = urgent. Secondary VPN serving non-clinical staff lowers asset criticality vs. V1 and V2." },
+      "V5": { rank: 5, why: "CVSS 8.8 looks scary but EPSS is only 6%, not in KEV, and it's on internal workstations. Patch in next sprint, not emergency response." },
+    },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // SCENARIO 3 — Financial Sector, 6 vulns (hard)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 2,
+    title: "Financial Institution — Full Scan Triage",
+    difficulty: "hard",
+    desc: "A financial institution's red team and scanner surfaced six findings across production and non-production systems. <strong>Rank all six.</strong> Consider PCI-DSS scope, cardholder data environment (CDE) placement, and the classic distractor: a very high CVSS on a decommission-scheduled legacy dev box.",
+    hint: "The CDE-adjacent findings jump to the top regardless of CVSS. The CVSS 9.1 on the dev box being decommissioned in 30 days is the classic distractor — compensating controls + decom timeline drops it to the bottom. Never ignore context.",
+    context: [
+      { label: "Industry",   value: "Financial / PCI", cls: "red" },
+      { label: "Regulation", value: "PCI-DSS 4.0",     cls: "red" },
+      { label: "CDE Scope",  value: "Yes",             cls: "red" },
+      { label: "SLA",        value: "Critical: 4h",    cls: "red" },
+    ],
+    framework: [
+      { num: 1, text: "Is system in PCI CDE scope?" },
+      { num: 2, text: "Cardholder data directly accessible?" },
+      { num: 3, text: "KEV + EPSS on internet-facing?" },
+      { num: 4, text: "Decommission / isolation status?" },
+      { num: 5, text: "Standard risk scoring (CVSS + EPSS)" },
+    ],
+    vulns: [
+      {
+        id: "V1",
+        cve: "CVE-2023-34048",
+        name: "VMware vCenter RCE (Pre-Auth)",
+        cvss: 9.8,
+        epss: 79,
+        kev: true,
+        exposure: "internal",
+        asset: "vCenter (CDE Hypervisor Host)",
+        assetCriticality: "critical",
+        patchAvail: true,
+        desc: "Pre-auth RCE. This vCenter manages VMs that process cardholder data — full hypervisor compromise = full CDE breach. KEV-listed, 79% EPSS.",
+        extraBadges: ["badge-kev", "badge-internal", "badge-critical-asset"],
+      },
+      {
+        id: "V2",
+        cve: "CVE-2023-46747",
+        name: "F5 BIG-IP Auth Bypass + RCE",
+        cvss: 9.8,
+        epss: 81,
+        kev: true,
+        exposure: "internet",
+        asset: "F5 Load Balancer (CDE Perimeter)",
+        assetCriticality: "critical",
+        patchAvail: true,
+        desc: "Unauthenticated RCE on the load balancer sitting in front of the payment processing API. Internet-facing CDE perimeter. Actively exploited in financial sector.",
+        extraBadges: ["badge-kev", "badge-internet", "badge-critical-asset"],
+      },
+      {
+        id: "V3",
+        cve: "CVE-2024-21762",
+        name: "FortiOS Out-of-Bounds Write",
+        cvss: 9.6,
+        epss: 67,
+        kev: true,
+        exposure: "internet",
+        asset: "Edge Firewall (Non-CDE)",
+        assetCriticality: "high",
+        patchAvail: true,
+        desc: "Critical RCE on perimeter firewall — but on the non-CDE DMZ segment. Important, but does not have direct path to cardholder data without further traversal.",
+        extraBadges: ["badge-kev", "badge-internet"],
+      },
+      {
+        id: "V4",
+        cve: "CVE-2023-29357",
+        name: "SharePoint Priv Escalation",
+        cvss: 9.8,
+        epss: 38,
+        kev: true,
+        exposure: "internet",
+        asset: "SharePoint (Corporate Intranet)",
+        assetCriticality: "medium",
+        patchAvail: true,
+        desc: "No auth required, leads to SYSTEM. Internet-exposed. However, SharePoint is corporate intranet — not in CDE scope, no cardholder data. Still KEV + internet = urgent.",
+        extraBadges: ["badge-kev", "badge-internet"],
+      },
+      {
+        id: "V5",
+        cve: "CVE-2023-22515",
+        name: "Confluence Broken Access Control",
+        cvss: 10.0,
+        epss: 19,
+        kev: true,
+        exposure: "internal",
+        asset: "Confluence (Internal Wiki)",
+        assetCriticality: "low",
+        patchAvail: true,
+        desc: "Creates admin account. CVSS 10.0 and KEV-listed, but internal wiki not in CDE scope, EPSS only 19%. The CVSS 10 is a distractor here.",
+        extraBadges: ["badge-kev", "badge-internal"],
+      },
+      {
+        id: "V6",
+        cve: "CVE-2021-21985",
+        name: "VMware vSphere Client RCE",
+        cvss: 9.1,
+        epss: 3,
+        kev: false,
+        exposure: "internal",
+        asset: "Legacy Dev vSphere (Decommission in 30d)",
+        assetCriticality: "low",
+        patchAvail: true,
+        desc: "High CVSS but: (1) not in KEV, (2) EPSS only 3%, (3) isolated dev environment, (4) already scheduled for decommission in 30 days. Accept risk + accelerate decom.",
+        extraBadges: ["badge-internal"],
+      },
+    ],
+    correctOrder: ["V2", "V1", "V3", "V4", "V5", "V6"],
+    acceptableOrders: [
+      ["V2", "V1", "V3", "V4", "V5", "V6"],
+      ["V1", "V2", "V3", "V4", "V5", "V6"],
+      ["V2", "V1", "V3", "V4", "V6", "V5"],
+      ["V1", "V2", "V3", "V4", "V6", "V5"],
+    ],
+    explanations: {
+      "V2": { rank: 1, why: "Internet-facing CDE perimeter device, KEV, EPSS 81%, pre-auth RCE. Breach here = full PCI CDE compromise. Highest urgency." },
+      "V1": { rank: 2, why: "Hypervisor running CDE VMs. Pre-auth RCE, KEV, EPSS 79%. Internal placement = #2 not #1, but near-tie with V2. Both are 4-hour response." },
+      "V3": { rank: 3, why: "Internet-facing perimeter, KEV, EPSS 67% — but non-CDE segment means no direct cardholder data path. Still patch today." },
+      "V4": { rank: 4, why: "KEV, internet-exposed, auth bypass — but corporate SharePoint is out of CDE scope. Urgent but below CDE-adjacent findings." },
+      "V5": { rank: 5, why: "Despite CVSS 10.0, the internal non-CDE placement and 19% EPSS drop it to #5. Classic CVSS distractor — KEV saves it from last place." },
+      "V6": { rank: 6, why: "Highest CVSS-looking item (9.1) but no KEV, EPSS 3%, isolated dev box being decommissioned. Accept risk + accelerate decommission." },
+    },
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentIdx = 0;
+let completedScenarios = new Set();
+let currentOrder = [];   // array of vuln ids in current drag order
+let dragSrcId = null;
+let dragSrcIndex = null;
+
+// ════════════════════════════════════════════════════════════════════════
+// CVSS HELPERS
+// ════════════════════════════════════════════════════════════════════════
+function cvssColor(score) {
+  if (score >= 9.0) return 'var(--cvss-critical)';
+  if (score >= 7.0) return 'var(--cvss-high)';
+  if (score >= 4.0) return 'var(--cvss-medium)';
+  return 'var(--cvss-low)';
+}
+function cvssLabel(score) {
+  if (score >= 9.0) return 'Critical';
+  if (score >= 7.0) return 'High';
+  if (score >= 4.0) return 'Medium';
+  return 'Low';
+}
+function epssColor(epss) {
+  if (epss >= 70) return 'var(--red)';
+  if (epss >= 30) return 'var(--orange)';
+  if (epss >= 10) return 'var(--amber)';
+  return 'var(--green)';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER CARD
+// ════════════════════════════════════════════════════════════════════════
+function buildCard(vuln, rankNum) {
+  const card = document.createElement('div');
+  card.className = `vuln-card priority-${rankNum}`;
+  card.dataset.id = vuln.id;
+  card.style.animationDelay = `${rankNum * 0.06}s`;
+  card.draggable = true;
+
+  const cvssW = Math.min((vuln.cvss / 10) * 100, 100);
+  const epssW = Math.min(vuln.epss, 100);
+  const cvssC = cvssColor(vuln.cvss);
+  const epssC = epssColor(vuln.epss);
+
+  // Badges
+  let badgeHtml = '';
+  if (vuln.kev) badgeHtml += `<span class="badge badge-kev">🔥 KEV</span>`;
+  if (vuln.exposure === 'internet') badgeHtml += `<span class="badge badge-internet">🌐 Internet-Facing</span>`;
+  else badgeHtml += `<span class="badge badge-internal">🔒 Internal</span>`;
+  if (vuln.assetCriticality === 'critical') badgeHtml += `<span class="badge badge-critical-asset">💎 Critical Asset</span>`;
+  if (!vuln.patchAvail) badgeHtml += `<span class="badge badge-no-patch">⚠ No Patch</span>`;
+
+  card.innerHTML = `
+    <div class="card-handle">
+      <div class="handle-dot"></div>
+      <div class="handle-dot"></div>
+      <div class="handle-dot"></div>
+      <div class="handle-dot"></div>
+      <div class="handle-dot"></div>
+      <div class="handle-dot"></div>
+      <div class="card-rank-num">#${rankNum}</div>
+    </div>
+    <div class="card-body">
+      <div class="card-top">
+        <div style="flex:1;">
+          <div class="card-cve">${vuln.cve}</div>
+          <div class="card-name">${vuln.name}</div>
+        </div>
+        <div class="card-badges">${badgeHtml}</div>
+      </div>
+      <div class="card-stats">
+        <div class="stat-item">
+          <span class="stat-label">CVSS</span>
+          <div class="cvss-gauge">
+            <div class="cvss-track"><div class="cvss-fill" style="width:${cvssW}%;background:${cvssC};"></div></div>
+            <span class="cvss-num" style="color:${cvssC};">${vuln.cvss.toFixed(1)}</span>
+          </div>
+          <span style="font-family:'DM Mono',monospace;font-size:0.56rem;color:${cvssC};">${cvssLabel(vuln.cvss)}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">EPSS</span>
+          <div class="epss-track"><div class="epss-fill" style="width:${epssW}%;background:${epssC};"></div></div>
+          <span class="stat-value" style="color:${epssC};">${vuln.epss}%</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Asset</span>
+          <span class="stat-value" style="color:var(--text-dim);font-size:0.62rem;">${vuln.asset}</span>
+        </div>
+      </div>
+      <div class="card-desc">${vuln.desc}</div>
+    </div>
+    <div class="card-right">
+      <div class="priority-label">Priority</div>
+      <div class="priority-num">${rankNum}</div>
+    </div>
+    <div class="card-result-icon" id="result-${vuln.id}"></div>
+  `;
+
+  // Drag events
+  card.addEventListener('dragstart', e => {
+    dragSrcId = vuln.id;
+    dragSrcIndex = currentOrder.indexOf(vuln.id);
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', vuln.id);
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    document.querySelectorAll('.vuln-card').forEach(c => c.classList.remove('drag-over'));
+  });
+  card.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.vuln-card').forEach(c => c.classList.remove('drag-over'));
+    card.classList.add('drag-over');
+  });
+  card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+  card.addEventListener('drop', e => {
+    e.preventDefault();
+    card.classList.remove('drag-over');
+    const targetId = vuln.id;
+    if (dragSrcId && dragSrcId !== targetId) {
+      const srcIdx = currentOrder.indexOf(dragSrcId);
+      const tgtIdx = currentOrder.indexOf(targetId);
+      // Swap
+      currentOrder.splice(srcIdx, 1);
+      currentOrder.splice(tgtIdx, 0, dragSrcId);
+      rerenderCards();
+    }
+  });
+
+  return card;
+}
+
+function rerenderCards() {
+  const s = SCENARIOS[currentIdx];
+  const area = document.getElementById('dragArea');
+  area.innerHTML = '';
+  currentOrder.forEach((id, i) => {
+    const vuln = s.vulns.find(v => v.id === id);
+    if (vuln) area.appendChild(buildCard(vuln, i + 1));
+  });
+  updateScoreDisplay();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SCORING
+// ════════════════════════════════════════════════════════════════════════
+function scoreRanking() {
+  const s = SCENARIOS[currentIdx];
+
+  // Check if current order exactly matches any acceptable order
+  for (const acceptable of s.acceptableOrders) {
+    if (currentOrder.join(',') === acceptable.join(',')) {
+      return { score: 100, exact: true };
+    }
+  }
+
+  // Partial scoring: count how many positions match the primary correct order
+  let matches = 0;
+  s.correctOrder.forEach((id, i) => {
+    if (currentOrder[i] === id) matches++;
+  });
+
+  // Also award points for correct relative ordering of the top half
+  const n = s.correctOrder.length;
+  const pct = Math.round((matches / n) * 100);
+  return { score: pct, exact: false };
+}
+
+function updateScoreDisplay() {
+  const { score } = scoreRanking();
+  document.getElementById('scoreNum').textContent = score + '%';
+  document.getElementById('scoreFill').style.width = score + '%';
+  document.getElementById('scoreFill').style.background =
+    score === 100 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red)';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CHECK ANSWER
+// ════════════════════════════════════════════════════════════════════════
+function checkAnswer() {
+  const s = SCENARIOS[currentIdx];
+  const { score, exact } = scoreRanking();
+
+  // Color the cards
+  currentOrder.forEach((id, i) => {
+    const card = document.querySelector(`.vuln-card[data-id="${id}"]`);
+    const resultEl = document.getElementById(`result-${id}`);
+    if (!card) return;
+    card.classList.remove('correct','wrong','partial');
+
+    // Find which acceptable orders this position is correct in
+    const isCorrectInAny = s.acceptableOrders.some(order => order[i] === id);
+    const isPrimaryCorrect = s.correctOrder[i] === id;
+
+    if (isCorrectInAny) {
+      card.classList.add('correct');
+      if (resultEl) resultEl.textContent = '✓';
+    } else {
+      // check if within ±1
+      const primaryPos = s.correctOrder.indexOf(id);
+      const offset = Math.abs(primaryPos - i);
+      if (offset === 1) {
+        card.classList.add('partial');
+        if (resultEl) resultEl.textContent = '~';
+      } else {
+        card.classList.add('wrong');
+        if (resultEl) resultEl.textContent = '✗';
+      }
+    }
+  });
+
+  updateScoreDisplay();
+
+  if (score === 100 || exact) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    setTimeout(() => showResultModal(true, score, s), 300);
+  } else {
+    setTimeout(() => showResultModal(false, score, s), 300);
+  }
+}
+
+function showResultModal(passed, score, s) {
+  let explainHtml = '<div style="margin-bottom:12px;font-size:0.71rem;color:var(--text-dim);">Correct priority order and reasoning:</div>';
+  s.correctOrder.forEach((id, i) => {
+    const expl = s.explanations[id];
+    const v = s.vulns.find(v => v.id === id);
+    explainHtml += `
+      <div class="explain-row">
+        <div class="explain-rank">${i + 1}</div>
+        <div>
+          <div class="explain-name">${v.name} <span style="color:var(--text-muted);font-size:0.62rem;font-family:'DM Mono',monospace;">${v.cve}</span></div>
+          <div class="explain-why">${expl.why}</div>
+        </div>
+      </div>`;
+  });
+
+  if (passed) {
+    showModal('✓ Correct Prioritization!',
+      `<strong>Score: ${score}%</strong> — You applied proper risk-based prioritization, not just CVSS lookup.<br><br>${explainHtml}`,
+      'win', currentIdx < SCENARIOS.length - 1);
+  } else {
+    showModal(`Ranking Score: ${score}%`,
+      `Review the correct order and rationale below. Remember: <strong>KEV + exposure + EPSS</strong> outweigh raw CVSS score.<br><br>${explainHtml}`,
+      'warn', false);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO LOAD
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentIdx = idx;
+  const s = SCENARIOS[idx];
+  currentOrder = s.vulns.map(v => v.id);
+
+  // Brief
+  const diffCls = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+  document.getElementById('briefSection').innerHTML = `
+    <div class="panel-label">Incident Brief</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffCls}">${s.difficulty}</span>
+    <div class="brief-desc">${s.desc}</div>
+  `;
+
+  // Context
+  let ctxHtml = '<div class="panel-label cyan">Environment</div><div class="context-grid">';
+  s.context.forEach(c => {
+    ctxHtml += `<div class="ctx-fact"><div class="ctx-label">${c.label}</div><div class="ctx-value ${c.cls}">${c.value}</div></div>`;
+  });
+  ctxHtml += '</div>';
+  document.getElementById('contextSection').innerHTML = ctxHtml;
+
+  // Framework
+  let fwHtml = '<div class="panel-label">Decision Framework</div>';
+  s.framework.forEach(f => {
+    fwHtml += `<div class="framework-row"><span class="fw-num active">${f.num}</span><span>${f.text}</span></div>`;
+  });
+  document.getElementById('frameworkSection').innerHTML = fwHtml;
+
+  // Reset score
+  document.getElementById('scoreNum').textContent = '—';
+  document.getElementById('scoreFill').style.width = '0%';
+  document.getElementById('scoreFill').style.background = 'var(--amber)';
+
+  // Render cards
+  rerenderCards();
+  updateTabStates();
+}
+
+function resetScenario() { loadScenario(currentIdx); }
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function buildTabs() {
+  const c = document.getElementById('scenarioTabs');
+  c.innerHTML = '';
+  SCENARIOS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = `stab${i === 0 ? ' active' : ''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active', j===i));
+    });
+    c.appendChild(btn);
+  });
+}
+
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === currentIdx);
+    tab.classList.toggle('done', completedScenarios.has(i) && i !== currentIdx);
+    tab.querySelector('.snum').textContent =
+      completedScenarios.has(i) ? '✓' : String(i+1).padStart(2,'0');
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════════════════════════
+function showModal(title, body, type, showNext) {
+  document.getElementById('modalTitle').className = `modal-title ${type}`;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalNext').style.display = showNext ? 'block' : 'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function showHint() {
+  showModal('💡 Prioritization Hint', SCENARIOS[currentIdx].hint, 'info', false);
+}
+function nextScenario() {
+  closeModal();
+  currentIdx++;
+  loadScenario(currentIdx);
+  document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active', j===currentIdx));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildTabs();
+loadScenario(0);
+</script>
+</body>
+</html>

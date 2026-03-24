@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beacon Hunter Lab — C2 Network Investigation Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:         #090d12;
+  --surface:    #0f1519;
+  --panel:      #121a22;
+  --panel2:     #0c1318;
+  --border:     #1a2a38;
+  --border2:    #213245;
+  --blue:       #4f9cf9;
+  --blue-dim:   #142d52;
+  --cyan:       #00d4ff;
+  --cyan-dim:   #072f3d;
+  --green:      #34d399;
+  --green-dim:  #092d22;
+  --red:        #f87171;
+  --red-dim:    #3a1010;
+  --red-bright: #ff4444;
+  --amber:      #fbbf24;
+  --amber-dim:  #382605;
+  --orange:     #fb923c;
+  --orange-dim: #2e1405;
+  --purple:     #a78bfa;
+  --purple-dim: #261a52;
+  --gray:       #4b6080;
+  --text:       #c8ddf0;
+  --text-dim:   #4e6880;
+  --text-muted: #2e4558;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,212,255,0.012) 2px,
+    rgba(0,212,255,0.012) 4px
+  );
+  pointer-events: none; z-index: 200;
+}
+
+/* Grid overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(79,156,249,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,156,249,0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ── THREAT ALERT BANNER ── */
+.threat-banner {
+  position: relative; z-index: 100;
+  background: linear-gradient(90deg, var(--red-dim), rgba(58,16,16,0.5), var(--red-dim));
+  border-bottom: 1px solid rgba(248,113,113,0.35);
+  padding: 4px 20px;
+  display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0;
+  animation: bannerPulse 3s ease-in-out infinite;
+}
+@keyframes bannerPulse {
+  0%,100% { background: linear-gradient(90deg, var(--red-dim), rgba(58,16,16,0.5), var(--red-dim)); }
+  50%     { background: linear-gradient(90deg, rgba(58,16,16,0.8), rgba(88,20,20,0.6), rgba(58,16,16,0.8)); }
+}
+.threat-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+  animation: threatBlink 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes threatBlink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.threat-text {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--red);
+}
+.threat-sep { color: rgba(248,113,113,0.3); }
+.threat-detail {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; color: rgba(248,113,113,0.7);
+}
+.threat-host {
+  margin-left: auto;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem; color: var(--amber);
+  border: 1px solid rgba(251,191,36,0.3);
+  padding: 1px 8px;
+  background: rgba(251,191,36,0.06);
+}
+
+/* ── HEADER ── */
+header {
+  position: relative; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  display: flex; align-items: center; gap: 0;
+  height: 50px; flex-shrink: 0;
+}
+.logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.15rem; font-weight: 700;
+  color: var(--red);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 10px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+.logo svg { width: 22px; height: 22px; }
+.logo-sub {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  display: block;
+  font-weight: 400;
+}
+
+.scenario-tabs {
+  display: flex; overflow-x: auto; flex: 1;
+  padding: 0 4px;
+}
+.stab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 14px; height: 50px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.75rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.stab:hover { color: var(--text); }
+.stab.active { color: var(--red); border-bottom-color: var(--red); }
+.stab.done   { color: var(--green); border-bottom-color: var(--green); }
+.stab .snum  {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  background: var(--border);
+  color: var(--text-dim);
+  padding: 1px 5px;
+}
+.stab.active .snum { background: var(--red-dim); color: var(--red); }
+.stab.done   .snum { background: var(--green-dim); color: var(--green); }
+.stab .shell-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem;
+  padding: 1px 5px;
+  border: 1px solid;
+}
+.shell-ps  { color: var(--cyan);  border-color: rgba(0,212,255,0.3);  background: rgba(0,212,255,0.05); }
+.shell-cmd { color: var(--amber); border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.05); }
+
+.header-right {
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center;
+}
+.hbtn {
+  padding: 5px 12px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.hbtn-red   { border-color: var(--red);   color: var(--red);   background: rgba(248,113,113,0.07); }
+.hbtn-red:hover   { background: rgba(248,113,113,0.18); }
+.hbtn-green { border-color: var(--green); color: var(--green); background: rgba(52,211,153,0.07); }
+.hbtn-green:hover { background: rgba(52,211,153,0.18); }
+.hbtn-gray  { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+.hbtn-gray:hover  { color: var(--text); }
+.hbtn-amber { border-color: var(--amber); color: var(--amber); background: rgba(251,191,36,0.07); }
+.hbtn-amber:hover { background: rgba(251,191,36,0.18); }
+
+/* ── MAIN LAYOUT ── */
+.workspace {
+  display: flex; flex: 1; overflow: hidden;
+  position: relative; z-index: 1;
+}
+
+/* ── LEFT: Brief Panel ── */
+.brief-panel {
+  width: 295px; flex-shrink: 0;
+  background: var(--panel2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.brief-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.brief-scroll::-webkit-scrollbar { width: 4px; }
+.brief-scroll::-webkit-scrollbar-track { background: transparent; }
+.brief-scroll::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.brief-section {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rpanel-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.rpanel-title::before { content:''; display:block; width:3px; height:12px; background: var(--red); }
+.rpanel-title.cyan::before  { background: var(--cyan); }
+.rpanel-title.amber::before { background: var(--amber); }
+.rpanel-title.green::before { background: var(--green); }
+
+.brief-title {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.92rem; font-weight: 700;
+  color: var(--text); margin-bottom: 6px; line-height: 1.3;
+}
+.diff-pill {
+  display: inline-block; padding: 2px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.diff-easy   { color: var(--green);  border: 1px solid var(--green-dim);  background: rgba(52,211,153,0.07); }
+.diff-medium { color: var(--amber);  border: 1px solid var(--amber-dim);  background: rgba(251,191,36,0.07); }
+.diff-hard   { color: var(--red);    border: 1px solid var(--red-dim);    background: rgba(248,113,113,0.07); }
+.brief-desc {
+  font-size: 0.71rem; color: var(--text-dim);
+  line-height: 1.7;
+}
+.brief-desc code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.66rem;
+  color: var(--cyan);
+  background: rgba(0,212,255,0.06);
+  padding: 1px 4px;
+  border: 1px solid rgba(0,212,255,0.12);
+}
+
+/* IOC Table */
+.ioc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+}
+.ioc-table th {
+  text-align: left;
+  padding: 4px 6px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.ioc-table td {
+  padding: 5px 6px;
+  color: var(--text-dim);
+  border-bottom: 1px solid rgba(26,42,56,0.5);
+  vertical-align: top;
+}
+.ioc-table tr:last-child td { border-bottom: none; }
+.ioc-label { color: var(--amber); }
+.ioc-value { color: var(--red); font-weight: bold; }
+.ioc-note  { color: var(--text-muted); font-size: 0.56rem; }
+
+/* Requirements */
+.req-list { display: flex; flex-direction: column; gap: 5px; }
+.req-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 0.67rem; color: var(--text-dim);
+  line-height: 1.4;
+  transition: all 0.2s;
+}
+.req-icon { flex-shrink: 0; margin-top: 1px; font-size: 11px; color: var(--text-muted); }
+.req-item.met   { background: rgba(52,211,153,0.05); border-color: rgba(52,211,153,0.22); color: var(--text); }
+.req-item.unmet { background: rgba(248,113,113,0.05); border-color: rgba(248,113,113,0.18); }
+.req-item.met   .req-icon { color: var(--green); }
+.req-item.unmet .req-icon { color: var(--red); }
+
+/* Score */
+.score-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 15px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.score-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.7rem; font-weight: 900;
+  color: var(--red); line-height: 1;
+}
+.score-info { flex: 1; }
+.score-label { font-size: 0.56rem; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+.score-bar { height: 3px; background: var(--border); margin-top: 5px; }
+.score-fill { height: 100%; background: var(--red); transition: width 0.4s ease; }
+
+/* Hint box */
+.hint-box {
+  padding: 9px 12px;
+  border-top: 1px solid var(--border);
+  background: rgba(251,191,36,0.03);
+  font-size: 0.63rem; color: var(--amber);
+  line-height: 1.65;
+  flex-shrink: 0;
+}
+.hint-box code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.61rem;
+  background: rgba(251,191,36,0.08);
+  padding: 0 3px;
+}
+.hint-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* ── CENTER: Terminal ── */
+.terminal-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+}
+
+.terminal-titlebar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 14px;
+  height: 34px;
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.ttbar-dots { display: flex; gap: 5px; }
+.ttbar-dot { width: 9px; height: 9px; border-radius: 50%; }
+.ttbar-dot.red    { background: #ff5f57; }
+.ttbar-dot.yellow { background: #febc2e; }
+.ttbar-dot.green  { background: #28c840; }
+.ttbar-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.67rem; color: var(--text-dim);
+  flex: 1; text-align: center;
+}
+.ttbar-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem;
+  padding: 2px 7px;
+  border: 1px solid;
+}
+.badge-ps  { background: var(--cyan-dim);  color: var(--cyan);  border-color: rgba(0,212,255,0.2); }
+.badge-cmd { background: var(--amber-dim); color: var(--amber); border-color: rgba(251,191,36,0.2); }
+
+.terminal-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.75;
+}
+.terminal-output::-webkit-scrollbar { width: 5px; }
+.terminal-output::-webkit-scrollbar-track { background: transparent; }
+.terminal-output::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.t-line { display: block; white-space: pre; word-break: break-all; }
+.t-prompt-ps  { color: var(--cyan); }
+.t-prompt-cmd { color: var(--amber); }
+.t-cmd    { color: var(--text); }
+.t-out    { color: #4a6585; }
+.t-data   { color: var(--text-dim); }
+.t-val    { color: var(--text); }
+.t-red    { color: var(--red); }
+.t-green  { color: var(--green); }
+.t-amber  { color: var(--amber); }
+.t-cyan   { color: var(--cyan); }
+.t-orange { color: var(--orange); }
+.t-purple { color: var(--purple); }
+.t-sep    { color: var(--text-muted); }
+.t-error  { color: var(--red); }
+.t-suspicious { color: var(--red); font-weight: bold; }
+.t-header { color: var(--cyan); }
+
+/* Input row */
+.terminal-input-row {
+  display: flex; align-items: center;
+  padding: 7px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.4);
+  flex-shrink: 0;
+  gap: 0;
+}
+.t-input-prompt {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-right: 6px;
+}
+.t-input-prompt.ps  { color: var(--cyan); }
+.t-input-prompt.cmd { color: var(--amber); }
+.t-input {
+  flex: 1;
+  background: none; border: none; outline: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text);
+  caret-color: var(--red);
+}
+
+/* Quick Insert */
+.ac-strip {
+  display: flex; gap: 5px; align-items: center;
+  padding: 4px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.25);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  min-height: 30px;
+}
+.ac-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.58rem; color: var(--text-muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-right: 3px; white-space: nowrap;
+}
+.ac-chip {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--cyan);
+  background: var(--cyan-dim);
+  border: 1px solid rgba(0,212,255,0.13);
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.ac-chip:hover { background: rgba(0,212,255,0.18); border-color: rgba(0,212,255,0.35); }
+.ac-chip.cmd-chip { color: var(--amber); background: var(--amber-dim); border-color: rgba(251,191,36,0.13); }
+.ac-chip.cmd-chip:hover { background: rgba(251,191,36,0.2); }
+
+/* ── RIGHT: Reference panel ── */
+.ref-panel {
+  width: 255px; flex-shrink: 0;
+  background: var(--panel2);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.ref-panel::-webkit-scrollbar { width: 4px; }
+.ref-panel::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.ref-section {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ref-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 9px;
+  display: flex; align-items: center; gap: 5px;
+}
+.ref-title::before { content:''; display:block; width:3px; height:11px; background: var(--purple); }
+.ref-title.red::before   { background: var(--red); }
+.ref-title.amber::before { background: var(--amber); }
+
+.syntax-card {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  margin-bottom: 7px;
+}
+.syntax-card:last-child { margin-bottom: 0; }
+.syntax-card-header {
+  padding: 3px 8px;
+  background: rgba(167,139,250,0.05);
+  border-bottom: 1px solid var(--border);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--purple);
+}
+.syntax-card-header.red   { color: var(--red);   background: rgba(248,113,113,0.05); }
+.syntax-card-header.amber { color: var(--amber); background: rgba(251,191,36,0.05); }
+.syntax-code {
+  padding: 6px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text);
+  line-height: 1.75;
+}
+.syntax-code .kw  { color: var(--cyan); }
+.syntax-code .prm { color: var(--amber); }
+.syntax-code .val { color: var(--green); }
+.syntax-code .cmt { color: var(--text-muted); }
+.syntax-code .dot { color: var(--purple); }
+.syntax-code .var { color: var(--purple); }
+.syntax-code .pipe{ color: var(--orange); }
+
+/* Connection state pills */
+.state-table { width: 100%; border-collapse: collapse; }
+.state-table td {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  padding: 3px 5px;
+  border-bottom: 1px solid rgba(26,42,56,0.4);
+  color: var(--text-dim);
+}
+.state-table td:first-child {
+  color: var(--cyan);
+  white-space: nowrap;
+}
+.state-table tr:last-child td { border-bottom: none; }
+.state-est   { color: var(--red) !important; }
+.state-lstn  { color: var(--amber) !important; }
+.state-tw    { color: var(--text-muted) !important; }
+.state-close { color: var(--green) !important; }
+
+/* ── MODAL ── */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-bg.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 26px 30px;
+  max-width: 500px; width: 90%;
+  position: relative;
+  transform: translateY(8px);
+  transition: transform 0.2s;
+}
+.modal-bg.show .modal { transform: translateY(0); }
+.modal-close {
+  position: absolute; top: 10px; right: 13px;
+  background: none; border: none;
+  color: var(--text-dim); cursor: pointer; font-size: 1rem;
+}
+.modal-close:hover { color: var(--text); }
+.modal-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.25rem; font-weight: 900;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+.modal-title.win  { color: var(--green); }
+.modal-title.info { color: var(--cyan); }
+.modal-title.warn { color: var(--amber); }
+.modal-body {
+  font-size: 0.75rem; color: var(--text-dim);
+  line-height: 1.8; margin-bottom: 18px;
+}
+.modal-body code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem; color: var(--cyan);
+  background: var(--panel); padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+.modal-body strong { color: var(--text); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<!-- Threat Banner -->
+<div class="threat-banner">
+  <div class="threat-dot"></div>
+  <div class="threat-text">⚠ ACTIVE THREAT INVESTIGATION</div>
+  <span class="threat-sep">|</span>
+  <div class="threat-detail" id="bannerDetail">Suspected C2 beaconing activity detected on endpoint WKSTN-047</div>
+  <div class="threat-host" id="bannerHost">WKSTN-047 / 10.0.1.47</div>
+</div>
+
+<header>
+  <div class="logo">
+    Beacon Hunter
+    <span class="logo-sub">C2 Network Investigation Lab</span>
+  </div>
+  <div class="scenario-tabs" id="scenarioTabs"></div>
+  <div class="header-right">
+    <button class="hbtn hbtn-gray" onclick="resetScenario()">↺ Reset</button>
+    <button class="hbtn hbtn-amber" onclick="showHintModal()">💡 Hint</button>
+    <button class="hbtn hbtn-green" onclick="checkAnswer()">✓ Check</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Left Brief Panel -->
+  <div class="brief-panel">
+    <div class="brief-scroll">
+      <div class="brief-section" id="briefHeader"></div>
+      <div class="brief-section" id="iocSection"></div>
+      <div class="brief-section" style="flex:1;">
+        <div class="rpanel-title green">Objectives</div>
+        <div class="req-list" id="reqList"></div>
+      </div>
+    </div>
+
+    <div class="score-row">
+      <div class="score-num" id="scoreNum">—</div>
+      <div class="score-info">
+        <div class="score-label">Objectives Met</div>
+        <div class="score-bar"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="hint-box">
+      <div class="hint-label">🔍 Key Concept</div>
+      <div id="hintText"></div>
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="terminal-wrap">
+    <div class="terminal-titlebar">
+      <div class="ttbar-dots">
+        <div class="ttbar-dot red"></div>
+        <div class="ttbar-dot yellow"></div>
+        <div class="ttbar-dot green"></div>
+      </div>
+      <div class="ttbar-title" id="ttbarTitle">Windows PowerShell — WKSTN-047</div>
+      <div class="ttbar-badge badge-ps" id="ttbarBadge">PowerShell 7.4</div>
+    </div>
+
+    <div class="terminal-output" id="termOutput"></div>
+
+    <div class="terminal-input-row">
+      <div class="t-input-prompt ps" id="inputPrompt">PS C:\&gt;</div>
+      <input class="t-input" id="termInput" type="text"
+             placeholder="Type a command…"
+             autocomplete="off" autocorrect="off" spellcheck="false"/>
+    </div>
+
+    <div class="ac-strip" id="acStrip">
+      <span class="ac-label">Quick Insert:</span>
+    </div>
+  </div>
+
+  <!-- Right Reference Panel -->
+  <div class="ref-panel">
+
+    <div class="ref-section">
+      <div class="ref-title">PowerShell — TCP</div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">List All Connections</div>
+        <div class="syntax-code">
+<span class="kw">Get-NetTCPConnection</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Filter by State</div>
+        <div class="syntax-code">
+<span class="kw">Get-NetTCPConnection</span> <span class="prm">-State</span> <span class="val">Established</span>
+<span class="kw">Get-NetTCPConnection</span> <span class="prm">-State</span> <span class="val">Listen</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Filter by Remote Port</div>
+        <div class="syntax-code">
+<span class="kw">Get-NetTCPConnection</span> <span class="prm">-RemotePort</span> <span class="val">4444</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Filter by Remote Address</div>
+        <div class="syntax-code">
+<span class="kw">Get-NetTCPConnection</span> <span class="prm">-RemoteAddress</span> <span class="val">1.2.3.4</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header">Pipe to Get-Process</div>
+        <div class="syntax-code">
+<span class="kw">Get-NetTCPConnection</span> <span class="prm">-State</span> <span class="val">Established</span> <span class="pipe">|</span>
+  <span class="kw">Select-Object</span> <span class="val">LocalPort,RemoteAddress,</span>
+    <span class="val">RemotePort,OwningProcess</span>
+
+<span class="kw">Get-NetTCPConnection</span> <span class="prm">-RemotePort</span> <span class="val">4444</span> <span class="pipe">|</span>
+  <span class="kw">Get-Process</span> <span class="prm">-Id</span> {<span class="dot">$_.OwningProcess</span>}
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-section">
+      <div class="ref-title amber">CMD — netstat</div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header amber">Show All Connections + PIDs</div>
+        <div class="syntax-code">
+netstat <span class="prm">-ano</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header amber">Find by Port</div>
+        <div class="syntax-code">
+netstat <span class="prm">-ano</span> <span class="pipe">|</span> findstr <span class="val">:4444</span>
+netstat <span class="prm">-ano</span> <span class="pipe">|</span> findstr <span class="val">ESTABLISHED</span>
+        </div>
+      </div>
+
+      <div class="syntax-card">
+        <div class="syntax-card-header amber">Find Process by PID</div>
+        <div class="syntax-code">
+tasklist <span class="pipe">|</span> findstr <span class="val">&lt;PID&gt;</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-section">
+      <div class="ref-title">Connection States</div>
+      <table class="state-table">
+        <tr><td class="state-est">ESTABLISHED</td><td>Active data session</td></tr>
+        <tr><td class="state-lstn">LISTEN</td><td>Awaiting inbound connection</td></tr>
+        <tr><td>SYN_SENT</td><td>Outbound connection attempt</td></tr>
+        <tr><td class="state-tw">TIME_WAIT</td><td>Closing, waiting on packets</td></tr>
+        <tr><td class="state-close">CLOSE_WAIT</td><td>Remote end closed</td></tr>
+      </table>
+    </div>
+
+    <div class="ref-section">
+      <div class="ref-title red">Common C2 Ports</div>
+      <table class="state-table">
+        <tr><td>4444</td><td>Metasploit default</td></tr>
+        <tr><td>1234</td><td>Common test/implant</td></tr>
+        <tr><td>8080</td><td>HTTP alt / tunneling</td></tr>
+        <tr><td>443</td><td>HTTPS (legitimate or C2)</td></tr>
+        <tr><td>53</td><td>DNS tunneling</td></tr>
+        <tr><td>6667</td><td>IRC-based C2</td></tr>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="hbtn hbtn-green" onclick="nextScenario()" id="modalNext" style="display:none;">Next Scenario →</button>
+      <button class="hbtn hbtn-gray" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// SIMULATED NETWORK STATE (per scenario)
+// ════════════════════════════════════════════════════════════════════════
+
+// Each scenario defines its own fake TCP table and process list.
+// TCP entry: { local, lport, remote, rport, state, pid }
+// Process:   { pid, name, cpu, mem, path }
+
+const SCENARIOS = [
+  // ─────────────────────────────────────────────────────────────────────
+  // SCENARIO 1 — Spot the Beaconing Process (PowerShell)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 0,
+    shell: "ps",
+    title: "Identify the C2 Beacon",
+    difficulty: "easy",
+    desc: "SOC analysts flagged outbound traffic to an unknown IP on port <code>4444</code>. You are on <strong>WKSTN-047</strong>. Use <code>Get-NetTCPConnection</code> to list all established connections and identify which process owns the suspicious connection.",
+    bannerDetail: "Outbound beacon traffic detected — port 4444",
+    bannerHost: "WKSTN-047 / 10.0.1.47",
+    iocTitle: "Threat Intelligence",
+    iocs: [
+      { label: "Suspicious Port", value: "4444", note: "Metasploit default reverse shell port" },
+      { label: "Suspected IP",    value: "185.220.101.55", note: "Known Tor exit node / C2" },
+    ],
+    keyHint: "Start with Get-NetTCPConnection -State Established to see active sessions. Pipe to Get-Process -Id {$_.OwningProcess} to resolve the process name.",
+    chips: [
+      "Get-NetTCPConnection",
+      "Get-NetTCPConnection -State Established",
+      "Get-NetTCPConnection -RemotePort 4444",
+      "Get-NetTCPConnection -RemotePort 4444 | Get-Process -Id {$_.OwningProcess}",
+    ],
+    tcpTable: [
+      { local:"10.0.1.47",  lport:49823, remote:"185.220.101.55", rport:4444,  state:"ESTABLISHED", pid:3928 },
+      { local:"10.0.1.47",  lport:51204, remote:"142.250.80.14",  rport:443,   state:"ESTABLISHED", pid:1024 },
+      { local:"10.0.1.47",  lport:52100, remote:"13.107.42.14",   rport:443,   state:"ESTABLISHED", pid:4208 },
+      { local:"10.0.1.47",  lport:49301, remote:"10.0.1.1",       rport:53,    state:"ESTABLISHED", pid:660  },
+      { local:"0.0.0.0",    lport:445,   remote:"0.0.0.0",        rport:0,     state:"LISTEN",      pid:4    },
+      { local:"0.0.0.0",    lport:135,   remote:"0.0.0.0",        rport:0,     state:"LISTEN",      pid:1104 },
+      { local:"0.0.0.0",    lport:3389,  remote:"0.0.0.0",        rport:0,     state:"LISTEN",      pid:1840 },
+    ],
+    processes: {
+      3928: { name:"powershell.exe", cpu:"12.4", mem:"78,204 K",  path:"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" },
+      1024: { name:"chrome.exe",    cpu:"4.1",  mem:"212,440 K", path:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+      4208: { name:"teams.exe",     cpu:"1.2",  mem:"156,320 K", path:"C:\\Users\\jsmith\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe" },
+      660:  { name:"svchost.exe",   cpu:"0.0",  mem:"14,512 K",  path:"C:\\Windows\\System32\\svchost.exe" },
+      4:    { name:"System",        cpu:"0.0",  mem:"148 K",     path:"" },
+      1104: { name:"svchost.exe",   cpu:"0.0",  mem:"8,204 K",   path:"C:\\Windows\\System32\\svchost.exe" },
+      1840: { name:"svchost.exe",   cpu:"0.0",  mem:"10,048 K",  path:"C:\\Windows\\System32\\svchost.exe" },
+    },
+    objectives: [
+      { id:"o1", text:"Run Get-NetTCPConnection to view connections",           check: s => s.ranCmd("Get-NetTCPConnection") },
+      { id:"o2", text:"Filter to show only ESTABLISHED connections",            check: s => s.ranWithArg("Get-NetTCPConnection", "-State Established") || s.ranWithArg("Get-NetTCPConnection", "-RemotePort 4444") || s.ranWithArg("Get-NetTCPConnection", "-RemoteAddress 185.220.101.55") },
+      { id:"o3", text:"Identify the owning process (PID 3928 / powershell.exe)", check: s => s.resolvedProcess(3928) || s.ranWithArg("Get-Process", "3928") || s.mentionedPid(3928) },
+    ],
+    welcome: [
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-red",    t:"  ⚠ INCIDENT RESPONSE — C2 BEACON DETECTED" },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-data",   t:"  Host WKSTN-047 is generating periodic outbound connections" },
+      { cls:"t-data",   t:"  to an external IP. Identify the process responsible." },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-out",    t:"" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // SCENARIO 2 — netstat (CMD) + findstr + tasklist
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 1,
+    shell: "cmd",
+    title: "CMD Investigation: netstat",
+    difficulty: "easy",
+    desc: "You only have access to a <strong>CMD shell</strong> on this endpoint. Use <code>netstat -ano</code> to enumerate connections, pipe through <code>findstr</code> to filter, and use <code>tasklist</code> to identify the suspicious process by PID.",
+    bannerDetail: "Lateral movement suspected — unusual listening port 1234",
+    bannerHost: "WKSTN-112 / 10.0.1.112",
+    iocTitle: "Analyst Notes",
+    iocs: [
+      { label: "Suspicious Port", value: "1234", note: "Unusual inbound listener — not a standard service" },
+      { label: "Suspected State", value: "LISTENING", note: "May be awaiting inbound C2 callback" },
+    ],
+    keyHint: "Use netstat -ano to see all connections with PIDs. Pipe to findstr :1234 to isolate the port. Then use tasklist | findstr <PID> to name the process.",
+    chips: [
+      "netstat -ano",
+      "netstat -ano | findstr :1234",
+      "netstat -ano | findstr LISTENING",
+      "tasklist | findstr 5192",
+    ],
+    tcpTable: [
+      { local:"0.0.0.0",    lport:1234,  remote:"0.0.0.0",       rport:0,     state:"LISTENING",   pid:5192 },
+      { local:"0.0.0.0",    lport:445,   remote:"0.0.0.0",       rport:0,     state:"LISTENING",   pid:4    },
+      { local:"0.0.0.0",    lport:3389,  remote:"0.0.0.0",       rport:0,     state:"LISTENING",   pid:1840 },
+      { local:"10.0.1.112", lport:50023, remote:"52.96.151.5",   rport:443,   state:"ESTABLISHED", pid:3012 },
+      { local:"10.0.1.112", lport:49888, remote:"17.253.144.10", rport:443,   state:"ESTABLISHED", pid:1556 },
+      { local:"10.0.1.112", lport:49701, remote:"10.0.1.1",      rport:53,    state:"ESTABLISHED", pid:660  },
+    ],
+    processes: {
+      5192: { name:"nc.exe",       cpu:"0.2",  mem:"4,512 K",   path:"C:\\Users\\Public\\nc.exe" },
+      4:    { name:"System",       cpu:"0.0",  mem:"148 K",     path:"" },
+      1840: { name:"svchost.exe",  cpu:"0.0",  mem:"10,048 K",  path:"C:\\Windows\\System32\\svchost.exe" },
+      3012: { name:"outlook.exe",  cpu:"0.8",  mem:"98,240 K",  path:"C:\\Program Files\\Microsoft Office\\Office16\\OUTLOOK.EXE" },
+      1556: { name:"OneDrive.exe", cpu:"0.1",  mem:"42,104 K",  path:"C:\\Users\\bwilson\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe" },
+      660:  { name:"svchost.exe",  cpu:"0.0",  mem:"14,512 K",  path:"C:\\Windows\\System32\\svchost.exe" },
+    },
+    objectives: [
+      { id:"o1", text:"Run netstat -ano to list all connections with PIDs", check: s => s.ranCmd("netstat") && s.ranWithArg("netstat","-ano") },
+      { id:"o2", text:"Use findstr to isolate port 1234",                   check: s => s.ranWithArg("findstr",":1234") || s.ranWithArg("findstr","1234") },
+      { id:"o3", text:"Identify the process by PID (5192 / nc.exe)",        check: s => s.ranWithArg("tasklist","5192") || s.resolvedProcess(5192) },
+    ],
+    welcome: [
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-amber",  t:"  ⚠ CMD SHELL — LIMITED TOOLSET AVAILABLE" },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-data",   t:"  PowerShell is restricted on this endpoint (policy)." },
+      { cls:"t-data",   t:"  Use built-in CMD tools to investigate the suspicious" },
+      { cls:"t-data",   t:"  listener on port 1234." },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-out",    t:"" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // SCENARIO 3 — Pipe to Get-Process + Select-Object (PS, harder)
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 2,
+    shell: "ps",
+    title: "Process Attribution Pipeline",
+    difficulty: "medium",
+    desc: "A disguised process is beaconing to <code>91.198.174.192</code> over port <code>8080</code>. Use <code>Get-NetTCPConnection</code> piped to <code>Get-Process</code> via the <code>OwningProcess</code> property. Also investigate the suspicious local listener and determine what process is listening on port <code>8443</code>.",
+    bannerDetail: "HTTP-tunneled C2 on port 8080 — disguised as browser traffic",
+    bannerHost: "WKSTN-203 / 10.0.2.203",
+    iocTitle: "Indicators of Compromise",
+    iocs: [
+      { label: "C2 IP",    value: "91.198.174.192", note: "Flagged in threat feed — bulletproof hosting" },
+      { label: "C2 Port",  value: "8080",           note: "Common HTTP tunnel / proxy bypass" },
+      { label: "Listener", value: "8443",            note: "Unexpected HTTPS-alt listener" },
+    ],
+    keyHint: "Use Get-NetTCPConnection -RemotePort 8080 | Get-Process -Id {$_.OwningProcess} — the OwningProcess property maps to a PID for Get-Process. Also check -LocalPort 8443 with -State Listen.",
+    chips: [
+      "Get-NetTCPConnection -State Established",
+      "Get-NetTCPConnection -RemotePort 8080",
+      "Get-NetTCPConnection -RemotePort 8080 | Get-Process -Id {$_.OwningProcess}",
+      "Get-NetTCPConnection -LocalPort 8443 -State Listen",
+      "Get-NetTCPConnection -State Listen | Select-Object LocalPort,OwningProcess",
+    ],
+    tcpTable: [
+      { local:"10.0.2.203", lport:52041, remote:"91.198.174.192", rport:8080,  state:"ESTABLISHED", pid:6644 },
+      { local:"10.0.2.203", lport:50918, remote:"142.250.80.14",  rport:443,   state:"ESTABLISHED", pid:2340 },
+      { local:"10.0.2.203", lport:51303, remote:"20.99.184.37",   rport:443,   state:"ESTABLISHED", pid:4208 },
+      { local:"10.0.2.203", lport:50011, remote:"10.0.2.1",       rport:53,    state:"ESTABLISHED", pid:660  },
+      { local:"0.0.0.0",    lport:8443,  remote:"0.0.0.0",        rport:0,     state:"LISTEN",      pid:6644 },
+      { local:"0.0.0.0",    lport:445,   remote:"0.0.0.0",        rport:0,     state:"LISTEN",      pid:4    },
+      { local:"0.0.0.0",    lport:135,   remote:"0.0.0.0",        rport:0,     state:"LISTEN",      pid:1104 },
+    ],
+    processes: {
+      6644: { name:"svchost32.exe", cpu:"8.7", mem:"34,120 K",  path:"C:\\Users\\Public\\Downloads\\svchost32.exe" },
+      2340: { name:"chrome.exe",    cpu:"3.9", mem:"189,230 K", path:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+      4208: { name:"msedge.exe",    cpu:"1.1", mem:"112,400 K", path:"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" },
+      660:  { name:"svchost.exe",   cpu:"0.0", mem:"14,512 K",  path:"C:\\Windows\\System32\\svchost.exe" },
+      4:    { name:"System",        cpu:"0.0", mem:"148 K",     path:"" },
+      1104: { name:"svchost.exe",   cpu:"0.0", mem:"8,204 K",   path:"C:\\Windows\\System32\\svchost.exe" },
+    },
+    objectives: [
+      { id:"o1", text:"Find established connection to port 8080",                         check: s => s.ranWithArg("Get-NetTCPConnection","-RemotePort 8080") || (s.ranCmd("Get-NetTCPConnection") && s.outputContains("8080")) },
+      { id:"o2", text:"Pipe OwningProcess to Get-Process to name the process",            check: s => s.usedPipeline("Get-NetTCPConnection","Get-Process") },
+      { id:"o3", text:"Identify the suspicious process (PID 6644 / svchost32.exe)",       check: s => s.resolvedProcess(6644) || s.mentionedPid(6644) },
+      { id:"o4", text:"Identify what process is LISTENING on port 8443",                  check: s => s.ranWithArg("Get-NetTCPConnection","-LocalPort 8443") || s.ranWithArg("Get-NetTCPConnection","8443") },
+    ],
+    welcome: [
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-red",    t:"  ⚠ HTTP-TUNNEL C2 BEACON DETECTED" },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-data",   t:"  A process is tunneling C2 traffic over port 8080 to blend" },
+      { cls:"t-data",   t:"  with normal web traffic. It is also maintaining a local" },
+      { cls:"t-data",   t:"  listener on 8443. Use the pipeline to find it." },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-out",    t:"" },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // SCENARIO 4 — Full Investigation: PS + Select-Object + Where-Object
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 3,
+    shell: "ps",
+    title: "Full Triage: Multi-Stage C2",
+    difficulty: "hard",
+    desc: "A multi-stage implant is operating on this host. Use <code>Where-Object</code> to filter non-standard ports, find all <code>ESTABLISHED</code> connections not on common ports (80, 443, 53), and identify <em>multiple</em> suspicious processes. Also enumerate <em>all</em> listeners that are NOT standard Windows services.",
+    bannerDetail: "Multi-stage implant active — multiple C2 channels suspected",
+    bannerHost: "WKSTN-301 / 10.0.3.101",
+    iocTitle: "SOC Alert Triggers",
+    iocs: [
+      { label: "Alert 1", value: "Beaconing on 6667 (IRC C2)", note: "Low & slow — 60s interval" },
+      { label: "Alert 2", value: "DNS tunneling on port 53",   note: "High query volume to 198.51.100.5" },
+      { label: "Alert 3", value: "Backdoor listener 31337",    note: "'Elite' port — script kiddie IOC" },
+    ],
+    keyHint: "Use Get-NetTCPConnection | Where-Object {$_.State -eq 'Established' -and $_.RemotePort -notin @(80,443,53)} to isolate non-standard traffic. Then pipe to Get-Process -Id {$_.OwningProcess} for attribution.",
+    chips: [
+      "Get-NetTCPConnection | Where-Object {$_.State -eq 'Established'}",
+      "Get-NetTCPConnection | Where-Object {$_.State -eq 'Established' -and $_.RemotePort -notin @(80,443,53)}",
+      "Get-NetTCPConnection -State Established | Select-Object LocalPort,RemoteAddress,RemotePort,OwningProcess",
+      "Get-NetTCPConnection -LocalPort 31337",
+      "Get-NetTCPConnection | Where-Object {$_.State -eq 'Established'} | Get-Process -Id {$_.OwningProcess}",
+    ],
+    tcpTable: [
+      { local:"10.0.3.101", lport:53201, remote:"198.51.100.5",  rport:53,    state:"ESTABLISHED", pid:7712 },
+      { local:"10.0.3.101", lport:54009, remote:"203.0.113.8",   rport:6667,  state:"ESTABLISHED", pid:8821 },
+      { local:"10.0.3.101", lport:50918, remote:"142.250.80.14", rport:443,   state:"ESTABLISHED", pid:1024 },
+      { local:"10.0.3.101", lport:51005, remote:"17.57.144.10",  rport:443,   state:"ESTABLISHED", pid:2888 },
+      { local:"10.0.3.101", lport:52111, remote:"10.0.3.1",      rport:80,    state:"ESTABLISHED", pid:660  },
+      { local:"0.0.0.0",    lport:31337, remote:"0.0.0.0",       rport:0,     state:"LISTEN",      pid:8821 },
+      { local:"0.0.0.0",    lport:445,   remote:"0.0.0.0",       rport:0,     state:"LISTEN",      pid:4    },
+      { local:"0.0.0.0",    lport:3389,  remote:"0.0.0.0",       rport:0,     state:"LISTEN",      pid:1840 },
+      { local:"0.0.0.0",    lport:135,   remote:"0.0.0.0",       rport:0,     state:"LISTEN",      pid:1104 },
+    ],
+    processes: {
+      7712: { name:"dnscat2.exe",  cpu:"2.1",  mem:"18,334 K",  path:"C:\\ProgramData\\dnscat2.exe" },
+      8821: { name:"irssi.exe",    cpu:"1.4",  mem:"22,910 K",  path:"C:\\Users\\Public\\Tools\\irssi.exe" },
+      1024: { name:"chrome.exe",   cpu:"5.2",  mem:"201,220 K", path:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+      2888: { name:"outlook.exe",  cpu:"0.9",  mem:"94,110 K",  path:"C:\\Program Files\\Microsoft Office\\Office16\\OUTLOOK.EXE" },
+      660:  { name:"svchost.exe",  cpu:"0.0",  mem:"14,512 K",  path:"C:\\Windows\\System32\\svchost.exe" },
+      4:    { name:"System",       cpu:"0.0",  mem:"148 K",     path:"" },
+      1840: { name:"svchost.exe",  cpu:"0.0",  mem:"10,048 K",  path:"C:\\Windows\\System32\\svchost.exe" },
+      1104: { name:"svchost.exe",  cpu:"0.0",  mem:"8,204 K",   path:"C:\\Windows\\System32\\svchost.exe" },
+    },
+    objectives: [
+      { id:"o1", text:"Enumerate all established connections",                                  check: s => s.ranCmd("Get-NetTCPConnection") && (s.ranWithArg("Get-NetTCPConnection","Established") || s.usedWhereObject()) },
+      { id:"o2", text:"Isolate connections on non-standard ports (filter out 80, 443, 53)",    check: s => s.usedWhereObjectFilter() || s.ranWithArg("Get-NetTCPConnection", "6667") || s.ranWithArg("Get-NetTCPConnection", "198.51.100.5") },
+      { id:"o3", text:"Identify first C2 process: PID 7712 (dnscat2.exe)",                    check: s => s.resolvedProcess(7712) || s.mentionedPid(7712) },
+      { id:"o4", text:"Identify second C2 process: PID 8821 (irssi.exe)",                     check: s => s.resolvedProcess(8821) || s.mentionedPid(8821) },
+      { id:"o5", text:"Find the backdoor listener on port 31337",                              check: s => s.ranWithArg("Get-NetTCPConnection","31337") || s.outputContains("31337") },
+    ],
+    welcome: [
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-red",    t:"  ⚠ MULTI-STAGE IMPLANT — FULL HOST COMPROMISE SUSPECTED" },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-data",   t:"  Multiple C2 channels active. DNS tunneling and IRC C2" },
+      { cls:"t-data",   t:"  both detected. A backdoor listener is also open." },
+      { cls:"t-data",   t:"  Enumerate all suspicious connections and processes." },
+      { cls:"t-sep",    t:"─────────────────────────────────────────────────────────────" },
+      { cls:"t-out",    t:"" },
+    ],
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+let currentIdx = 0;
+let completedScenarios = new Set();
+let cmdHistory = [];
+let historyPos = -1;
+let cmdLog = [];        // raw strings
+let outputBuffer = "";  // accumulated output text for substring matching
+let resolvedPids = new Set();
+let pipelineUsed = false;
+let whereObjUsed = false;
+let whereObjFilterUsed = false;
+let outputLines = new Set(); // set of partial strings seen in output
+
+// ════════════════════════════════════════════════════════════════════════
+// CHECKER
+// ════════════════════════════════════════════════════════════════════════
+const checker = {
+  ranCmd(cmd)              { return cmdLog.some(c => c.toLowerCase().startsWith(cmd.toLowerCase())); },
+  ranWithArg(cmd, arg)     { return cmdLog.some(c => c.toLowerCase().includes(cmd.toLowerCase()) && c.toLowerCase().includes(arg.toLowerCase())); },
+  outputContains(str)      { return outputBuffer.toLowerCase().includes(str.toLowerCase()); },
+  resolvedProcess(pid)     { return resolvedPids.has(pid); },
+  mentionedPid(pid)        { return cmdLog.some(c => c.includes(String(pid))); },
+  usedPipeline(a, b)       { return pipelineUsed; },
+  usedWhereObject()        { return whereObjUsed; },
+  usedWhereObjectFilter()  { return whereObjFilterUsed; },
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER HELPERS
+// ════════════════════════════════════════════════════════════════════════
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function printLine(cls, text) {
+  const out = document.getElementById('termOutput');
+  const span = document.createElement('span');
+  span.className = `t-line ${cls}`;
+  span.textContent = text;
+  out.appendChild(span);
+  out.appendChild(document.createTextNode('\n'));
+  out.scrollTop = out.scrollHeight;
+  outputBuffer += text + '\n';
+}
+
+function printBlank() { printLine('t-out', ''); }
+
+function printPromptLine(cmd) {
+  const s = SCENARIOS[currentIdx];
+  const out = document.getElementById('termOutput');
+  const span = document.createElement('span');
+  span.className = 't-line';
+  const promptCls = s.shell === 'cmd' ? 't-prompt-cmd' : 't-prompt-ps';
+  const promptText = s.shell === 'cmd' ? 'C:\\&gt; ' : 'PS C:\\&gt; ';
+  span.innerHTML = `<span class="${promptCls}">${promptText}</span><span class="t-cmd">${esc(cmd)}</span>`;
+  out.appendChild(span);
+  out.appendChild(document.createTextNode('\n'));
+  out.scrollTop = out.scrollHeight;
+}
+
+// ── TCP TABLE ── (PowerShell Get-NetTCPConnection style)
+function printNetTCPTable(rows) {
+  printBlank();
+  printLine('t-header', 'LocalAddress     LocalPort RemoteAddress    RemotePort State        OwningProcess');
+  printLine('t-sep',    '────────────── ─────────── ──────────────── ────────── ──────────── ─────────────');
+  rows.forEach(r => {
+    const isSuspicious = isSuspiciousRow(r);
+    const cls = isSuspicious ? 't-suspicious' : 't-data';
+    const line = `${r.local.padEnd(16)} ${String(r.lport).padStart(9)}  ${r.remote.padEnd(16)} ${String(r.rport).padStart(9)}  ${r.state.padEnd(12)} ${r.pid}`;
+    printLine(cls, line);
+    outputBuffer += line + '\n';
+  });
+  printBlank();
+}
+
+// ── netstat -ano style ──
+function printNetstatTable(rows) {
+  printBlank();
+  printLine('t-header', 'Proto  Local Address           Foreign Address         State           PID');
+  printLine('t-sep',    '─────  ──────────────────────  ──────────────────────  ──────────────  ─────');
+  rows.forEach(r => {
+    const isSuspicious = isSuspiciousRow(r);
+    const cls = isSuspicious ? 't-suspicious' : 't-data';
+    const local  = `${r.local}:${r.lport}`;
+    const remote = r.state === 'LISTENING' ? '0.0.0.0:0' : `${r.remote}:${r.rport}`;
+    const line = `TCP    ${local.padEnd(23)} ${remote.padEnd(23)} ${r.state.padEnd(15)} ${r.pid}`;
+    printLine(cls, line);
+    outputBuffer += line + '\n';
+  });
+  printBlank();
+}
+
+function isSuspiciousRow(r) {
+  const suspPorts = [4444, 1234, 8080, 8443, 6667, 31337];
+  const suspIPs   = ["185.220.101.55","91.198.174.192","198.51.100.5","203.0.113.8"];
+  return suspPorts.includes(r.rport) || suspPorts.includes(r.lport) ||
+         suspIPs.includes(r.remote);
+}
+
+// ── Process table ──
+function printProcessTable(procs) {
+  printBlank();
+  printLine('t-header', 'Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName');
+  printLine('t-sep',    '───────  ──────  ──────── ─────────  ─────── ──────  ── ───────────');
+  procs.forEach(([pid, p]) => {
+    const line = `    412      18     ${p.mem.padStart(8)}  ${p.mem.padStart(8)}  ${String(p.cpu).padStart(7)}  ${String(pid).padStart(5)}   1 ${p.name}`;
+    printLine('t-data', line);
+    outputBuffer += line + '\n';
+  });
+  printBlank();
+}
+
+// ── Get-Process single result ──
+function printSingleProcess(pid, p) {
+  printBlank();
+  printLine('t-header', 'Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName');
+  printLine('t-sep',    '───────  ──────  ──────── ─────────  ─────── ──────  ── ───────────');
+  const line = `    412      18     ${p.mem.padStart(8)}  ${p.mem.padStart(8)}  ${String(p.cpu).padStart(7)}  ${String(pid).padStart(5)}   1 ${p.name}`;
+  printLine('t-data', line);
+  if (p.path) printLine('t-amber', `  → ${p.path}`);
+  printBlank();
+  resolvedPids.add(pid);
+}
+
+// ── tasklist ──
+function printTasklist(procs, filterPid) {
+  printBlank();
+  printLine('t-header', 'Image Name                     PID Session Name     Mem Usage');
+  printLine('t-sep',    '========================= ======== ================ ============');
+  procs.forEach(([pid, p]) => {
+    if (filterPid && pid !== filterPid) return;
+    const line = `${p.name.padEnd(25)}  ${String(pid).padStart(6)} Console               ${p.mem}`;
+    const isSusp = isSuspiciousPid(pid, SCENARIOS[currentIdx]);
+    printLine(isSusp ? 't-suspicious' : 't-data', line);
+    outputBuffer += line + '\n';
+    if (filterPid) resolvedPids.add(pid);
+  });
+  printBlank();
+}
+
+function isSuspiciousPid(pid, s) {
+  const suspNames = ["nc.exe","powershell.exe","dnscat2.exe","irssi.exe","svchost32.exe"];
+  const p = s.processes[pid];
+  return p && suspNames.includes(p.name);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// COMMAND PROCESSOR
+// ════════════════════════════════════════════════════════════════════════
+function processCommand(raw) {
+  const input = raw.trim();
+  if (!input) return;
+
+  cmdLog.push(input);
+  cmdHistory.unshift(input);
+  historyPos = -1;
+  printPromptLine(input);
+
+  const s = SCENARIOS[currentIdx];
+  const lower = input.toLowerCase();
+  const parts = input.split(/\s*\|\s*/);   // split on pipe
+
+  // Detect pipeline usage
+  if (parts.length > 1) {
+    const p0 = parts[0].toLowerCase(), p1 = parts[1] ? parts[1].toLowerCase() : '';
+    if (p0.includes('get-nettcpconnection') && p1.includes('get-process')) {
+      pipelineUsed = true;
+      handlePipelineNetTCPToProcess(parts, s);
+      updateRequirements();
+      return;
+    }
+    if (p0.includes('get-nettcpconnection') && p1.includes('where-object')) {
+      handleNetTCPWhereObject(parts, s);
+      updateRequirements();
+      return;
+    }
+    if (p0.includes('get-nettcpconnection') && p1.includes('select-object')) {
+      handleNetTCPSelect(parts, s);
+      updateRequirements();
+      return;
+    }
+    if (lower.includes('where-object') && lower.includes('-notin')) {
+      whereObjFilterUsed = true;
+    }
+    if (lower.includes('where-object')) {
+      whereObjUsed = true;
+    }
+    // netstat | findstr
+    if (p0.includes('netstat') && parts.some(p => p.toLowerCase().includes('findstr'))) {
+      handleNetstatFindstr(parts, s);
+      updateRequirements();
+      return;
+    }
+    // tasklist | findstr
+    if (p0.includes('tasklist') && parts.some(p => p.toLowerCase().includes('findstr'))) {
+      handleTasklistFindstr(parts, s);
+      updateRequirements();
+      return;
+    }
+    // Generic pipeline with Where-Object (no process)
+    if (lower.includes('where-object')) {
+      whereObjUsed = true;
+      if (lower.includes('-notin') || (lower.includes('80') && lower.includes('443') && lower.includes('53'))) {
+        whereObjFilterUsed = true;
+      }
+      handleNetTCPWhereObject(parts, s);
+      updateRequirements();
+      return;
+    }
+  }
+
+  // ── Get-NetTCPConnection variants ──
+  if (/^get-nettcpconnection(\s|$)/i.test(input)) {
+    handleGetNetTCPConnection(input, s);
+    updateRequirements();
+    return;
+  }
+
+  // ── Get-Process ──
+  if (/^get-process(\s|$)/i.test(input)) {
+    const pidMatch = input.match(/-Id\s+(\d+)/i);
+    const pidMatch2 = input.match(/-Id\s+\{.*\}/i);
+    if (pidMatch) {
+      const pid = parseInt(pidMatch[1]);
+      const p = s.processes[pid];
+      if (p) { printSingleProcess(pid, p); }
+      else { printLine('t-error', `Get-Process: No process found with Id ${pid}.`); printBlank(); }
+    } else {
+      // Show all
+      printProcessTable(Object.entries(s.processes).map(([k,v]) => [parseInt(k),v]));
+    }
+    updateRequirements();
+    return;
+  }
+
+  // ── netstat ──
+  if (/^netstat(\s|$)/i.test(input)) {
+    if (lower.includes('-a')) {
+      printNetstatTable(s.tcpTable);
+    } else {
+      printLine('t-data', 'Active Connections:');
+      printBlank();
+      printLine('t-data', '  (Established connections only — use -a for all, -ano for PIDs)');
+      printNetstatTable(s.tcpTable.filter(r => r.state === 'ESTABLISHED'));
+    }
+    updateRequirements();
+    return;
+  }
+
+  // ── tasklist ──
+  if (/^tasklist(\s|$)/i.test(input)) {
+    printTasklist(Object.entries(s.processes).map(([k,v]) => [parseInt(k),v]), null);
+    updateRequirements();
+    return;
+  }
+
+  // ── findstr standalone ──
+  if (/^findstr(\s|$)/i.test(input)) {
+    printLine('t-error', "findstr: Use in a pipeline — e.g.  netstat -ano | findstr :1234");
+    printBlank();
+    updateRequirements();
+    return;
+  }
+
+  // ── cls / clear ──
+  if (/^(cls|clear|clear-host)$/i.test(input)) {
+    document.getElementById('termOutput').innerHTML = '';
+    outputBuffer = '';
+    return;
+  }
+
+  // ── help ──
+  if (/^help$/i.test(input) || /^get-help/i.test(input)) {
+    printBlank();
+    printLine('t-amber',  'Available Commands:');
+    printBlank();
+    printLine('t-cyan',   '  Get-NetTCPConnection  [-State <state>] [-RemotePort <n>] [-RemoteAddress <ip>]');
+    printLine('t-cyan',   '                        [-LocalPort <n>]');
+    printLine('t-cyan',   '  Get-Process           [-Id <pid>]');
+    printLine('t-data',   '  netstat               [-a] [-n] [-o]  (CMD only)');
+    printLine('t-data',   '  tasklist              (CMD only)');
+    printLine('t-data',   '  findstr               <pattern>  (CMD only — use in pipeline)');
+    printBlank();
+    printLine('t-amber',  'Pipeline Examples:');
+    printLine('t-cyan',   '  Get-NetTCPConnection -RemotePort 4444 | Get-Process -Id {$_.OwningProcess}');
+    printLine('t-cyan',   '  Get-NetTCPConnection | Where-Object {$_.State -eq "Established"}');
+    printLine('t-data',   '  netstat -ano | findstr :4444');
+    printBlank();
+    updateRequirements();
+    return;
+  }
+
+  // ── Unknown ──
+  printLine('t-error', `'${input.split(' ')[0]}' : The term is not recognized. Try 'help'.`);
+  printBlank();
+}
+
+// ── Handler: Get-NetTCPConnection ──
+function handleGetNetTCPConnection(input, s) {
+  let rows = [...s.tcpTable];
+  const lower = input.toLowerCase();
+
+  // -State filter
+  const stateM = input.match(/-State\s+(\w+)/i);
+  if (stateM) {
+    const st = stateM[1].toUpperCase();
+    rows = rows.filter(r => r.state === st || r.state.startsWith(st));
+  }
+
+  // -RemotePort
+  const rPortM = input.match(/-RemotePort\s+(\d+)/i);
+  if (rPortM) rows = rows.filter(r => r.rport === parseInt(rPortM[1]));
+
+  // -LocalPort
+  const lPortM = input.match(/-LocalPort\s+(\d+)/i);
+  if (lPortM) rows = rows.filter(r => r.lport === parseInt(lPortM[1]));
+
+  // -RemoteAddress
+  const rAddrM = input.match(/-RemoteAddress\s+([\d.]+)/i);
+  if (rAddrM) rows = rows.filter(r => r.remote === rAddrM[1]);
+
+  if (rows.length === 0) {
+    printBlank();
+    printLine('t-data', '(No connections matched the specified filters.)');
+    printBlank();
+  } else {
+    printNetTCPTable(rows);
+  }
+}
+
+// ── Handler: Pipeline Get-NetTCPConnection | Get-Process ──
+function handlePipelineNetTCPToProcess(parts, s) {
+  // Evaluate first segment
+  let rows = [...s.tcpTable];
+  const p0 = parts[0];
+  const stateM  = p0.match(/-State\s+(\w+)/i);
+  const rPortM  = p0.match(/-RemotePort\s+(\d+)/i);
+  const lPortM  = p0.match(/-LocalPort\s+(\d+)/i);
+  const rAddrM  = p0.match(/-RemoteAddress\s+([\d.]+)/i);
+  if (stateM) { const st = stateM[1].toUpperCase(); rows = rows.filter(r => r.state === st || r.state.startsWith(st)); }
+  if (rPortM) rows = rows.filter(r => r.rport === parseInt(rPortM[1]));
+  if (lPortM) rows = rows.filter(r => r.lport === parseInt(lPortM[1]));
+  if (rAddrM) rows = rows.filter(r => r.remote === rAddrM[1]);
+  if (rows.length === 0) { printBlank(); printLine('t-data','(No connections matched.)'); printBlank(); return; }
+
+  // Resolve each row's process
+  const pids = [...new Set(rows.map(r => r.pid))];
+  pids.forEach(pid => {
+    const p = s.processes[pid];
+    if (p) {
+      printSingleProcess(pid, p);
+      resolvedPids.add(pid);
+    }
+  });
+}
+
+// ── Handler: Pipeline with Where-Object ──
+function handleNetTCPWhereObject(parts, s) {
+  whereObjUsed = true;
+  const fullCmd = parts.join(' | ');
+  const lower = fullCmd.toLowerCase();
+
+  let rows = [...s.tcpTable];
+
+  // Detect -notin filter
+  if (lower.includes('-notin') || (lower.includes('80') && lower.includes('443') && lower.includes('53'))) {
+    whereObjFilterUsed = true;
+    rows = rows.filter(r => ![80,443,53].includes(r.rport));
+  }
+  // State filter from Where-Object
+  const stateMatch = fullCmd.match(/\$_\.State\s*-eq\s*['"](\w+)['"]/i);
+  if (stateMatch) {
+    const st = stateMatch[1].toUpperCase();
+    rows = rows.filter(r => r.state === st || r.state.startsWith(st));
+  }
+
+  // Check if pipeline also ends with Get-Process
+  if (lower.includes('get-process') && lower.includes('owningprocess')) {
+    pipelineUsed = true;
+    const pids = [...new Set(rows.map(r => r.pid))];
+    pids.forEach(pid => {
+      const p = s.processes[pid];
+      if (p) { printSingleProcess(pid, p); resolvedPids.add(pid); }
+    });
+  } else {
+    printNetTCPTable(rows);
+  }
+}
+
+// ── Handler: NetTCP | Select-Object ──
+function handleNetTCPSelect(parts, s) {
+  let rows = [...s.tcpTable];
+  const p0 = parts[0];
+  const stateM = p0.match(/-State\s+(\w+)/i);
+  if (stateM) { const st = stateM[1].toUpperCase(); rows = rows.filter(r => r.state === st || r.state.startsWith(st)); }
+
+  printBlank();
+  printLine('t-header', 'LocalPort  RemoteAddress     RemotePort  OwningProcess');
+  printLine('t-sep',    '─────────  ────────────────  ──────────  ─────────────');
+  rows.forEach(r => {
+    const isSusp = isSuspiciousRow(r);
+    const line = `${String(r.lport).padStart(9)}  ${r.remote.padEnd(16)}  ${String(r.rport).padStart(10)}  ${r.pid}`;
+    printLine(isSusp ? 't-suspicious' : 't-data', line);
+    outputBuffer += line;
+  });
+  printBlank();
+}
+
+// ── Handler: netstat | findstr ──
+function handleNetstatFindstr(parts, s) {
+  let rows = [...s.tcpTable];
+
+  // netstat flags
+  if (!parts[0].toLowerCase().includes('-a')) {
+    rows = rows.filter(r => r.state === 'ESTABLISHED');
+  }
+
+  // findstr filters
+  const patterns = parts.slice(1)
+    .filter(p => p.toLowerCase().includes('findstr'))
+    .map(p => { const m = p.match(/findstr\s+["']?([^"'\s]+)["']?/i); return m ? m[1] : null; })
+    .filter(Boolean);
+
+  patterns.forEach(pat => {
+    const portMatch = pat.match(/^:(\d+)$/);
+    if (portMatch) {
+      const port = parseInt(portMatch[1]);
+      rows = rows.filter(r => r.lport === port || r.rport === port);
+    } else if (pat.toUpperCase() === 'ESTABLISHED') {
+      rows = rows.filter(r => r.state === 'ESTABLISHED');
+    } else if (pat.toUpperCase() === 'LISTENING') {
+      rows = rows.filter(r => r.state === 'LISTENING' || r.state === 'LISTEN');
+    } else if (/^\d+$/.test(pat)) {
+      rows = rows.filter(r => r.lport === parseInt(pat) || r.rport === parseInt(pat) || r.pid === parseInt(pat));
+    }
+  });
+
+  if (rows.length === 0) {
+    printBlank();
+    printLine('t-data', '(No entries matched.)');
+    printBlank();
+  } else {
+    printBlank();
+    rows.forEach(r => {
+      const isSusp = isSuspiciousRow(r);
+      const local  = `${r.local}:${r.lport}`;
+      const remote = r.state === 'LISTENING' ? '0.0.0.0:0' : `${r.remote}:${r.rport}`;
+      const state  = r.state === 'LISTEN' ? 'LISTENING' : r.state;
+      const line   = `  TCP    ${local.padEnd(23)} ${remote.padEnd(23)} ${state.padEnd(15)} ${r.pid}`;
+      printLine(isSusp ? 't-suspicious' : 't-data', line);
+      outputBuffer += line + '\n';
+    });
+    printBlank();
+  }
+}
+
+// ── Handler: tasklist | findstr ──
+function handleTasklistFindstr(parts, s) {
+  const patterns = parts.slice(1)
+    .filter(p => p.toLowerCase().includes('findstr'))
+    .map(p => { const m = p.match(/findstr\s+["']?([^"'\s]+)["']?/i); return m ? m[1] : null; })
+    .filter(Boolean);
+
+  let procs = Object.entries(s.processes).map(([k,v]) => [parseInt(k),v]);
+
+  patterns.forEach(pat => {
+    if (/^\d+$/.test(pat)) {
+      const pid = parseInt(pat);
+      procs = procs.filter(([k]) => k === pid);
+      if (procs.length > 0) resolvedPids.add(pid);
+    } else {
+      procs = procs.filter(([, v]) => v.name.toLowerCase().includes(pat.toLowerCase()));
+    }
+  });
+
+  if (procs.length === 0) {
+    printBlank(); printLine('t-data', '(No matching processes.)'); printBlank();
+  } else {
+    printTasklist(procs, null);
+    procs.forEach(([pid]) => resolvedPids.add(pid));
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// REQUIREMENTS
+// ════════════════════════════════════════════════════════════════════════
+function updateRequirements() {
+  const s = SCENARIOS[currentIdx];
+  const reqList = document.getElementById('reqList');
+  const items = reqList.querySelectorAll('.req-item');
+  let passed = 0;
+  s.objectives.forEach((obj, i) => {
+    const met = obj.check(checker);
+    if (met) passed++;
+    const el = items[i];
+    if (el) {
+      el.classList.remove('met','unmet');
+      el.classList.add(met ? 'met' : '');
+      el.querySelector('.req-icon').textContent = met ? '✓' : '◈';
+    }
+  });
+  const total = s.objectives.length;
+  const pct = Math.round((passed / total) * 100);
+  document.getElementById('scoreNum').textContent = `${passed}/${total}`;
+  document.getElementById('scoreFill').style.width = pct + '%';
+  document.getElementById('scoreFill').style.background =
+    pct === 100 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
+  return { passed, total, pct };
+}
+
+function checkAnswer() {
+  const { passed, total, pct } = updateRequirements();
+  const s = SCENARIOS[currentIdx];
+  if (pct === 100) {
+    completedScenarios.add(currentIdx);
+    updateTabStates();
+    setTimeout(() => {
+      showModal('✓ Investigation Complete!',
+        `All ${total} objectives met for <strong>"${s.title}"</strong>.<br><br>${s.keyHint}<br><br>${currentIdx < SCENARIOS.length - 1 ? 'Move to the next scenario to continue.' : 'All scenarios complete — you are ready for the PBQ!'}`,
+        'win', currentIdx < SCENARIOS.length - 1);
+    }, 200);
+  } else {
+    const unmet = s.objectives.filter(o => !o.check(checker));
+    showModal(`${passed}/${total} Objectives Met`,
+      `Still needed:<br><br>${unmet.map(o => `• ${o.text}`).join('<br>')}<br><br><em>💡 ${s.keyHint}</em>`,
+      'warn', false);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SCENARIO LOADING
+// ════════════════════════════════════════════════════════════════════════
+function loadScenario(idx) {
+  currentIdx = idx;
+  cmdLog = []; outputBuffer = '';
+  resolvedPids = new Set();
+  pipelineUsed = whereObjUsed = whereObjFilterUsed = false;
+
+  const s = SCENARIOS[idx];
+  document.getElementById('termOutput').innerHTML = '';
+  outputBuffer = '';
+
+  // Update header UI
+  const isPS = s.shell === 'ps';
+  document.getElementById('ttbarTitle').textContent = `${isPS ? 'Windows PowerShell' : 'Command Prompt'} — ${s.bannerHost.split(' / ')[0]}`;
+  document.getElementById('ttbarBadge').textContent = isPS ? 'PowerShell 7.4' : 'cmd.exe';
+  document.getElementById('ttbarBadge').className = `ttbar-badge ${isPS ? 'badge-ps' : 'badge-cmd'}`;
+  document.getElementById('inputPrompt').textContent = isPS ? 'PS C:\\>' : 'C:\\>';
+  document.getElementById('inputPrompt').className = `t-input-prompt ${isPS ? 'ps' : 'cmd'}`;
+  document.getElementById('bannerDetail').textContent = s.bannerDetail;
+  document.getElementById('bannerHost').textContent = s.bannerHost;
+
+  // Print welcome
+  s.welcome.forEach(l => printLine(l.cls, l.t));
+  outputBuffer = ''; // reset after welcome so matching is clean
+
+  // Brief panel
+  const diffClass = { easy:'diff-easy', medium:'diff-medium', hard:'diff-hard' }[s.difficulty];
+  const shellBadge = isPS ? '<span class="shell-badge shell-ps">PowerShell</span>' : '<span class="shell-badge shell-cmd">CMD</span>';
+  document.getElementById('briefHeader').innerHTML = `
+    <div class="rpanel-title">Incident Brief</div>
+    <div class="brief-title">${s.title}</div>
+    <span class="diff-pill ${diffClass}">${s.difficulty}</span> ${shellBadge}
+    <div class="brief-desc" style="margin-top:8px;">${s.desc}</div>
+  `;
+
+  // IOC section
+  let iocHtml = `<div class="rpanel-title amber">${s.iocTitle}</div>`;
+  iocHtml += '<table class="ioc-table"><thead><tr><th>Indicator</th><th>Value</th></tr></thead><tbody>';
+  s.iocs.forEach(ioc => {
+    iocHtml += `<tr>
+      <td class="ioc-label">${ioc.label}</td>
+      <td><span class="ioc-value">${ioc.value}</span><br><span class="ioc-note">${ioc.note}</span></td>
+    </tr>`;
+  });
+  iocHtml += '</tbody></table>';
+  document.getElementById('iocSection').innerHTML = iocHtml;
+
+  // Objectives
+  document.getElementById('reqList').innerHTML = s.objectives.map(o => `
+    <div class="req-item">
+      <span class="req-icon">◈</span>
+      <span>${o.text}</span>
+    </div>`).join('');
+
+  document.getElementById('hintText').innerHTML = s.keyHint;
+  document.getElementById('scoreNum').textContent = `0/${s.objectives.length}`;
+  document.getElementById('scoreFill').style.width = '0%';
+  document.getElementById('scoreFill').style.background = 'var(--red)';
+
+  // Chips
+  const strip = document.getElementById('acStrip');
+  strip.innerHTML = '<span class="ac-label">Quick Insert:</span>';
+  s.chips.forEach(chip => {
+    const btn = document.createElement('button');
+    btn.className = `ac-chip${!isPS ? ' cmd-chip' : ''}`;
+    btn.textContent = chip;
+    btn.addEventListener('click', () => {
+      document.getElementById('termInput').value = chip;
+      document.getElementById('termInput').focus();
+    });
+    strip.appendChild(btn);
+  });
+
+  updateTabStates();
+  document.getElementById('termInput').focus();
+}
+
+function resetScenario() { loadScenario(currentIdx); }
+
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+function buildTabs() {
+  const c = document.getElementById('scenarioTabs');
+  c.innerHTML = '';
+  SCENARIOS.forEach((s, i) => {
+    const btn = document.createElement('button');
+    const shellBadge = s.shell === 'ps'
+      ? '<span class="shell-badge shell-ps">PS</span>'
+      : '<span class="shell-badge shell-cmd">CMD</span>';
+    btn.className = `stab${i === 0 ? ' active' : ''}`;
+    btn.innerHTML = `<span class="snum">${String(i+1).padStart(2,'0')}</span>${s.title} ${shellBadge}`;
+    btn.addEventListener('click', () => {
+      loadScenario(i);
+      document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active', j===i));
+    });
+    c.appendChild(btn);
+  });
+}
+
+function updateTabStates() {
+  document.querySelectorAll('.stab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === currentIdx);
+    tab.classList.toggle('done', completedScenarios.has(i) && i !== currentIdx);
+    tab.querySelector('.snum').textContent =
+      completedScenarios.has(i) ? '✓' : String(i+1).padStart(2,'0');
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════════════════════════
+function showModal(title, body, type, showNext) {
+  document.getElementById('modalTitle').className = `modal-title ${type}`;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalNext').style.display = showNext ? 'block' : 'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function showHintModal() {
+  const s = SCENARIOS[currentIdx];
+  showModal('💡 Hint', s.keyHint, 'info', false);
+}
+function nextScenario() {
+  closeModal();
+  currentIdx++;
+  loadScenario(currentIdx);
+  document.querySelectorAll('.stab').forEach((t,j) => t.classList.toggle('active', j===currentIdx));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INPUT
+// ════════════════════════════════════════════════════════════════════════
+const termInput = document.getElementById('termInput');
+termInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = termInput.value;
+    termInput.value = '';
+    processCommand(val);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (historyPos < cmdHistory.length - 1) { historyPos++; termInput.value = cmdHistory[historyPos] || ''; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyPos > 0) { historyPos--; termInput.value = cmdHistory[historyPos] || ''; }
+    else { historyPos = -1; termInput.value = ''; }
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    // Filename tab complete for Get-Process -Id / tasklist patterns
+    const val = termInput.value;
+    const tokens = val.split(/\s+/);
+    const last = tokens[tokens.length - 1];
+    const s = SCENARIOS[currentIdx];
+    const pids = Object.keys(s.processes);
+    const match = pids.find(p => p.startsWith(last));
+    if (match && /^\d/.test(last)) { tokens[tokens.length-1] = match; termInput.value = tokens.join(' '); }
+  }
+});
+document.getElementById('termOutput').addEventListener('click', () => termInput.focus());
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+buildTabs();
+loadScenario(0);
+</script>
+</body>
+</html>
