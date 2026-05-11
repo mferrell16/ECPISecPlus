@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security+ Prereq Jeopardy</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0a0e2e;
+    --navy-mid: #111740;
+    --navy-light: #1a2255;
+    --gold: #f5c842;
+    --gold-dark: #c9a020;
+    --gold-light: #fde68a;
+    --team1: #3b82f6;
+    --team1-light: #93c5fd;
+    --team2: #ef4444;
+    --team2-light: #fca5a5;
+    --correct: #22c55e;
+    --wrong: #ef4444;
+    --text: #f0f0ff;
+    --text-muted: #a0a8cc;
+    --card-used: #0d1235;
+  }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--navy-mid), var(--navy-light));
+    border-bottom: 3px solid var(--gold);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .game-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.4rem;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(245,200,66,0.4);
+  }
+
+  .game-title span {
+    color: var(--text);
+    font-size: 1.1rem;
+    display: block;
+    letter-spacing: 2px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    margin-top: -4px;
+    opacity: 0.7;
+  }
+
+  .scoreboard { display: flex; gap: 1.5rem; align-items: center; }
+
+  .team-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--navy);
+    border-radius: 12px;
+    padding: 0.6rem 1.4rem;
+    border: 2px solid;
+    min-width: 130px;
+    transition: transform 0.15s;
+  }
+
+  .team-score.active-team { transform: scale(1.05); box-shadow: 0 0 18px rgba(255,255,255,0.15); }
+  .team-score.team1 { border-color: var(--team1); }
+  .team-score.team2 { border-color: var(--team2); }
+
+  .team-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; margin-bottom: 2px; }
+  .team-name-display { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+  .team1 .team-name-display { color: var(--team1-light); }
+  .team2 .team-name-display { color: var(--team2-light); }
+  .score-value { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; }
+  .team1 .score-value { color: var(--team1-light); }
+  .team2 .score-value { color: var(--team2-light); }
+
+  .turn-indicator { font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; margin-top: 4px; }
+  .team1 .turn-indicator { background: rgba(59,130,246,0.2); color: var(--team1-light); }
+  .team2 .turn-indicator { background: rgba(239,68,68,0.2); color: var(--team2-light); }
+
+  .score-controls { display: flex; flex-direction: column; gap: 6px; }
+
+  .score-btn {
+    font-size: 0.72rem; font-weight: 600; padding: 4px 10px;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;
+    background: rgba(255,255,255,0.06); color: var(--text);
+    cursor: pointer; transition: background 0.15s; white-space: nowrap; letter-spacing: 0.5px;
+  }
+  .score-btn:hover { background: rgba(255,255,255,0.14); }
+
+  main { flex: 1; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+
+  .category-header {
+    background: var(--navy-light); border: 2px solid var(--gold-dark); border-radius: 10px;
+    padding: 0.75rem 0.5rem; text-align: center; font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.05rem; letter-spacing: 1.5px; color: var(--gold); line-height: 1.2;
+    min-height: 60px; display: flex; align-items: center; justify-content: center;
+  }
+
+  .card {
+    background: var(--navy-light); border: 2px solid var(--gold-dark); border-radius: 10px;
+    height: 80px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; color: var(--gold);
+    letter-spacing: 1px; user-select: none;
+  }
+  .card:hover:not(.used) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245,200,66,0.2); background: #1f2d6e; }
+  .card.used { background: var(--card-used); border-color: #1e2545; cursor: default; color: transparent; }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(5,8,30,0.92); z-index: 100; align-items: center; justify-content: center; padding: 1.5rem; }
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--navy-mid); border: 2px solid var(--gold); border-radius: 18px;
+    padding: 2.5rem; max-width: 680px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7); animation: popIn 0.2s ease-out;
+  }
+
+  @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .modal-meta { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+
+  .modal-category {
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--gold-dark); background: rgba(245,200,66,0.1); padding: 4px 12px;
+    border-radius: 20px; border: 1px solid rgba(245,200,66,0.3);
+  }
+
+  .modal-points { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--gold); letter-spacing: 1px; }
+
+  .modal-question { font-size: 1.4rem; font-weight: 600; line-height: 1.4; color: var(--text); margin-bottom: 2rem; text-align: center; }
+
+  .answer-section {
+    display: none; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+    color: #86efac; font-size: 1.1rem; font-weight: 500; text-align: center;
+  }
+  .answer-section.visible { display: block; }
+
+  .modal-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+
+  .btn { padding: 0.65rem 1.5rem; border-radius: 8px; border: none; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s, transform 0.1s; letter-spacing: 0.5px; }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-reveal { background: var(--gold); color: var(--navy); }
+  .btn-correct { background: var(--correct); color: #fff; }
+  .btn-wrong { background: var(--wrong); color: #fff; }
+  .btn-close { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid rgba(255,255,255,0.15); }
+  .btn-team1 { background: var(--team1); color: #fff; }
+  .btn-team2 { background: var(--team2); color: #fff; }
+
+  .answering-label { display: none; text-align: center; margin-bottom: 1.2rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); letter-spacing: 1px; }
+  .answering-label.visible { display: block; }
+
+  .modal-team-select { margin-bottom: 1.2rem; }
+  .modal-team-select-label { font-size: 0.78rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.6rem; text-align: center; }
+  .team-select-btns { display: flex; gap: 0.75rem; justify-content: center; }
+
+  /* SETUP */
+  .setup-overlay { display: flex; position: fixed; inset: 0; background: rgba(5,8,30,0.97); z-index: 200; align-items: center; justify-content: center; padding: 1.5rem; }
+  .setup-modal { background: var(--navy-mid); border: 2px solid var(--gold); border-radius: 18px; padding: 2.5rem; max-width: 480px; width: 100%; text-align: center; }
+  .setup-title { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; color: var(--gold); letter-spacing: 3px; margin-bottom: 0.25rem; }
+  .setup-sub { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
+  .setup-field { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; text-align: left; }
+  .setup-field label { font-size: 0.8rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); }
+  .setup-field input { background: var(--navy); border: 1.5px solid rgba(245,200,66,0.3); border-radius: 8px; padding: 0.65rem 1rem; font-size: 1rem; color: var(--text); font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.15s; }
+  .setup-field input:focus { border-color: var(--gold); }
+  .btn-start { background: var(--gold); color: var(--navy); width: 100%; padding: 0.85rem; border-radius: 10px; border: none; cursor: pointer; font-family: 'Bebas Neue', sans-serif; letter-spacing: 2px; font-size: 1.3rem; margin-top: 0.5rem; transition: opacity 0.15s; }
+  .btn-start:hover { opacity: 0.88; }
+
+  /* FINAL JEOPARDY */
+  .final-overlay { display: none; position: fixed; inset: 0; background: rgba(5,8,30,0.97); z-index: 150; align-items: center; justify-content: center; padding: 1.5rem; }
+  .final-overlay.open { display: flex; }
+
+  .final-modal {
+    background: var(--navy-mid); border: 3px solid var(--gold); border-radius: 18px;
+    padding: 2.5rem; max-width: 700px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8); animation: popIn 0.25s ease-out; text-align: center;
+  }
+
+  .final-header { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 4px; color: var(--gold-dark); margin-bottom: 0.25rem; text-transform: uppercase; }
+  .final-category { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--gold); letter-spacing: 3px; margin-bottom: 1.75rem; }
+
+  .final-scores { display: flex; justify-content: center; gap: 2rem; margin-bottom: 1.75rem; }
+  .final-score-box { background: var(--navy); border-radius: 12px; padding: 0.75rem 1.5rem; border: 2px solid; text-align: center; min-width: 140px; }
+  .final-score-box.t1 { border-color: var(--team1); }
+  .final-score-box.t2 { border-color: var(--team2); }
+  .final-score-box .fsname { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+  .final-score-box.t1 .fsname { color: var(--team1-light); }
+  .final-score-box.t2 .fsname { color: var(--team2-light); }
+  .final-score-box .fsscore { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; }
+  .final-score-box.t1 .fsscore { color: var(--team1-light); }
+  .final-score-box.t2 .fsscore { color: var(--team2-light); }
+
+  .final-wager-note { background: rgba(245,200,66,0.08); border: 1px solid rgba(245,200,66,0.25); border-radius: 10px; padding: 0.85rem 1.25rem; color: var(--gold-light); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.6; }
+
+  .final-question { font-size: 1.5rem; font-weight: 600; line-height: 1.4; color: var(--text); margin-bottom: 1.75rem; display: none; }
+  .final-question.visible { display: block; }
+
+  .final-answer { display: none; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; color: #86efac; font-size: 1.15rem; font-weight: 600; }
+  .final-answer.visible { display: block; }
+
+  .final-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+
+  /* WINNER */
+  .winner-overlay { display: none; position: fixed; inset: 0; background: rgba(5,8,30,0.97); z-index: 200; align-items: center; justify-content: center; flex-direction: column; gap: 1.5rem; text-align: center; padding: 2rem; }
+  .winner-overlay.open { display: flex; }
+  .winner-trophy { font-size: 5rem; }
+  .winner-title { font-family: 'Bebas Neue', sans-serif; font-size: 4rem; letter-spacing: 5px; color: var(--gold); text-shadow: 0 0 40px rgba(245,200,66,0.5); }
+  .winner-name { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 3px; color: var(--text); }
+  .winner-score { font-size: 1.1rem; color: var(--text-muted); }
+
+  /* FOOTER */
+  .footer-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 2rem; border-top: 1px solid rgba(255,255,255,0.07); }
+
+  .btn-reset { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-muted); border-radius: 8px; padding: 6px 16px; font-size: 0.8rem; cursor: pointer; letter-spacing: 0.5px; transition: background 0.15s; }
+  .btn-reset:hover { background: rgba(255,255,255,0.07); }
+
+  .btn-go-final { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; border: none; border-radius: 8px; padding: 8px 22px; font-size: 0.85rem; font-weight: 700; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: opacity 0.15s; }
+  .btn-go-final:hover { opacity: 0.88; }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-modal">
+    <div class="setup-title">Security+ Jeopardy</div>
+    <div class="setup-sub">Enter team names to begin</div>
+    <div class="setup-field">
+      <label>Team 1 Name</label>
+      <input type="text" id="team1Input" placeholder="e.g. Blue Team" maxlength="20" />
+    </div>
+    <div class="setup-field">
+      <label>Team 2 Name</label>
+      <input type="text" id="team2Input" placeholder="e.g. Red Team" maxlength="20" />
+    </div>
+    <button class="btn-start" onclick="startGame()">Let's Play</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="game-title">
+    Jeopardy
+    <span>Security+ Background Knowledge</span>
+  </div>
+  <div class="scoreboard">
+    <div class="team-score team1 active-team" id="scoreCard1">
+      <div class="team-label">Team 1</div>
+      <div class="team-name-display" id="team1Display">Blue Team</div>
+      <div class="score-value" id="score1">$0</div>
+      <div class="turn-indicator" id="turn1">Your turn</div>
+    </div>
+    <div class="score-controls">
+      <button class="score-btn" onclick="adjustScore(1, 100)">+ $100 T1</button>
+      <button class="score-btn" onclick="adjustScore(1, -100)">− $100 T1</button>
+      <button class="score-btn" onclick="adjustScore(2, 100)">+ $100 T2</button>
+      <button class="score-btn" onclick="adjustScore(2, -100)">− $100 T2</button>
+    </div>
+    <div class="team-score team2" id="scoreCard2">
+      <div class="team-label">Team 2</div>
+      <div class="team-name-display" id="team2Display">Red Team</div>
+      <div class="score-value" id="score2">$0</div>
+      <div class="turn-indicator" id="turn2" style="visibility:hidden">Your turn</div>
+    </div>
+  </div>
+</header>
+
+<!-- BOARD -->
+<main>
+  <div class="board" id="board"></div>
+</main>
+
+<footer class="footer-bar">
+  <button class="btn-reset" onclick="resetGame()">↺ Reset Game</button>
+  <button class="btn-go-final" onclick="launchFinalJeopardy()">⚡ Final Jeopardy</button>
+</footer>
+
+<!-- QUESTION MODAL -->
+<div class="overlay" id="qOverlay">
+  <div class="modal">
+    <div class="modal-meta">
+      <span class="modal-category" id="mCategory"></span>
+      <span class="modal-points" id="mPoints"></span>
+    </div>
+    <div class="modal-question" id="mQuestion"></div>
+    <div class="modal-team-select" id="teamSelectSection">
+      <div class="modal-team-select-label">Which team is answering?</div>
+      <div class="team-select-btns">
+        <button class="btn btn-team1" id="selectT1Btn" onclick="selectTeam(1)"></button>
+        <button class="btn btn-team2" id="selectT2Btn" onclick="selectTeam(2)"></button>
+      </div>
+    </div>
+    <div class="answering-label" id="answeringLabel"></div>
+    <div class="answer-section" id="answerBox"></div>
+    <div class="modal-actions" id="modalActions">
+      <button class="btn btn-reveal" onclick="revealAnswer()">Reveal Answer</button>
+      <button class="btn btn-close" onclick="closeAndMark()">Skip / Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- FINAL JEOPARDY MODAL -->
+<div class="final-overlay" id="finalOverlay">
+  <div class="final-modal">
+    <div class="final-header">Final Jeopardy</div>
+    <div class="final-category">Cybersecurity Fundamentals</div>
+
+    <div class="final-scores">
+      <div class="final-score-box t1">
+        <div class="fsname" id="fName1">Blue Team</div>
+        <div class="fsscore" id="fScore1">$0</div>
+      </div>
+      <div class="final-score-box t2">
+        <div class="fsname" id="fName2">Red Team</div>
+        <div class="fsscore" id="fScore2">$0</div>
+      </div>
+    </div>
+
+    <div class="final-wager-note" id="wagerNote">
+      Both teams — decide your wager now based on your current scores.<br>
+      You can wager up to your full score. Once both teams are ready, reveal the question.
+    </div>
+
+    <div class="final-question" id="finalQuestion">Name the three principles of the CIA Triad.</div>
+    <div class="final-answer" id="finalAnswer">Confidentiality, Integrity, and Availability</div>
+
+    <div class="final-actions" id="finalActions">
+      <button class="btn btn-reveal" onclick="revealFinalQuestion()">Reveal Question</button>
+      <button class="btn btn-close" onclick="closeFinal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- WINNER SCREEN -->
+<div class="winner-overlay" id="winnerOverlay">
+  <div class="winner-trophy">🏆</div>
+  <div class="winner-title">Winner!</div>
+  <div class="winner-name" id="winnerName"></div>
+  <div class="winner-score" id="winnerScore"></div>
+  <button class="btn btn-close" style="margin-top:1rem;" onclick="document.getElementById('winnerOverlay').classList.remove('open')">Close</button>
+</div>
+
+<script>
+const DATA = {
+  categories: [
+    "Networking Basics",
+    "Name That Device",
+    "Define the Acronym",
+    "Finish the Definition",
+    "Which One Doesn't Belong"
+  ],
+  questions: [
+    [
+      { q: "What do we call the system of rules that computers follow to communicate with each other over a network?", a: "Protocol" },
+      { q: "What does it mean when a website uses HTTPS instead of HTTP?", a: "The connection is encrypted / secure" },
+      { q: "What is the purpose of a firewall?", a: "It monitors and filters incoming and outgoing network traffic based on rules" },
+      { q: "What is the difference between a LAN and a WAN?", a: "A LAN is a local network like your home or office; a WAN spans large geographic areas like the internet" },
+      { q: "What happens during a TCP three-way handshake?", a: "SYN → SYN-ACK → ACK. The client and server establish a connection before any data is sent." }
+    ],
+    [
+      { q: "This device in your home connects your local network to the internet.", a: "Router" },
+      { q: "This device amplifies a Wi-Fi signal so it reaches more of your home.", a: "Wi-Fi extender / repeater" },
+      { q: "This device acts as a security guard between your internal network and the outside world, blocking unauthorized traffic.", a: "Firewall" },
+      { q: "This device stores and serves files, websites, or applications to other computers on a network.", a: "Server" },
+      { q: "This device captures and records all network traffic passing through it so analysts can inspect it later.", a: "Packet capture device / network tap" }
+    ],
+    [
+      { q: "What does DNS stand for?", a: "Domain Name System" },
+      { q: "What does VPN stand for?", a: "Virtual Private Network" },
+      { q: "What does DHCP stand for?", a: "Dynamic Host Configuration Protocol" },
+      { q: "What does MFA stand for? Give one example of it.", a: "Multi-Factor Authentication — e.g. password + a text message code" },
+      { q: "What does HTTPS stand for, and what protocol does the 'S' rely on?", a: "Hypertext Transfer Protocol Secure — the S relies on TLS (Transport Layer Security)" }
+    ],
+    [
+      { q: "An IP address is a unique numerical label assigned to every device on a network, used to ______.", a: "identify and locate it / communicate with it" },
+      { q: "A router is a device that forwards data packets between networks, directing traffic so it reaches the correct ______.", a: "destination" },
+      { q: "Encryption is the process of converting readable data into an unreadable format so that ______.", a: "only someone with the correct key can read it" },
+      { q: "Authentication is the process of verifying that someone is who they claim to be, typically by checking their ______.", a: "credentials / identity" },
+      { q: "A protocol is a set of rules that determines how data is ______, ______, and ______ between devices on a network.", a: "formatted, transmitted, and received" }
+    ],
+    [
+      { q: "Router — Switch — Firewall — Banana", a: "Banana — it is not a network device" },
+      { q: "HTTP — FTP — SMTP — RAM", a: "RAM — it is hardware, not a protocol" },
+      { q: "8.8.8.8 — 203.0.113.5 — 127.0.0.1 — 172.217.14.36", a: "127.0.0.1 — it is the localhost/loopback address, not a public IP" },
+      { q: "Virus — Worm — Trojan — Subnet Mask", a: "Subnet Mask — it is a networking term, not a type of malware" },
+      { q: "TCP — UDP — ICMP — HDMI", a: "HDMI — it is a display cable standard, not a network protocol" }
+    ]
+  ]
+};
+
+const VALUES = [100, 200, 300, 400, 500];
+let scores = [0, 0];
+let teamNames = ["Blue Team", "Red Team"];
+let used = Array.from({length:5}, () => Array(5).fill(false));
+let currentCard = null;
+let currentTeam = null;
+
+function startGame() {
+  const n1 = document.getElementById('team1Input').value.trim() || 'Blue Team';
+  const n2 = document.getElementById('team2Input').value.trim() || 'Red Team';
+  teamNames = [n1, n2];
+  document.getElementById('team1Display').textContent = n1;
+  document.getElementById('team2Display').textContent = n2;
+  document.getElementById('selectT1Btn').textContent = n1;
+  document.getElementById('selectT2Btn').textContent = n2;
+  document.getElementById('setupOverlay').style.display = 'none';
+  buildBoard();
+  setActiveTeam(0);
+}
+
+function buildBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  DATA.categories.forEach(cat => {
+    const h = document.createElement('div');
+    h.className = 'category-header';
+    h.textContent = cat;
+    board.appendChild(h);
+  });
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 5; col++) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.textContent = '$' + VALUES[row];
+      card.dataset.col = col;
+      card.dataset.row = row;
+      if (used[col][row]) card.classList.add('used');
+      card.onclick = () => openCard(col, row, card);
+      board.appendChild(card);
+    }
+  }
+}
+
+function openCard(col, row, el) {
+  if (used[col][row]) return;
+  currentCard = {col, row, el};
+  currentTeam = null;
+
+  document.getElementById('mCategory').textContent = DATA.categories[col];
+  document.getElementById('mPoints').textContent = '$' + VALUES[row];
+  document.getElementById('mQuestion').textContent = DATA.questions[col][row].q;
+  document.getElementById('answerBox').textContent = DATA.questions[col][row].a;
+  document.getElementById('answerBox').classList.remove('visible');
+  document.getElementById('answeringLabel').classList.remove('visible');
+  document.getElementById('answeringLabel').textContent = '';
+  document.getElementById('teamSelectSection').style.display = 'block';
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-reveal" onclick="revealAnswer()">Reveal Answer</button>
+    <button class="btn btn-close" onclick="closeAndMark()">Skip / Close</button>
+  `;
+  document.getElementById('qOverlay').classList.add('open');
+}
+
+function selectTeam(t) {
+  currentTeam = t;
+  document.getElementById('teamSelectSection').style.display = 'none';
+  const label = document.getElementById('answeringLabel');
+  label.textContent = teamNames[t-1] + ' is answering…';
+  label.classList.add('visible');
+}
+
+function revealAnswer() {
+  document.getElementById('answerBox').classList.add('visible');
+  const points = VALUES[currentCard.row];
+  const actions = document.getElementById('modalActions');
+
+  if (currentTeam) {
+    const other = currentTeam === 1 ? 2 : 1;
+    const answeringName = teamNames[currentTeam-1];
+    const otherName = teamNames[other-1];
+    actions.innerHTML = `
+      <button class="btn btn-correct" onclick="awardPoints(${currentTeam}, ${points})">✓ ${answeringName} Correct (+$${points})</button>
+      <button class="btn btn-wrong" onclick="offerSteal(${other}, ${points})">✗ Wrong — Steal for ${otherName}</button>
+      <button class="btn btn-close" onclick="closeAndMark()">No one / Close</button>
+    `;
+  } else {
+    actions.innerHTML = `
+      <button class="btn btn-team1" onclick="awardPoints(1, ${points})">✓ ${teamNames[0]} Correct</button>
+      <button class="btn btn-team2" onclick="awardPoints(2, ${points})">✓ ${teamNames[1]} Correct</button>
+      <button class="btn btn-close" onclick="closeAndMark()">No one / Close</button>
+    `;
+  }
+}
+
+function offerSteal(stealingTeam, pts) {
+  const stealerName = teamNames[stealingTeam-1];
+  const label = document.getElementById('answeringLabel');
+  label.textContent = stealerName + ' — steal attempt…';
+  label.classList.add('visible');
+  document.getElementById('modalActions').innerHTML = `
+    <button class="btn btn-correct" onclick="awardPoints(${stealingTeam}, ${pts})">✓ ${stealerName} Steals! (+$${pts})</button>
+    <button class="btn btn-wrong" onclick="closeAndMark()">✗ Steal missed — no points awarded</button>
+  `;
+}
+
+function awardPoints(team, pts) {
+  scores[team-1] += pts;
+  updateScores();
+  markUsed();
+  setActiveTeam(team % 2);
+  closeModal();
+}
+
+function closeAndMark() { markUsed(); closeModal(); }
+
+function markUsed() {
+  if (!currentCard) return;
+  used[currentCard.col][currentCard.row] = true;
+  currentCard.el.classList.add('used');
+  currentCard.el.textContent = '';
+}
+
+function closeModal() {
+  document.getElementById('qOverlay').classList.remove('open');
+  currentCard = null;
+}
+
+function updateScores() {
+  document.getElementById('score1').textContent = '$' + scores[0].toLocaleString();
+  document.getElementById('score2').textContent = '$' + scores[1].toLocaleString();
+  document.getElementById('fScore1').textContent = '$' + scores[0].toLocaleString();
+  document.getElementById('fScore2').textContent = '$' + scores[1].toLocaleString();
+}
+
+function adjustScore(team, delta) {
+  scores[team-1] = Math.max(0, scores[team-1] + delta);
+  updateScores();
+}
+
+function setActiveTeam(idx) {
+  document.getElementById('scoreCard1').classList.toggle('active-team', idx === 0);
+  document.getElementById('scoreCard2').classList.toggle('active-team', idx === 1);
+  document.getElementById('turn1').style.visibility = idx === 0 ? 'visible' : 'hidden';
+  document.getElementById('turn2').style.visibility = idx === 1 ? 'visible' : 'hidden';
+}
+
+function launchFinalJeopardy() {
+  document.getElementById('fName1').textContent = teamNames[0];
+  document.getElementById('fName2').textContent = teamNames[1];
+  document.getElementById('fScore1').textContent = '$' + scores[0].toLocaleString();
+  document.getElementById('fScore2').textContent = '$' + scores[1].toLocaleString();
+  document.getElementById('finalQuestion').classList.remove('visible');
+  document.getElementById('finalAnswer').classList.remove('visible');
+  document.getElementById('wagerNote').style.display = 'block';
+  document.getElementById('finalActions').innerHTML = `
+    <button class="btn btn-reveal" onclick="revealFinalQuestion()">Reveal Question</button>
+    <button class="btn btn-close" onclick="closeFinal()">Close</button>
+  `;
+  document.getElementById('finalOverlay').classList.add('open');
+}
+
+function revealFinalQuestion() {
+  document.getElementById('wagerNote').style.display = 'none';
+  document.getElementById('finalQuestion').classList.add('visible');
+  document.getElementById('finalActions').innerHTML = `
+    <button class="btn btn-reveal" onclick="revealFinalAnswer()">Reveal Answer</button>
+    <button class="btn btn-close" onclick="closeFinal()">Close</button>
+  `;
+}
+
+function revealFinalAnswer() {
+  document.getElementById('finalAnswer').classList.add('visible');
+  document.getElementById('finalActions').innerHTML = `
+    <button class="btn btn-team1" onclick="finalAward(1)">✓ ${teamNames[0]} Correct</button>
+    <button class="btn btn-team2" onclick="finalAward(2)">✓ ${teamNames[1]} Correct</button>
+    <button class="btn btn-correct" onclick="finalAward(0)">✓ Both Correct</button>
+    <button class="btn btn-close" onclick="showWinner()">Finish & Show Winner</button>
+  `;
+}
+
+function finalAward(team) {
+  const note = document.createElement('p');
+  note.style.cssText = 'width:100%;text-align:center;color:#86efac;font-size:0.85rem;margin-top:0.75rem;';
+  if (team === 0) {
+    note.textContent = 'Add both teams\' wagers using the score buttons on the main board, then click Finish.';
+  } else {
+    note.textContent = 'Add ' + teamNames[team-1] + '\'s wager using the score buttons on the main board, then click Finish.';
+  }
+  const actions = document.getElementById('finalActions');
+  actions.innerHTML = '';
+  actions.appendChild(note);
+  const finishBtn = document.createElement('button');
+  finishBtn.className = 'btn btn-reveal';
+  finishBtn.style.marginTop = '0.75rem';
+  finishBtn.textContent = 'Finish & Show Winner';
+  finishBtn.onclick = showWinner;
+  actions.appendChild(finishBtn);
+}
+
+function showWinner() {
+  closeFinal();
+  const tied = scores[0] === scores[1];
+  const w = scores[0] >= scores[1] ? 0 : 1;
+  document.getElementById('winnerName').textContent = tied ? "It's a Tie!" : teamNames[w] + " Wins!";
+  document.getElementById('winnerScore').textContent = tied
+    ? teamNames[0] + ' & ' + teamNames[1] + ': $' + scores[0].toLocaleString() + ' each'
+    : 'Final score: $' + scores[w].toLocaleString();
+  document.getElementById('winnerOverlay').classList.add('open');
+}
+
+function closeFinal() { document.getElementById('finalOverlay').classList.remove('open'); }
+
+function resetGame() {
+  if (!confirm('Reset the game? All scores and progress will be cleared.')) return;
+  scores = [0, 0];
+  used = Array.from({length:5}, () => Array(5).fill(false));
+  updateScores();
+  buildBoard();
+  setActiveTeam(0);
+}
+</script>
+</body>
+</html>
