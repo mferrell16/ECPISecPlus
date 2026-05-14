@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEC+ CTF // Module 1</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  --bg:       #050a0f;
+  --bg2:      #0a1520;
+  --bg3:      #0d1e2e;
+  --green:    #00ff88;
+  --green2:   #00cc66;
+  --green3:   #004422;
+  --cyan:     #00d4ff;
+  --amber:    #ffb000;
+  --red:      #ff3355;
+  --dim:      #1a3344;
+  --text:     #b0d4e8;
+  --textdim:  #4a7090;
+  --border:   #0a3040;
+  --glow:     0 0 20px rgba(0,255,136,0.3);
+  --glowc:    0 0 20px rgba(0,212,255,0.3);
+  --glowa:    0 0 20px rgba(255,176,0,0.3);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: crosshair;
+}
+
+/* Scanline overlay */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events:none;
+  z-index:1000;
+}
+
+/* Grid background */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+.wrap { position:relative; z-index:1; max-width:900px; margin:0 auto; padding:20px 16px 60px; }
+
+/* ── HEADER ── */
+.header {
+  text-align:center;
+  padding: 40px 0 30px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  position: relative;
+}
+.header::after {
+  content:'';
+  position:absolute;
+  bottom:-1px; left:50%; transform:translateX(-50%);
+  width:200px; height:1px;
+  background: var(--green);
+  box-shadow: var(--glow);
+}
+.header-badge {
+  display:inline-block;
+  border: 1px solid var(--green3);
+  color: var(--green2);
+  font-size: 11px;
+  letter-spacing: 4px;
+  padding: 4px 16px;
+  margin-bottom: 16px;
+}
+.header h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(24px,5vw,48px);
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: var(--glow);
+  letter-spacing: 3px;
+  line-height: 1.1;
+}
+.header h1 span { color: var(--cyan); text-shadow: var(--glowc); }
+.header-sub {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--textdim);
+  letter-spacing: 2px;
+}
+
+/* ── NAME INPUT ── */
+.name-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  padding: 18px 24px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.name-panel label { color: var(--cyan); font-size:13px; letter-spacing:1px; white-space:nowrap; }
+.name-panel input {
+  flex:1; min-width:200px;
+  background: var(--bg);
+  border: 1px solid var(--dim);
+  color: var(--green);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  padding: 8px 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.name-panel input:focus { border-color: var(--cyan); box-shadow: var(--glowc); }
+.name-panel input::placeholder { color: var(--textdim); }
+
+/* ── FRAGMENT BAR ── */
+.flag-bar {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 16px 24px;
+  margin-bottom: 32px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+.flag-bar-label { font-size:10px; letter-spacing:3px; color: var(--textdim); margin-bottom:10px; }
+.fragments {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.frag {
+  font-family: 'Orbitron', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border: 1px solid var(--dim);
+  color: var(--textdim);
+  background: var(--bg);
+  min-width: 48px;
+  text-align: center;
+  transition: all 0.4s;
+  letter-spacing: 2px;
+}
+.frag.revealed {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(0,255,136,0.08);
+  box-shadow: var(--glow);
+  animation: fragReveal 0.5s ease;
+}
+@keyframes fragReveal {
+  0%{transform:scale(1.3);opacity:0} 100%{transform:scale(1);opacity:1}
+}
+.frag-sep { color: var(--textdim); font-size:20px; }
+
+/* ── QUESTION CARDS ── */
+.q-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+  position: relative;
+  transition: border-color 0.3s;
+  overflow: hidden;
+}
+.q-card.solved { border-color: var(--green3); }
+.q-card.solved::before {
+  content:'';
+  position:absolute;
+  inset:0;
+  background: linear-gradient(135deg, rgba(0,255,136,0.03) 0%, transparent 60%);
+  pointer-events:none;
+}
+
+.q-header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.q-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 10px 16px;
+  min-width: 52px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+.q-objective {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--textdim);
+  padding: 10px 16px;
+  flex:1;
+  border-left: 1px solid var(--border);
+}
+.q-status {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--textdim);
+  border-left: 1px solid var(--border);
+}
+.q-card.solved .q-status { color: var(--green); }
+
+/* colour-coded by question */
+.q1 .q-num { background:rgba(0,212,255,0.12); color:var(--cyan); border-bottom:2px solid var(--cyan); }
+.q2 .q-num { background:rgba(255,176,0,0.12);  color:var(--amber); border-bottom:2px solid var(--amber); }
+.q3 .q-num { background:rgba(0,255,136,0.12); color:var(--green); border-bottom:2px solid var(--green); }
+.q4 .q-num { background:rgba(255,51,85,0.12); color:var(--red);   border-bottom:2px solid var(--red); }
+.q5 .q-num { background:rgba(0,212,255,0.12); color:var(--cyan);  border-bottom:2px solid var(--cyan); }
+
+.q-body { padding: 24px; }
+
+.q-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  letter-spacing: 1px;
+}
+.q1 .q-title{color:var(--cyan)} .q2 .q-title{color:var(--amber)}
+.q3 .q-title{color:var(--green)} .q4 .q-title{color:var(--red)}
+.q5 .q-title{color:var(--cyan)}
+
+.scenario {
+  background: var(--bg3);
+  border-left: 3px solid var(--dim);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+}
+.scenario strong { color: var(--amber); }
+.scenario em { color: var(--cyan); font-style: normal; }
+
+/* Certificate block */
+.cert-block {
+  background: var(--bg);
+  border: 1px solid var(--green3);
+  padding: 16px 20px;
+  margin: 14px 0;
+  font-size: 12px;
+  line-height: 1.9;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--text);
+}
+.cert-block .cert-title { color: var(--green); font-weight:bold; }
+.cert-block .cert-key   { color: var(--cyan); }
+.cert-block .cert-val   { color: var(--amber); }
+
+/* Hash table */
+.hash-table {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  margin: 14px 0;
+  font-size: 12px;
+  overflow-x: auto;
+}
+.hash-table table { border-collapse: collapse; width:100%; }
+.hash-table th {
+  color: var(--textdim);
+  font-size:10px;
+  letter-spacing:2px;
+  text-align:left;
+  padding: 4px 12px 8px 0;
+  border-bottom:1px solid var(--border);
+}
+.hash-table td {
+  padding: 6px 12px 6px 0;
+  vertical-align:top;
+  border-bottom:1px solid rgba(10,48,64,0.5);
+  font-size:12px;
+}
+.hash-table .td-label { color:var(--textdim); width:110px; }
+.hash-table .td-data  { color:var(--amber); }
+.hash-table .td-prev  { color:var(--cyan); }
+.hash-table .td-hash  { color:var(--green); font-weight:bold; }
+.hash-table .tampered { color:var(--red) !important; text-decoration:line-through; }
+.hash-table .tampered-note { color:var(--red); font-size:10px; }
+
+/* Blockchain visual */
+.chain-vis {
+  display:flex;
+  align-items:center;
+  gap:0;
+  margin:16px 0;
+  overflow-x:auto;
+  padding-bottom:4px;
+}
+.block-box {
+  border:1px solid var(--border);
+  background:var(--bg);
+  padding:10px 14px;
+  min-width:140px;
+  flex-shrink:0;
+}
+.block-box .bb-num { font-size:9px; color:var(--textdim); letter-spacing:2px; margin-bottom:6px; }
+.block-box .bb-data { font-size:11px; color:var(--amber); margin-bottom:4px; }
+.block-box .bb-prev { font-size:10px; color:var(--textdim); }
+.block-box .bb-hash { font-size:12px; color:var(--green); font-weight:bold; margin-top:6px; border-top:1px solid var(--border); padding-top:6px; }
+.block-box.tampered-block { border-color:var(--red); }
+.block-box.tampered-block .bb-data { color:var(--red); }
+.chain-arrow { color:var(--dim); font-size:20px; padding:0 6px; flex-shrink:0; }
+
+.q-task {
+  font-size: 13px;
+  color: var(--cyan);
+  margin: 16px 0 12px;
+  padding-left: 12px;
+  border-left: 2px solid var(--cyan);
+  line-height: 1.6;
+}
+
+/* Sub steps for Q4 */
+.step-label {
+  font-size:10px;
+  letter-spacing:3px;
+  color:var(--textdim);
+  margin: 18px 0 8px;
+}
+.step-label span { color:var(--red); }
+
+/* Answer row */
+.answer-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.answer-row input {
+  flex:1; min-width:200px;
+  background: var(--bg);
+  border: 1px solid var(--dim);
+  color: var(--green);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  padding: 10px 16px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  text-transform: uppercase;
+}
+.answer-row input:focus { border-color:var(--green); box-shadow:var(--glow); }
+.answer-row input.error { border-color:var(--red); animation:shake 0.4s ease; }
+.answer-row input:disabled { opacity:0.5; cursor:not-allowed; }
+
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)}
+}
+
+.btn-submit {
+  background: var(--bg);
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  padding: 10px 24px;
+  cursor: pointer;
+  letter-spacing: 2px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-submit:hover { background: rgba(0,255,136,0.1); box-shadow: var(--glow); }
+.btn-submit:disabled { opacity:0.4; cursor:not-allowed; }
+
+.answer-feedback {
+  margin-top: 10px;
+  font-size: 12px;
+  min-height: 18px;
+  letter-spacing: 1px;
+}
+.answer-feedback.err { color: var(--red); }
+.answer-feedback.ok  { color: var(--green); }
+
+/* Fragment reveal badge */
+.fragment-reveal {
+  display:none;
+  margin-top:16px;
+  background: rgba(0,255,136,0.08);
+  border: 1px solid var(--green);
+  padding: 12px 18px;
+  animation: fadeIn 0.5s ease;
+}
+.fragment-reveal.show { display:block; }
+.fragment-reveal .fr-label { font-size:10px; letter-spacing:3px; color:var(--textdim); margin-bottom:6px; }
+.fragment-reveal .fr-value {
+  font-family:'Orbitron',monospace;
+  font-size:22px;
+  font-weight:900;
+  color:var(--green);
+  text-shadow:var(--glow);
+  letter-spacing:4px;
+}
+.fragment-reveal .fr-hint { font-size:11px; color:var(--textdim); margin-top:6px; }
+
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* Solve checkmark overlay */
+.solved-badge {
+  display:none;
+  position:absolute;
+  top:10px; right:10px;
+  width:32px; height:32px;
+  background: var(--green);
+  color: var(--bg);
+  font-size:18px;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+}
+.q-card.solved .solved-badge { display:flex; }
+
+/* Key table for Q4 */
+.key-table {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
+  gap:4px;
+  margin:12px 0;
+  background:var(--bg);
+  border:1px solid var(--border);
+  padding:12px;
+}
+.key-pair {
+  display:flex;
+  gap:4px;
+  align-items:center;
+  font-size:12px;
+}
+.key-pair .kp-letter { color:var(--amber); width:16px; }
+.key-pair .kp-arrow  { color:var(--textdim); font-size:10px; }
+.key-pair .kp-num    { color:var(--cyan); font-weight:bold; }
+
+/* ── FINAL SUBMIT ── */
+.final-panel {
+  display:none;
+  background:var(--bg2);
+  border:1px solid var(--green);
+  box-shadow:var(--glow);
+  padding:28px;
+  margin-top:16px;
+  animation:fadeIn 0.6s ease;
+}
+.final-panel.show { display:block; }
+.final-panel h3 {
+  font-family:'Orbitron',monospace;
+  color:var(--green);
+  font-size:16px;
+  letter-spacing:2px;
+  margin-bottom:8px;
+}
+.final-panel p { font-size:13px; color:var(--textdim); margin-bottom:16px; line-height:1.6; }
+.final-row { display:flex; gap:10px; flex-wrap:wrap; }
+.final-row input {
+  flex:1; min-width:200px;
+  background:var(--bg);
+  border:1px solid var(--green);
+  color:var(--green);
+  font-family:'Orbitron',monospace;
+  font-size:16px;
+  padding:12px 18px;
+  outline:none;
+  letter-spacing:3px;
+  text-transform:uppercase;
+}
+.btn-final {
+  background:var(--green);
+  border:none;
+  color:var(--bg);
+  font-family:'Orbitron',monospace;
+  font-size:13px;
+  font-weight:900;
+  padding:12px 28px;
+  cursor:pointer;
+  letter-spacing:2px;
+  transition:all 0.2s;
+  white-space:nowrap;
+}
+.btn-final:hover { background:var(--green2); box-shadow:var(--glow); }
+.final-feedback { margin-top:12px; font-size:13px; min-height:20px; }
+.final-feedback.err { color:var(--red); }
+
+/* ── COMPLETION SCREEN ── */
+.completion {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:var(--bg);
+  z-index:500;
+  overflow-y:auto;
+  padding:40px 20px 80px;
+}
+.completion.show { display:block; }
+.comp-inner { max-width:700px; margin:0 auto; }
+.comp-header {
+  text-align:center;
+  margin-bottom:40px;
+}
+.comp-glyph {
+  font-size:64px;
+  display:block;
+  margin-bottom:16px;
+  animation:pulse 2s ease infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+.comp-header h2 {
+  font-family:'Orbitron',monospace;
+  font-size:clamp(20px,4vw,36px);
+  font-weight:900;
+  color:var(--green);
+  text-shadow:var(--glow);
+  letter-spacing:3px;
+  margin-bottom:8px;
+}
+.comp-header p { color:var(--textdim); font-size:13px; letter-spacing:2px; }
+
+.comp-receipt {
+  background:var(--bg2);
+  border:1px solid var(--green3);
+  padding:24px 28px;
+  margin-bottom:24px;
+}
+.comp-receipt .cr-row {
+  display:flex;
+  justify-content:space-between;
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.comp-receipt .cr-row:last-child { border-bottom:none; }
+.comp-receipt .cr-label { color:var(--textdim); letter-spacing:1px; white-space:nowrap; }
+.comp-receipt .cr-val   { color:var(--green); text-align:right; }
+.comp-receipt .cr-val.flag-val {
+  font-family:'Orbitron',monospace;
+  font-size:16px;
+  font-weight:900;
+  letter-spacing:3px;
+  color:var(--amber);
+  text-shadow:var(--glowa);
+}
+
+.comp-answers {
+  background:var(--bg2);
+  border:1px solid var(--border);
+  padding:24px 28px;
+  margin-bottom:24px;
+}
+.comp-answers h4 {
+  font-size:10px;
+  letter-spacing:3px;
+  color:var(--textdim);
+  margin-bottom:16px;
+}
+.comp-ans-row {
+  display:flex;
+  gap:12px;
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+.comp-ans-row:last-child { border-bottom:none; }
+.comp-ans-q { color:var(--textdim); width:90px; flex-shrink:0; font-size:11px; }
+.comp-ans-a { color:var(--green); flex:1; }
+.comp-ans-f { font-family:'Orbitron',monospace; font-size:13px; color:var(--amber); font-weight:700; letter-spacing:2px; }
+
+.comp-footer {
+  text-align:center;
+  font-size:11px;
+  color:var(--textdim);
+  letter-spacing:2px;
+  margin-top:24px;
+}
+.comp-footer strong { color:var(--green); }
+
+/* hint link */
+.hint-toggle {
+  font-size:11px;
+  color:var(--textdim);
+  cursor:pointer;
+  text-decoration:underline;
+  margin-top:10px;
+  display:inline-block;
+}
+.hint-toggle:hover { color:var(--cyan); }
+.hint-box {
+  display:none;
+  background:rgba(0,212,255,0.05);
+  border:1px solid rgba(0,212,255,0.2);
+  padding:10px 14px;
+  margin-top:8px;
+  font-size:12px;
+  color:var(--textdim);
+  line-height:1.7;
+}
+.hint-box.show { display:block; }
+
+/* ── HASH ALGORITHM REFERENCE ── */
+.algo-box {
+  background:var(--bg);
+  border:1px solid var(--border);
+  padding:14px 18px;
+  margin:14px 0;
+  font-size:12px;
+  line-height:1.9;
+}
+.algo-box .algo-title { color:var(--amber); font-size:10px; letter-spacing:3px; margin-bottom:10px; }
+.algo-step { display:flex; gap:10px; margin-bottom:4px; }
+.algo-step-num { color:var(--green); min-width:20px; }
+.algo-step-text { color:var(--text); }
+.algo-example { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); color:var(--textdim); font-size:11px; }
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-badge">SECURITY+ SY0-701 // MODULE 1</div>
+    <h1>OPERATION <span>CHAIN</span>LOCK</h1>
+    <p class="header-sub">CAPTURE THE FLAG &nbsp;|&nbsp; 5 OBJECTIVES &nbsp;|&nbsp; ONE FINAL KEY</p>
+  </header>
+
+  <!-- NAME -->
+  <div class="name-panel">
+    <label>OPERATIVE ID:</label>
+    <input type="text" id="studentName" placeholder="Enter your name..." autocomplete="off" />
+  </div>
+
+  <!-- FRAGMENT BAR -->
+  <div class="flag-bar">
+    <div class="flag-bar-label">RECOVERED FRAGMENTS</div>
+    <div class="fragments">
+      <div class="frag" id="frag1" data-val="SEC">???</div>
+      <div class="frag-sep">+</div>
+      <div class="frag" id="frag2" data-val="+">???</div>
+      <div class="frag-sep">+</div>
+      <div class="frag" id="frag3" data-val="CTF">???</div>
+      <div class="frag-sep">+</div>
+      <div class="frag" id="frag4" data-val="2025">???</div>
+      <div class="frag-sep">+</div>
+      <div class="frag" id="frag5" data-val="FLAG">???</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       Q1 — CONTROLS
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="q-card q1" id="card1">
+    <div class="solved-badge">✓</div>
+    <div class="q-header">
+      <div class="q-num">01</div>
+      <div class="q-objective">DOMAIN 1.1 &nbsp;·&nbsp; SECURITY CONTROLS</div>
+      <div class="q-status" id="status1">LOCKED</div>
+    </div>
+    <div class="q-body">
+      <div class="q-title">NAME THAT CONTROL</div>
+      <div class="scenario">
+        <strong>// INCIDENT REPORT — REF: IR-2024-0047</strong><br><br>
+        Following last quarter's breach at <em>E-MAGINE Biomedical</em>, the security team implemented two new measures.<br><br>
+        <strong>Measure A:</strong> A software agent was deployed to all endpoints that monitors authentication events in real time. When three consecutive failed logins occur from the same IP within 60 seconds, an alert is immediately sent to the SOC dashboard.<br><br>
+        <strong>Measure B:</strong> A new Acceptable Use Policy was drafted and signed by all employees stating that company systems may only be accessed for approved business purposes.
+      </div>
+      <div class="q-task">
+        ▶ Identify the control TYPE of <strong>Measure A only</strong>. Enter one word.
+      </div>
+      <span class="hint-toggle" onclick="toggleHint('h1')">[ show hint ]</span>
+      <div class="hint-box" id="h1">Think carefully — Measure A does not stop the failed logins from happening. It does not prevent anything. What does it actually do after the event occurs?</div>
+      <div class="answer-row">
+        <input type="text" id="ans1" placeholder="TYPE YOUR ANSWER..." autocomplete="off" onkeydown="if(event.key==='Enter')checkAnswer(1)" />
+        <button class="btn-submit" onclick="checkAnswer(1)">SUBMIT</button>
+      </div>
+      <div class="answer-feedback" id="fb1"></div>
+      <div class="fragment-reveal" id="rev1">
+        <div class="fr-label">FRAGMENT 1 RECOVERED</div>
+        <div class="fr-value">SEC</div>
+        <div class="fr-hint">Domain 1.1 ✓ — A monitoring system that fires alerts after the fact is Detective. A policy that tells people what to do is Directive. Never confuse the two.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       Q2 — ZERO TRUST
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="q-card q2" id="card2">
+    <div class="solved-badge">✓</div>
+    <div class="q-header">
+      <div class="q-num">02</div>
+      <div class="q-objective">DOMAIN 1.2 &nbsp;·&nbsp; FUNDAMENTAL CONCEPTS — ZERO TRUST</div>
+      <div class="q-status" id="status2">LOCKED</div>
+    </div>
+    <div class="q-body">
+      <div class="q-title">IDENTIFY THE COMPONENT</div>
+      <div class="scenario">
+        <strong>// ARCHITECTURE REVIEW — ZERO TRUST DEPLOYMENT</strong><br><br>
+        E-MAGINE Biomedical has deployed a Zero Trust architecture. When an employee's device requests access to the patient records system, the following occurs:<br><br>
+        1. The request is intercepted before it reaches the resource.<br>
+        2. The device identity, health status, user role, location, and time of day are all checked simultaneously against a defined ruleset.<br>
+        3. <em>A specific component evaluates all of these conditions against the organization's access policy and makes the final grant or deny decision.</em><br>
+        4. That decision is communicated to the enforcement layer, which opens or closes the connection.
+      </div>
+      <div class="q-task">
+        ▶ Name the component described in step 3. Two words.
+      </div>
+      <span class="hint-toggle" onclick="toggleHint('h2')">[ show hint ]</span>
+      <div class="hint-box" id="h2">There are three key components in the Zero Trust control plane. One makes the decision. One executes the decision. One enforces it at the network level. This is the one that <em>makes the decision</em>.</div>
+      <div class="answer-row">
+        <input type="text" id="ans2" placeholder="TYPE YOUR ANSWER..." autocomplete="off" onkeydown="if(event.key==='Enter')checkAnswer(2)" />
+        <button class="btn-submit" onclick="checkAnswer(2)">SUBMIT</button>
+      </div>
+      <div class="answer-feedback" id="fb2"></div>
+      <div class="fragment-reveal" id="rev2">
+        <div class="fr-label">FRAGMENT 2 RECOVERED</div>
+        <div class="fr-value">+</div>
+        <div class="fr-hint">Domain 1.2 ✓ — Policy Engine decides. Policy Administrator executes. Policy Enforcement Point blocks or allows. Know the distinction cold for the exam.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       Q3 — CHANGE MANAGEMENT
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="q-card q3" id="card3">
+    <div class="solved-badge">✓</div>
+    <div class="q-header">
+      <div class="q-num">03</div>
+      <div class="q-objective">DOMAIN 1.3 &nbsp;·&nbsp; CHANGE MANAGEMENT</div>
+      <div class="q-status" id="status3">LOCKED</div>
+    </div>
+    <div class="q-body">
+      <div class="q-title">SPOT THE MISSING ELEMENT</div>
+      <div class="scenario">
+        <strong>// CHANGE REQUEST TICKET — CHG-2024-0312</strong><br><br>
+        <strong>Submitted by:</strong> &nbsp;Marcus Webb, Systems Engineer<br>
+        <strong>Owner:</strong> &nbsp;Marcus Webb<br>
+        <strong>Change:</strong> &nbsp;Deploy GPO to enable Windows automatic updates across all domain machines. Estimated downtime: none.<br>
+        <strong>Stakeholders notified:</strong> &nbsp;IT Director, Help Desk Lead, HR<br>
+        <strong>Impact analysis:</strong> &nbsp;Low risk. Machines will restart outside business hours. Verified in test environment — no application conflicts detected.<br>
+        <strong>Maintenance window:</strong> &nbsp;Saturday 02:00–04:00<br>
+        <strong>Approver:</strong> &nbsp;Director of IT — approved 2024-11-14<br>
+        <strong>Documentation update:</strong> &nbsp;Network diagram and SOP will be updated post-deployment.<br>
+        <strong>Version control:</strong> &nbsp;Change logged in Git repo.
+      </div>
+      <div class="q-task">
+        ▶ One required change management element is completely absent from this ticket. What is it? Two words.
+      </div>
+      <span class="hint-toggle" onclick="toggleHint('h3')">[ show hint ]</span>
+      <div class="hint-box" id="h3">Read every field carefully. All 1.3 business process elements are either present or provably absent. What happens if the GPO deployment causes an unexpected issue and needs to be reversed?</div>
+      <div class="answer-row">
+        <input type="text" id="ans3" placeholder="TYPE YOUR ANSWER..." autocomplete="off" onkeydown="if(event.key==='Enter')checkAnswer(3)" />
+        <button class="btn-submit" onclick="checkAnswer(3)">SUBMIT</button>
+      </div>
+      <div class="answer-feedback" id="fb3"></div>
+      <div class="fragment-reveal" id="rev3">
+        <div class="fr-label">FRAGMENT 3 RECOVERED</div>
+        <div class="fr-value">CTF</div>
+        <div class="fr-hint">Domain 1.3 ✓ — Every change request must document what you will do if the change fails or causes unexpected problems. Without it, you have no safe exit if things go wrong.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       Q4 — ASYMMETRIC ENCRYPTION
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="q-card q4" id="card4">
+    <div class="solved-badge">✓</div>
+    <div class="q-header">
+      <div class="q-num">04</div>
+      <div class="q-objective">DOMAIN 1.4 &nbsp;·&nbsp; CRYPTOGRAPHY — ASYMMETRIC ENCRYPTION</div>
+      <div class="q-status" id="status4">LOCKED</div>
+    </div>
+    <div class="q-body">
+      <div class="q-title">ENCRYPT. THEN DECRYPT.</div>
+      <div class="scenario">
+        <strong>// INTERCEPTED CERTIFICATE — ISSUER: Security+ Lab CA</strong><br><br>
+        You have recovered a digital certificate. Inside it is the instructor's public key. Your mission has two parts: use it to encrypt a message, then use the matching private key to decrypt it back. This will prove you understand how the two keys work together.
+      </div>
+
+      <div class="cert-block"><span class="cert-title">══════════════════════════════════════════════
+        CLASSROOM CERTIFICATE
+══════════════════════════════════════════════</span>
+<span class="cert-key">Subject   :</span> <span class="cert-val">CIS230 Instructor</span>
+<span class="cert-key">Issuer    :</span> <span class="cert-val">Security+ Lab CA</span>
+<span class="cert-key">Valid From:</span> <span class="cert-val">2025-01-01</span>
+<span class="cert-key">Valid To  :</span> <span class="cert-val">2025-12-31</span>
+<span class="cert-key">Key Usage :</span> <span class="cert-val">Encryption, Verification</span>
+<span class="cert-title">──────────────────────────────────────────────</span>
+<span class="cert-key">PUBLIC KEY</span> <span class="cert-val">(use this to ENCRYPT)</span>
+
+  <span class="cert-val">A→47  B→23  C→08  D→31  E→55  F→12  G→39</span>
+  <span class="cert-val">H→64  I→17  J→82  K→09  L→28  M→71  N→44</span>
+  <span class="cert-val">O→93  P→36  Q→15  R→62  S→88  T→07  U→51</span>
+  <span class="cert-val">V→74  W→19  X→46  Y→33  Z→68</span>
+<span class="cert-title">══════════════════════════════════════════════</span></div>
+
+      <div class="step-label"><span>▶</span> ACT 1 — ENCRYPT</div>
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">
+        Using the <strong style="color:var(--amber)">PUBLIC KEY</strong> table above, encrypt the word <strong style="color:var(--red);font-size:16px;letter-spacing:2px;">KEY</strong> one letter at a time.<br>
+        Each letter maps to a two-digit number. Separate the numbers with hyphens.<br>
+        Example: if you were encrypting "AB" the answer would be <em style="color:var(--cyan)">47-23</em>
+      </p>
+
+      <div class="step-label"><span>▶</span> ACT 2 — DECRYPT</div>
+      <p style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">
+        Now use the <strong style="color:var(--green)">PRIVATE KEY</strong> below (the reverse table) to decrypt your ciphertext back to plaintext. You should get <strong style="color:var(--red)">KEY</strong> again.
+      </p>
+
+      <div class="cert-block"><span class="cert-title">══════════════════════════════════════════════
+     PRIVATE KEY — DECRYPTION TABLE
+     (Instructor releases this for the exercise)
+══════════════════════════════════════════════</span>
+<span class="cert-key">PRIVATE KEY</span> <span class="cert-val">(use this to DECRYPT)</span>
+
+  <span class="cert-val">47→A  23→B  08→C  31→D  55→E  12→F  39→G</span>
+  <span class="cert-val">64→H  17→I  82→J  09→K  28→L  71→M  44→N</span>
+  <span class="cert-val">93→O  36→P  15→Q  62→R  88→S  07→T  51→U</span>
+  <span class="cert-val">74→V  19→W  46→X  33→Y  68→Z</span>
+<span class="cert-title">══════════════════════════════════════════════</span></div>
+
+      <div class="q-task">
+        ▶ Submit your ciphertext from Act 1 — the encrypted form of KEY — in the format XX-XX-XX.
+      </div>
+
+      <div style="background:rgba(255,51,85,0.06);border:1px solid rgba(255,51,85,0.2);padding:12px 16px;margin:12px 0;font-size:12px;color:var(--textdim);line-height:1.7;">
+        💡 <strong style="color:var(--amber)">Think about this:</strong> You encrypted with the public key. You decrypted with the private key. What would happen if someone intercepted your ciphertext but only had the public key? Could they read it?
+      </div>
+
+      <span class="hint-toggle" onclick="toggleHint('h4')">[ show hint ]</span>
+      <div class="hint-box" id="h4">K is the 11th letter. Find K in the public key table. Write down its number. Repeat for E, then Y. Separate with hyphens. Use the private key table to verify your answer decrypts back to KEY.</div>
+      <div class="answer-row">
+        <input type="text" id="ans4" placeholder="XX-XX-XX" autocomplete="off" onkeydown="if(event.key==='Enter')checkAnswer(4)" />
+        <button class="btn-submit" onclick="checkAnswer(4)">SUBMIT</button>
+      </div>
+      <div class="answer-feedback" id="fb4"></div>
+      <div class="fragment-reveal" id="rev4">
+        <div class="fr-label">FRAGMENT 4 RECOVERED</div>
+        <div class="fr-value">2025</div>
+        <div class="fr-hint">Domain 1.4 ✓ — K→09, E→55, Y→33. The ciphertext is meaningless without the private key to reverse it. That is why you can share a public key with anyone — it only locks, it cannot unlock.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       Q5 — BLOCKCHAIN
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="q-card q5" id="card5">
+    <div class="solved-badge">✓</div>
+    <div class="q-header">
+      <div class="q-num">05</div>
+      <div class="q-objective">DOMAIN 1.4 &nbsp;·&nbsp; CRYPTOGRAPHY — BLOCKCHAIN</div>
+      <div class="q-status" id="status5">LOCKED</div>
+    </div>
+    <div class="q-body">
+      <div class="q-title">FIND THE TAMPERED BLOCK</div>
+      <div class="scenario">
+        <strong>// INTERCEPTED AUDIT LOG — INTEGRITY UNKNOWN</strong><br><br>
+        The following three-block chain was recovered from a compromised server. Intelligence suggests one block's data was altered after the chain was built. Your job is to verify the chain using the CRC-S+ hash function and identify what the real data in the tampered block should be.
+      </div>
+
+      <!-- Hash algorithm reference -->
+      <div class="algo-box">
+        <div class="algo-title">CRC-S+ HASH ALGORITHM (USE THIS TO VERIFY BLOCKS)</div>
+        <div class="algo-step"><span class="algo-step-num">1.</span><span class="algo-step-text">Concatenate the block's Data + PrevHash into one string (no spaces between them)</span></div>
+        <div class="algo-step"><span class="algo-step-num">2.</span><span class="algo-step-text">Assign each character a value: A=1, B=2 ... Z=26. Digits = face value. Everything else (spaces, punctuation) = 0</span></div>
+        <div class="algo-step"><span class="algo-step-num">3.</span><span class="algo-step-text">Multiply each character's value by its position index (position starts at 1)</span></div>
+        <div class="algo-step"><span class="algo-step-num">4.</span><span class="algo-step-text">Sum all the products</span></div>
+        <div class="algo-step"><span class="algo-step-num">5.</span><span class="algo-step-text">Add (total string length × 7)</span></div>
+        <div class="algo-step"><span class="algo-step-num">6.</span><span class="algo-step-text">Take the result mod 256</span></div>
+        <div class="algo-step"><span class="algo-step-num">7.</span><span class="algo-step-text">Convert to 2-digit uppercase hexadecimal (e.g. 167 → A7, 239 → EF)</span></div>
+        <div class="algo-example">
+          Example — Block 0 check: Data="CHAIN START", PrevHash="0000"<br>
+          String = "CHAIN START0000" (length 15)<br>
+          C(3)×1=3, H(8)×2=16, A(1)×3=3, I(9)×4=36, N(14)×5=70, (sp)×6=0, S(19)×7=133, T(20)×8=160, A(1)×9=9, R(18)×10=180, T(20)×11=220, 0×12=0, 0×13=0, 0×14=0, 0×15=0<br>
+          Sum = 830 &nbsp;|&nbsp; 830 + (15×7) = 935 &nbsp;|&nbsp; 935 mod 256 = 167 &nbsp;|&nbsp; 167 = <strong style="color:var(--green)">A7</strong> ✓
+        </div>
+      </div>
+
+      <!-- Block chain display -->
+      <div class="chain-vis">
+        <div class="block-box">
+          <div class="bb-num">BLOCK 0 — GENESIS</div>
+          <div class="bb-data">Data: "CHAIN START"</div>
+          <div class="bb-prev">Prev: 0000</div>
+          <div class="bb-hash">Hash: A7</div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="block-box">
+          <div class="bb-num">BLOCK 1</div>
+          <div class="bb-data">Data: "DELTA"</div>
+          <div class="bb-prev">Prev: A7</div>
+          <div class="bb-hash">Hash: EF</div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="block-box tampered-block">
+          <div class="bb-num">BLOCK 2 ⚠</div>
+          <div class="bb-data">Data: "SAFETY"</div>
+          <div class="bb-prev">Prev: EF</div>
+          <div class="bb-hash">Hash: 7D</div>
+        </div>
+      </div>
+
+      <div class="hash-table">
+        <table>
+          <thead>
+            <tr>
+              <th>BLOCK</th>
+              <th>DATA</th>
+              <th>PREV HASH</th>
+              <th>STORED HASH</th>
+              <th>YOUR COMPUTED HASH</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-label">Block 0</td>
+              <td class="td-data">CHAIN START</td>
+              <td class="td-prev">0000</td>
+              <td class="td-hash">A7</td>
+              <td style="color:var(--textdim)">A7 ✓ (given)</td>
+            </tr>
+            <tr>
+              <td class="td-label">Block 1</td>
+              <td class="td-data">DELTA</td>
+              <td class="td-prev">A7</td>
+              <td class="td-hash">EF</td>
+              <td style="color:var(--textdim)">Verify yourself →</td>
+            </tr>
+            <tr>
+              <td class="td-label">Block 2</td>
+              <td class="td-data tampered">SAFETY</td>
+              <td class="td-prev">EF</td>
+              <td class="td-hash">7D</td>
+              <td style="color:var(--textdim)">Verify yourself →<br><span class="tampered-note">Hash won't match! Data was changed.</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="font-size:13px;color:var(--text);line-height:1.8;margin:14px 0;">
+        Block 2's stored hash is <strong style="color:var(--green)">7D</strong>. But when you compute the hash of <em style="color:var(--red)">"SAFETY" + "EF"</em> you will get a different result — proving the data was tampered with.<br><br>
+        The real data was one of these four candidates:
+      </p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 16px;">
+        <div style="background:var(--bg);border:1px solid var(--border);padding:8px 16px;font-size:13px;color:var(--amber)">SYSTEM</div>
+        <div style="background:var(--bg);border:1px solid var(--border);padding:8px 16px;font-size:13px;color:var(--amber)">SECURE</div>
+        <div style="background:var(--bg);border:1px solid var(--border);padding:8px 16px;font-size:13px;color:var(--amber)">SELECT</div>
+        <div style="background:var(--bg);border:1px solid var(--border);padding:8px 16px;font-size:13px;color:var(--amber)">SIGNAL</div>
+      </div>
+
+      <div class="q-task">
+        ▶ Hash each candidate (concatenated with prev hash EF). Which one produces 7D? That is the real data. Enter the word.
+      </div>
+      <span class="hint-toggle" onclick="toggleHint('h5')">[ show hint ]</span>
+      <div class="hint-box" id="h5">
+        For "SECURE" + "EF": S(19)×1=19, E(5)×2=10, C(3)×3=9, U(21)×4=84, R(18)×5=90, E(5)×6=30, E(5)×7=35, F(6)×8=48. Sum=325. Length=8. 325+(8×7)=381. 381 mod 256=125. 125 in hex = ?
+      </div>
+      <div class="answer-row">
+        <input type="text" id="ans5" placeholder="TYPE YOUR ANSWER..." autocomplete="off" onkeydown="if(event.key==='Enter')checkAnswer(5)" />
+        <button class="btn-submit" onclick="checkAnswer(5)">SUBMIT</button>
+      </div>
+      <div class="answer-feedback" id="fb5"></div>
+      <div class="fragment-reveal" id="rev5">
+        <div class="fr-label">FRAGMENT 5 RECOVERED</div>
+        <div class="fr-value">FLAG</div>
+        <div class="fr-hint">Domain 1.4 ✓ — SECURE hashes to 7D. The stored hash exposed the lie. Changing even one character produces a completely different hash — that is tamper-evidence in action.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       FINAL SUBMISSION
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="final-panel" id="finalPanel">
+    <h3>ALL FRAGMENTS RECOVERED</h3>
+    <p>Combine the five fragments in order to form the final key. Enter it below to complete the operation and generate your proof of completion.</p>
+    <div class="final-row">
+      <input type="text" id="finalAns" placeholder="ENTER FINAL KEY..." autocomplete="off" onkeydown="if(event.key==='Enter')checkFinal()" />
+      <button class="btn-final" onclick="checkFinal()">UNLOCK</button>
+    </div>
+    <div class="final-feedback" id="finalFb"></div>
+  </div>
+
+</div><!-- /wrap -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     COMPLETION SCREEN
+══════════════════════════════════════════════════════════════ -->
+<div class="completion" id="completion">
+  <div class="comp-inner">
+    <div class="comp-header">
+      <span class="comp-glyph">🔓</span>
+      <h2>OPERATION COMPLETE</h2>
+      <p>CHAIN LOCK DEFEATED &nbsp;|&nbsp; MODULE 1 VERIFIED</p>
+    </div>
+
+    <div class="comp-receipt">
+      <div class="cr-row">
+        <span class="cr-label">OPERATIVE</span>
+        <span class="cr-val" id="cr-name">—</span>
+      </div>
+      <div class="cr-row">
+        <span class="cr-label">COMPLETED</span>
+        <span class="cr-val" id="cr-time">—</span>
+      </div>
+      <div class="cr-row">
+        <span class="cr-label">FINAL KEY</span>
+        <span class="cr-val flag-val">SEC+CTF2025FLAG</span>
+      </div>
+      <div class="cr-row">
+        <span class="cr-label">STATUS</span>
+        <span class="cr-val">ALL 5 OBJECTIVES CLEARED</span>
+      </div>
+    </div>
+
+    <div class="comp-answers">
+      <h4>ANSWER RECORD</h4>
+      <div class="comp-ans-row">
+        <span class="comp-ans-q">Q1 · 1.1</span>
+        <span class="comp-ans-a">DETECTIVE — Measure A monitors and alerts. It does not prevent. Control type: Detective.</span>
+        <span class="comp-ans-f">SEC</span>
+      </div>
+      <div class="comp-ans-row">
+        <span class="comp-ans-q">Q2 · 1.2</span>
+        <span class="comp-ans-a">POLICY ENGINE — Evaluates all conditions and makes the grant/deny decision in Zero Trust.</span>
+        <span class="comp-ans-f">+</span>
+      </div>
+      <div class="comp-ans-row">
+        <span class="comp-ans-q">Q3 · 1.3</span>
+        <span class="comp-ans-a">BACKOUT PLAN — No procedure defined for reversing the change if it fails.</span>
+        <span class="comp-ans-f">CTF</span>
+      </div>
+      <div class="comp-ans-row">
+        <span class="comp-ans-q">Q4 · 1.4</span>
+        <span class="comp-ans-a">09-55-33 — K→09, E→55, Y→33. Public key encrypts. Private key decrypts.</span>
+        <span class="comp-ans-f">2025</span>
+      </div>
+      <div class="comp-ans-row">
+        <span class="comp-ans-q">Q5 · 1.4</span>
+        <span class="comp-ans-a">SECURE — Only SECURE hashes to 7D with prev EF. The stored hash exposed the tampering.</span>
+        <span class="comp-ans-f">FLAG</span>
+      </div>
+    </div>
+
+    <div class="comp-footer">
+      <strong>Screenshot this screen and submit to Canvas as your activity proof.</strong><br><br>
+      CompTIA Security+ SY0-701 &nbsp;|&nbsp; Module 1 &nbsp;|&nbsp; Operation Chain Lock
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Answer definitions (normalised for comparison) ──────────────────────────
+const ANSWERS = {
+  1: ['DETECTIVE'],
+  2: ['POLICY ENGINE', 'POLICYENGINE'],
+  3: ['BACKOUT PLAN', 'BACKOUTPLAN', 'BACK OUT PLAN'],
+  4: ['09-55-33', '09 55 33', '095533'],
+  5: ['SECURE']
+};
+const FRAGMENTS = { 1:'SEC', 2:'+', 3:'CTF', 4:'2025', 5:'FLAG' };
+const FINAL_KEY = 'SEC+CTF2025FLAG';
+
+const solved = { 1:false, 2:false, 3:false, 4:false, 5:false };
+
+function norm(s) { return s.toUpperCase().trim().replace(/\s+/g,' '); }
+
+function checkAnswer(n) {
+  if (solved[n]) return;
+  const inp = document.getElementById('ans'+n);
+  const fb  = document.getElementById('fb'+n);
+  const val = norm(inp.value);
+  if (!val) return;
+
+  if (ANSWERS[n].includes(val)) {
+    // Correct
+    solved[n] = true;
+    inp.disabled = true;
+    document.querySelector('#card'+n+' .btn-submit').disabled = true;
+    document.getElementById('card'+n).classList.add('solved');
+    document.getElementById('status'+n).textContent = 'CLEARED ✓';
+    document.getElementById('rev'+n).classList.add('show');
+    fb.textContent = '// ACCESS GRANTED';
+    fb.className = 'answer-feedback ok';
+    revealFragment(n);
+    checkAllSolved();
+  } else {
+    // Wrong
+    inp.classList.add('error');
+    fb.textContent = '// ACCESS DENIED — incorrect. Try again.';
+    fb.className = 'answer-feedback err';
+    setTimeout(()=> inp.classList.remove('error'), 500);
+  }
+}
+
+function revealFragment(n) {
+  const el = document.getElementById('frag'+n);
+  el.textContent = FRAGMENTS[n];
+  el.classList.add('revealed');
+}
+
+function checkAllSolved() {
+  if (Object.values(solved).every(v=>v)) {
+    setTimeout(()=>{
+      document.getElementById('finalPanel').classList.add('show');
+      document.getElementById('finalPanel').scrollIntoView({behavior:'smooth', block:'center'});
+    }, 800);
+  }
+}
+
+function checkFinal() {
+  const inp = document.getElementById('finalAns');
+  const fb  = document.getElementById('finalFb');
+  const val = norm(inp.value).replace(/\s/g,'');
+  if (val === FINAL_KEY) {
+    showCompletion();
+  } else {
+    inp.classList.add('error');
+    fb.textContent = '// Key rejected. Check your fragments and try again.';
+    fb.className = 'final-feedback err';
+    setTimeout(()=> inp.classList.remove('error'), 500);
+  }
+}
+
+function showCompletion() {
+  const name = document.getElementById('studentName').value.trim() || 'UNKNOWN OPERATIVE';
+  document.getElementById('cr-name').textContent = name.toUpperCase();
+  document.getElementById('cr-time').textContent = new Date().toLocaleString();
+  document.getElementById('completion').classList.add('show');
+  window.scrollTo(0,0);
+}
+
+function toggleHint(id) {
+  const box = document.getElementById(id);
+  box.classList.toggle('show');
+}
+
+// Allow Enter on final input
+document.getElementById('finalAns')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkFinal();
+});
+</script>
+</body>
+</html>
