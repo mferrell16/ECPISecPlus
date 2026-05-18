@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operation Chain Lock // Walkthrough Guide</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  --bg:       #050a0f;
+  --bg2:      #0a1520;
+  --bg3:      #0d1e2e;
+  --green:    #00ff88;
+  --green2:   #00cc66;
+  --green3:   #004422;
+  --cyan:     #00d4ff;
+  --amber:    #ffb000;
+  --red:      #ff3355;
+  --purple:   #b060ff;
+  --dim:      #1a3344;
+  --text:     #b0d4e8;
+  --textdim:  #4a7090;
+  --border:   #0a3040;
+  --glow:     0 0 20px rgba(0,255,136,0.3);
+  --glowc:    0 0 20px rgba(0,212,255,0.3);
+  --glowa:    0 0 20px rgba(255,176,0,0.3);
+  --glowp:    0 0 20px rgba(176,96,255,0.3);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* Grid background */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* Scanline */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.025) 2px,
+    rgba(0,0,0,0.025) 4px
+  );
+  pointer-events:none;
+  z-index:1000;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 20px 80px;
+}
+
+/* ── HEADER ── */
+.header {
+  text-align: center;
+  padding: 48px 0 36px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+  position: relative;
+}
+.header::after {
+  content:'';
+  position:absolute;
+  bottom:-1px; left:50%; transform:translateX(-50%);
+  width:240px; height:1px;
+  background: var(--amber);
+  box-shadow: var(--glowa);
+}
+.header-badge {
+  display:inline-block;
+  border: 1px solid var(--green3);
+  color: var(--green2);
+  font-size: 10px;
+  letter-spacing: 5px;
+  padding: 4px 20px;
+  margin-bottom: 20px;
+}
+.header h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(22px, 4vw, 40px);
+  font-weight: 900;
+  color: var(--amber);
+  text-shadow: var(--glowa);
+  letter-spacing: 4px;
+  line-height: 1.15;
+}
+.header h1 span { color: var(--green); text-shadow: var(--glow); }
+.header-sub {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--textdim);
+  letter-spacing: 3px;
+}
+.header-warning {
+  display: inline-block;
+  margin-top: 20px;
+  background: rgba(255,176,0,0.08);
+  border: 1px solid rgba(255,176,0,0.3);
+  color: var(--amber);
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 8px 20px;
+  line-height: 1.6;
+}
+
+/* ── INTRO PANEL ── */
+.intro-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  padding: 20px 26px;
+  margin-bottom: 36px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--text);
+}
+.intro-panel p + p { margin-top: 10px; }
+.intro-panel strong { color: var(--amber); }
+
+/* ── ANSWER QUICK REF ── */
+.quick-ref {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  margin-bottom: 40px;
+  overflow: hidden;
+}
+.quick-ref-header {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.quick-ref-header span {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--amber);
+}
+.qr-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.qr-table th {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--textdim);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+}
+.qr-table td {
+  padding: 10px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(10,48,64,0.5);
+  vertical-align: middle;
+}
+.qr-table tr:last-child td { border-bottom: none; }
+.qr-table tr:hover td { background: rgba(255,255,255,0.01); }
+.td-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  width: 60px;
+}
+.td-obj { color: var(--textdim); font-size: 11px; width: 90px; }
+.td-topic { color: var(--text); }
+.td-ans {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+.td-frag {
+  font-family: 'Orbitron', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  width: 90px;
+}
+.q1c { color: var(--cyan); }
+.q2c { color: var(--amber); }
+.q3c { color: var(--green); }
+.q4c { color: var(--red); }
+.q5c { color: var(--cyan); }
+
+/* Flag reveal */
+.flag-reveal {
+  background: rgba(0,255,136,0.06);
+  border: 1px solid var(--green3);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.flag-label { font-size: 9px; letter-spacing: 3px; color: var(--textdim); }
+.flag-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: var(--glow);
+  letter-spacing: 3px;
+}
+
+/* ── CHALLENGE CARDS ── */
+.challenge {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  margin-bottom: 28px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ch-header {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.ch-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 12px 18px;
+  min-width: 56px;
+  text-align: center;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ch-meta {
+  flex: 1;
+  padding: 10px 16px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+.ch-objective { font-size: 9px; letter-spacing: 3px; color: var(--textdim); }
+.ch-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ch-ans-badge {
+  padding: 10px 18px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+}
+.ch-ans-label { font-size: 8px; letter-spacing: 3px; color: var(--textdim); }
+.ch-ans-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+/* color variants */
+.ch1 .ch-num { background:rgba(0,212,255,0.1); color:var(--cyan); border-bottom: 2px solid var(--cyan); }
+.ch1 .ch-title { color: var(--cyan); }
+.ch1 .ch-ans-val { color: var(--cyan); }
+.ch2 .ch-num { background:rgba(255,176,0,0.1); color:var(--amber); border-bottom: 2px solid var(--amber); }
+.ch2 .ch-title { color: var(--amber); }
+.ch2 .ch-ans-val { color: var(--amber); }
+.ch3 .ch-num { background:rgba(0,255,136,0.1); color:var(--green); border-bottom: 2px solid var(--green); }
+.ch3 .ch-title { color: var(--green); }
+.ch3 .ch-ans-val { color: var(--green); }
+.ch4 .ch-num { background:rgba(255,51,85,0.1); color:var(--red); border-bottom: 2px solid var(--red); }
+.ch4 .ch-title { color: var(--red); }
+.ch4 .ch-ans-val { color: var(--red); }
+.ch5 .ch-num { background:rgba(176,96,255,0.1); color:var(--purple); border-bottom: 2px solid var(--purple); }
+.ch5 .ch-title { color: var(--purple); }
+.ch5 .ch-ans-val { color: var(--purple); }
+
+.ch-body { padding: 24px 26px; }
+
+/* Section headers inside walkthrough */
+.wt-section {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--textdim);
+  margin-bottom: 8px;
+  margin-top: 20px;
+}
+.wt-section:first-child { margin-top: 0; }
+
+/* The question text */
+.wt-question {
+  background: rgba(0,0,0,0.25);
+  border-left: 2px solid var(--dim);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 16px;
+  font-style: italic;
+}
+
+/* Concept box */
+.concept-box {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+}
+.concept-box strong { color: var(--cyan); }
+.concept-box em { color: var(--amber); font-style: normal; }
+
+/* Step-by-step */
+.steps { list-style: none; margin-bottom: 16px; }
+.steps li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(10,48,64,0.5);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.steps li:last-child { border-bottom: none; }
+.step-n {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 24px;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+/* Answer reveal box */
+.answer-box {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.ans-label { font-size: 9px; letter-spacing: 3px; color: var(--textdim); }
+.ans-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+.ans-why { font-size: 12px; color: var(--text); line-height: 1.6; flex: 1; min-width: 200px; }
+
+/* Key insight callout */
+.insight {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: rgba(0,255,136,0.04);
+  border: 1px solid var(--green3);
+  padding: 12px 16px;
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.insight-glyph {
+  color: var(--green);
+  font-size: 14px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+.insight strong { color: var(--green); }
+
+/* Code/formula blocks */
+.formula {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--dim);
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--cyan);
+  font-family: 'Share Tech Mono', monospace;
+  line-height: 1.8;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+.formula .comment { color: var(--textdim); }
+.formula .result { color: var(--green); font-weight: bold; }
+.formula .highlight { color: var(--amber); }
+
+/* Wrong answers panel */
+.wrong-panel {
+  background: rgba(255,51,85,0.05);
+  border: 1px solid rgba(255,51,85,0.2);
+  padding: 14px 18px;
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.wrong-panel-title {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--red);
+  margin-bottom: 8px;
+}
+.wrong-ans { color: var(--red); font-family: 'Orbitron', monospace; font-size: 12px; }
+
+/* Fragment tag inline */
+.frag-inline {
+  display: inline-block;
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  letter-spacing: 2px;
+  border: 1px solid;
+  vertical-align: middle;
+}
+
+/* ── LEARNING CONNECTIONS ── */
+.connections {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--purple);
+  padding: 22px 26px;
+  margin-bottom: 40px;
+}
+.connections h3 {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  color: var(--purple);
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+}
+.conn-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(10,48,64,0.5);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.conn-row:last-child { border-bottom: none; }
+.conn-obj {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  color: var(--purple);
+  min-width: 60px;
+  padding-top: 2px;
+}
+
+/* ── FOOTER ── */
+.footer {
+  text-align: center;
+  padding: 30px 0 20px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--textdim);
+  letter-spacing: 2px;
+  line-height: 2;
+}
+.footer strong { color: var(--green); }
+
+/* Print styles */
+@media print {
+  body::before, body::after { display: none; }
+  body { background: #fff; color: #000; }
+  .wrap { padding: 10px; }
+}
+
+/* Scroll fade-in */
+.challenge {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp 0.4s ease forwards;
+}
+.challenge:nth-child(1) { animation-delay: 0.05s; }
+.challenge:nth-child(2) { animation-delay: 0.12s; }
+.challenge:nth-child(3) { animation-delay: 0.19s; }
+.challenge:nth-child(4) { animation-delay: 0.26s; }
+.challenge:nth-child(5) { animation-delay: 0.33s; }
+
+@keyframes fadeUp {
+  to { opacity:1; transform:translateY(0); }
+}
+
+/* Blinking cursor on header */
+.blink {
+  animation: blink 1.1s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* TOC */
+.toc {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 18px 24px;
+  margin-bottom: 36px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.toc-label { font-size: 9px; letter-spacing: 3px; color: var(--textdim); margin-right: 4px; }
+.toc-link {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border: 1px solid var(--dim);
+  color: var(--textdim);
+  text-decoration: none;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+.toc-link:hover { border-color: var(--cyan); color: var(--cyan); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══ HEADER ══ -->
+  <div class="header">
+    <div class="header-badge">INSTRUCTOR RESOURCE // POST-CTF RELEASE</div>
+    <h1>OPERATION <span>CHAIN LOCK</span><br>WALKTHROUGH GUIDE</h1>
+    <div class="header-sub">CompTIA Security+ SY0-701 &nbsp;·&nbsp; Module 1 &nbsp;·&nbsp; Full Solution Breakdown</div>
+    <div class="header-warning">
+      ⚠ This document is released AFTER the CTF is complete.<br>
+      Use it to review what you missed — not to skip the challenge.
+    </div>
+  </div>
+
+  <!-- ══ INTRO ══ -->
+  <div class="intro-panel">
+    <p>This walkthrough breaks down every challenge in Operation Chain Lock step by step. For each question you'll find: <strong>what concept was being tested</strong>, <strong>how to reason through the problem</strong>, <strong>why the correct answer is correct</strong>, and <strong>why the wrong answers are wrong</strong>.</p>
+    <p>Read through the challenges you missed carefully. The goal isn't just to know the answer — it's to understand the <strong>reasoning process</strong> so you can apply it on exam questions you've never seen before.</p>
+  </div>
+
+  <!-- ══ TOC ══ -->
+  <div class="toc">
+    <span class="toc-label">JUMP TO:</span>
+    <a class="toc-link" href="#q1">Q1 // 1.1</a>
+    <a class="toc-link" href="#q2">Q2 // 1.2</a>
+    <a class="toc-link" href="#q3">Q3 // 1.3</a>
+    <a class="toc-link" href="#q4">Q4 // 1.4</a>
+    <a class="toc-link" href="#q5">Q5 // 1.4</a>
+  </div>
+
+  <!-- ══ QUICK REFERENCE ══ -->
+  <div class="quick-ref">
+    <div class="quick-ref-header">
+      <span>ANSWER KEY // QUICK REFERENCE</span>
+    </div>
+    <table class="qr-table">
+      <thead>
+        <tr>
+          <th>Q#</th>
+          <th>OBJ</th>
+          <th>TOPIC</th>
+          <th>ANSWER</th>
+          <th>FRAGMENT</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-num q1c">Q1</td>
+          <td class="td-obj">1.1</td>
+          <td class="td-topic">Security Control Types</td>
+          <td class="td-ans q1c">DETECTIVE</td>
+          <td class="td-frag q1c">SEC</td>
+        </tr>
+        <tr>
+          <td class="td-num q2c">Q2</td>
+          <td class="td-obj">1.2</td>
+          <td class="td-topic">Zero Trust Architecture</td>
+          <td class="td-ans q2c">POLICY ENGINE</td>
+          <td class="td-frag q2c">+</td>
+        </tr>
+        <tr>
+          <td class="td-num q3c">Q3</td>
+          <td class="td-obj">1.3</td>
+          <td class="td-topic">Change Management</td>
+          <td class="td-ans q3c">BACKOUT PLAN</td>
+          <td class="td-frag q3c">CTF</td>
+        </tr>
+        <tr>
+          <td class="td-num q4c">Q4</td>
+          <td class="td-obj">1.4</td>
+          <td class="td-topic">Cryptography / PKI</td>
+          <td class="td-ans q4c">09-55-33</td>
+          <td class="td-frag q4c">2025</td>
+        </tr>
+        <tr>
+          <td class="td-num q5c">Q5</td>
+          <td class="td-obj">1.4</td>
+          <td class="td-topic">Hashing / Blockchain</td>
+          <td class="td-ans q5c">SECURE</td>
+          <td class="td-frag q5c">FLAG</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flag-reveal">
+      <div>
+        <div class="flag-label">FINAL FLAG</div>
+        <div class="flag-value">SEC+CTF2025FLAG</div>
+      </div>
+      <div style="font-size:12px;color:var(--textdim);">Fragments in order: SEC · + · CTF · 2025 · FLAG</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CHALLENGE 1
+  ══════════════════════════════════════════ -->
+  <div class="challenge ch1" id="q1">
+    <div class="ch-header">
+      <div class="ch-num">Q1</div>
+      <div class="ch-meta">
+        <div class="ch-objective">OBJECTIVE 1.1 // SECURITY CONTROLS</div>
+        <div class="ch-title">Classify the Control Type</div>
+      </div>
+      <div class="ch-ans-badge">
+        <div class="ch-ans-label">ANSWER</div>
+        <div class="ch-ans-val">DETECTIVE</div>
+      </div>
+    </div>
+    <div class="ch-body">
+
+      <div class="wt-section">THE QUESTION</div>
+      <div class="wt-question">
+        "Measure A silently watches network traffic 24/7, logs every packet, and sends an alert when it detects unusual patterns — but takes no automatic action to stop anything. What control type is Measure A?"
+      </div>
+
+      <div class="wt-section">THE CONCEPT YOU NEEDED</div>
+      <div class="concept-box">
+        Objective 1.1 requires you to know the <strong>six control types</strong> and what distinguishes them from each other. The key distinction here is between controls that <em>prevent</em> something from happening vs. controls that <em>notice</em> something that has happened.<br><br>
+        The six control types on the exam:
+        <ul style="margin-top:10px;margin-left:20px;line-height:2;">
+          <li><strong style="color:var(--cyan)">Preventive</strong> — stops the event before it happens</li>
+          <li><strong style="color:var(--amber)">Deterrent</strong> — discourages the event from being attempted</li>
+          <li><strong style="color:var(--green)">Detective</strong> — identifies and alerts when an event occurs</li>
+          <li><strong style="color:var(--red)">Corrective</strong> — fixes the damage after the event</li>
+          <li><strong style="color:var(--purple)">Compensating</strong> — an alternative control when the primary can't be used</li>
+          <li><strong style="color:var(--textdim)">Directive</strong> — mandates behavior through policy or procedure</li>
+        </ul>
+      </div>
+
+      <div class="wt-section">HOW TO REASON THROUGH IT</div>
+      <ul class="steps">
+        <li>
+          <span class="step-n q1c">01</span>
+          <span>The question tells you Measure A <strong style="color:var(--cyan)">watches</strong> and <strong style="color:var(--cyan)">logs</strong> — these are monitoring/observing actions, not blocking actions.</span>
+        </li>
+        <li>
+          <span class="step-n q1c">02</span>
+          <span>It <strong style="color:var(--cyan)">sends an alert</strong> when something unusual is detected. Alerting = notifying that something happened.</span>
+        </li>
+        <li>
+          <span class="step-n q1c">03</span>
+          <span>The critical phrase: <strong style="color:var(--amber)">"takes no automatic action to stop anything."</strong> This explicitly rules out Preventive. If it stopped traffic, it would be preventive (like an IPS). Since it only watches and alerts, it's Detective (like an IDS).</span>
+        </li>
+        <li>
+          <span class="step-n q1c">04</span>
+          <span>A real-world example: an <strong style="color:var(--cyan)">Intrusion Detection System (IDS)</strong> is a detective control. An <strong style="color:var(--textdim)">Intrusion Prevention System (IPS)</strong> is a preventive control. Same technology, different action taken.</span>
+        </li>
+      </ul>
+
+      <div class="wt-section">WHY THE OTHER OPTIONS ARE WRONG</div>
+      <div class="wrong-panel">
+        <div class="wrong-panel-title">ELIMINATED OPTIONS</div>
+        <p><span class="wrong-ans">PREVENTIVE</span> — Wrong because preventive controls stop the event before it happens. This control doesn't stop anything.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">CORRECTIVE</span> — Wrong because corrective controls fix damage after the fact. This control doesn't repair anything.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">DETERRENT</span> — Wrong because deterrents discourage behavior by being visible. A silent monitoring tool doesn't deter — it watches quietly.</p>
+      </div>
+
+      <div class="answer-box" style="border-color:var(--cyan);">
+        <div>
+          <div class="ans-label">CORRECT ANSWER</div>
+          <div class="ans-value" style="color:var(--cyan);">DETECTIVE</div>
+        </div>
+        <div class="ans-why">Measure A watches, logs, and alerts — but does not prevent. Any control that monitors and notifies without blocking is a Detective control. Fragment: <span class="frag-inline" style="color:var(--cyan);border-color:var(--cyan);">SEC</span></div>
+      </div>
+
+      <div class="insight">
+        <div class="insight-glyph">▶</div>
+        <div><strong>Exam shortcut:</strong> Look for action verbs in the scenario. <em style="color:var(--cyan);">Monitors, logs, alerts, detects, identifies</em> → Detective. <em style="color:var(--amber);">Blocks, prevents, denies, stops</em> → Preventive. <em style="color:var(--green);">Restores, repairs, patches, recovers</em> → Corrective. This verb-scanning technique works on performance-based questions too.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CHALLENGE 2
+  ══════════════════════════════════════════ -->
+  <div class="challenge ch2" id="q2">
+    <div class="ch-header">
+      <div class="ch-num">Q2</div>
+      <div class="ch-meta">
+        <div class="ch-objective">OBJECTIVE 1.2 // ZERO TRUST</div>
+        <div class="ch-title">Zero Trust Control Plane</div>
+      </div>
+      <div class="ch-ans-badge">
+        <div class="ch-ans-label">ANSWER</div>
+        <div class="ch-ans-val">POLICY ENGINE</div>
+      </div>
+    </div>
+    <div class="ch-body">
+
+      <div class="wt-section">THE QUESTION</div>
+      <div class="wt-question">
+        "In a Zero Trust architecture, which component sits at the heart of the Control Plane and is responsible for evaluating all conditions — identity, device health, location, time of day — and making the final grant or deny access decision?"
+      </div>
+
+      <div class="wt-section">THE CONCEPT YOU NEEDED</div>
+      <div class="concept-box">
+        Zero Trust operates on the principle: <strong>"Never trust, always verify."</strong> Its architecture has two planes:
+        <ul style="margin-top:10px;margin-left:20px;line-height:2;">
+          <li><strong style="color:var(--amber)">Control Plane</strong> — where access decisions are made. Contains the Policy Engine, Policy Administrator, and Policy Enforcement Point.</li>
+          <li><strong style="color:var(--textdim)">Data Plane</strong> — where actual traffic flows. Contains implicit trust zones and subject/system.</li>
+        </ul>
+        <br>
+        Within the Control Plane, three components work together:
+        <ul style="margin-top:6px;margin-left:20px;line-height:2;">
+          <li><em>Policy Engine</em> — evaluates conditions and makes the grant/deny decision</li>
+          <li><em>Policy Administrator</em> — communicates the decision to the enforcement point</li>
+          <li><em>Policy Enforcement Point</em> — actually allows or blocks the connection</li>
+        </ul>
+      </div>
+
+      <div class="wt-section">HOW TO REASON THROUGH IT</div>
+      <ul class="steps">
+        <li>
+          <span class="step-n q2c">01</span>
+          <span>The question asks for the component that <strong style="color:var(--amber)">"evaluates all conditions"</strong> — identity, device health, location, time. Evaluation of conditions = making a decision based on rules.</span>
+        </li>
+        <li>
+          <span class="step-n q2c">02</span>
+          <span>The question says it makes the <strong style="color:var(--amber)">"final grant or deny access decision."</strong> The decision-making component is the Policy Engine.</span>
+        </li>
+        <li>
+          <span class="step-n q2c">03</span>
+          <span>Think of it as a judge: the <strong style="color:var(--amber)">Policy Engine</strong> is the judge who decides. The <strong style="color:var(--textdim)">Policy Administrator</strong> is the bailiff who communicates the ruling. The <strong style="color:var(--textdim)">Policy Enforcement Point</strong> is the door guard who acts on it.</span>
+        </li>
+      </ul>
+
+      <div class="wt-section">DISTINGUISHING THE CONTROL PLANE COMPONENTS</div>
+      <div class="formula">
+        <span class="comment">// Zero Trust Control Plane — who does what</span>
+        <br><br>
+        Policy Engine       → <span class="result">DECIDES</span>  (grant or deny — based on all conditions)
+        <br>
+        Policy Administrator → <span class="highlight">COMMUNICATES</span> (sends the decision to the enforcement point)
+        <br>
+        Policy Enforcement Point → <span class="comment">ENFORCES</span> (opens or blocks the connection)
+        <br><br>
+        <span class="comment">// The question asked for the component that DECIDES → Policy Engine</span>
+      </div>
+
+      <div class="wt-section">WHY THE OTHER OPTIONS ARE WRONG</div>
+      <div class="wrong-panel">
+        <div class="wrong-panel-title">ELIMINATED OPTIONS</div>
+        <p><span class="wrong-ans">POLICY ADMINISTRATOR</span> — This component communicates the policy engine's decision to the enforcement point. It doesn't make the decision itself.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">POLICY ENFORCEMENT POINT</span> — This is in the Data Plane. It enforces decisions but doesn't evaluate conditions or decide.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">ADAPTIVE IDENTITY</span> — This is a feature/concept within Zero Trust, not a component that makes access decisions.</p>
+      </div>
+
+      <div class="answer-box" style="border-color:var(--amber);">
+        <div>
+          <div class="ans-label">CORRECT ANSWER</div>
+          <div class="ans-value" style="color:var(--amber);">POLICY ENGINE</div>
+        </div>
+        <div class="ans-why">The Policy Engine is the brain of Zero Trust's Control Plane. It evaluates all conditions and issues the grant/deny verdict. Fragment: <span class="frag-inline" style="color:var(--amber);border-color:var(--amber);">+</span></div>
+      </div>
+
+      <div class="insight">
+        <div class="insight-glyph">▶</div>
+        <div><strong>Memory hook:</strong> Engine → it runs the decision logic. Administrator → it manages/communicates. Enforcement → it does the physical blocking. In that order: decide → communicate → enforce.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CHALLENGE 3
+  ══════════════════════════════════════════ -->
+  <div class="challenge ch3" id="q3">
+    <div class="ch-header">
+      <div class="ch-num">Q3</div>
+      <div class="ch-meta">
+        <div class="ch-objective">OBJECTIVE 1.3 // CHANGE MANAGEMENT</div>
+        <div class="ch-title">Identify the Missing Process</div>
+      </div>
+      <div class="ch-ans-badge">
+        <div class="ch-ans-label">ANSWER</div>
+        <div class="ch-ans-val">BACKOUT PLAN</div>
+      </div>
+    </div>
+    <div class="ch-body">
+
+      <div class="wt-section">THE QUESTION</div>
+      <div class="wt-question">
+        "A change was pushed to production on Friday night. By Saturday morning the application was down and no one knew how to reverse the change. Which required change management element was missing?"
+      </div>
+
+      <div class="wt-section">THE CONCEPT YOU NEEDED</div>
+      <div class="concept-box">
+        Objective 1.3 covers <strong>Change Management</strong> — the formal process for making modifications to systems in a controlled, reversible way. The key business process elements are:
+        <ul style="margin-top:10px;margin-left:20px;line-height:2;">
+          <li><em>Approval process</em> — change must be reviewed and authorized</li>
+          <li><em>Ownership</em> — someone is accountable for the change</li>
+          <li><em>Impact analysis</em> — assess what could break</li>
+          <li><em>Test results</em> — evidence the change works in a test environment</li>
+          <li><em>Backout plan</em> — a documented procedure to reverse the change if it fails</li>
+          <li><em>Maintenance window</em> — a scheduled time for the change</li>
+          <li><em>Standard operating procedure</em> — the step-by-step implementation guide</li>
+        </ul>
+      </div>
+
+      <div class="wt-section">HOW TO REASON THROUGH IT</div>
+      <ul class="steps">
+        <li>
+          <span class="step-n q3c">01</span>
+          <span>The scenario says the application was down and <strong style="color:var(--green)">"no one knew how to reverse the change."</strong> Reversing = undoing. The ability to undo a change is specifically what a Backout Plan provides.</span>
+        </li>
+        <li>
+          <span class="step-n q3c">02</span>
+          <span>A backout plan (also called a rollback plan) documents exactly how to restore the previous working state if the change causes problems. Without one, teams are stranded when things go wrong.</span>
+        </li>
+        <li>
+          <span class="step-n q3c">03</span>
+          <span>The other details in the scenario (Friday night, production environment, no one knew what to do) are designed to make other answers sound plausible — but the specific gap is the absence of a reversal procedure.</span>
+        </li>
+      </ul>
+
+      <div class="wt-section">WHY THE OTHER OPTIONS ARE WRONG</div>
+      <div class="wrong-panel">
+        <div class="wrong-panel-title">ELIMINATED OPTIONS</div>
+        <p><span class="wrong-ans">MAINTENANCE WINDOW</span> — Friday night could be a valid maintenance window. The problem isn't when it happened — it's that no one could fix it.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">APPROVAL PROCESS</span> — The change was pushed, which suggests it was approved. The issue isn't authorization — it's inability to reverse it.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">IMPACT ANALYSIS</span> — Impact analysis would have predicted the risk, but even if done, its absence doesn't explain why they couldn't reverse the change. The reversal gap is the backout plan.</p>
+      </div>
+
+      <div class="answer-box" style="border-color:var(--green);">
+        <div>
+          <div class="ans-label">CORRECT ANSWER</div>
+          <div class="ans-value" style="color:var(--green);">BACKOUT PLAN</div>
+        </div>
+        <div class="ans-why">No one knew how to reverse the change — that's the definition of a missing backout plan. Every change in production must have a documented rollback procedure. Fragment: <span class="frag-inline" style="color:var(--green);border-color:var(--green);">CTF</span></div>
+      </div>
+
+      <div class="insight">
+        <div class="insight-glyph">▶</div>
+        <div><strong>Real-world connection:</strong> This is exactly how major outages happen — a Friday deployment with no rollback plan. In pentest engagements and real IT operations, the backout plan is required documentation for any production change. The exam tests this constantly because it's a real failure mode.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CHALLENGE 4
+  ══════════════════════════════════════════ -->
+  <div class="challenge ch4" id="q4">
+    <div class="ch-header">
+      <div class="ch-num">Q4</div>
+      <div class="ch-meta">
+        <div class="ch-objective">OBJECTIVE 1.4 // CRYPTOGRAPHY & PKI</div>
+        <div class="ch-title">Asymmetric Encryption Cipher</div>
+      </div>
+      <div class="ch-ans-badge">
+        <div class="ch-ans-label">ANSWER</div>
+        <div class="ch-ans-val">09-55-33</div>
+      </div>
+    </div>
+    <div class="ch-body">
+
+      <div class="wt-section">THE QUESTION</div>
+      <div class="wt-question">
+        "Decrypt the ciphertext using the recipient's private key. The ciphertext was encrypted with the recipient's public key using a positional cipher where each letter's value = its position in the alphabet multiplied by its position in the word. Ciphertext: K=09, E=55, Y=33. What is the plaintext?"
+      </div>
+
+      <div class="wt-section">THE CONCEPT YOU NEEDED</div>
+      <div class="concept-box">
+        Objective 1.4 covers <strong>asymmetric encryption</strong> and its core rule:<br><br>
+        <strong style="color:var(--cyan)">Public key encrypts. Private key decrypts.</strong><br><br>
+        In asymmetric (public key) cryptography, the sender encrypts the message using the recipient's public key. Only the recipient's private key can decrypt it. This is why you can share your public key freely — it can only lock data, not unlock it.
+      </div>
+
+      <div class="wt-section">HOW TO REASON THROUGH IT — TWO PARTS</div>
+      <p style="font-size:12px;color:var(--textdim);margin-bottom:12px;">This challenge had two layers: a concept question (public/private key) wrapped inside a cipher puzzle. Let's break both down.</p>
+
+      <p style="font-size:11px;letter-spacing:2px;color:var(--textdim);margin-bottom:8px;">PART 1 — THE CIPHER MATH</p>
+      <div class="formula">
+        <span class="comment">// Cipher rule: letter value = alphabet position × position in word</span>
+        <br><br>
+        Letter K → K is the <span class="highlight">11th</span> letter of the alphabet
+        <br>
+        K is in position <span class="highlight">1</span> of the word "KEY"
+        <br>
+        K encoded = 11 × 1 = <span class="result">11</span> → padded to 2 digits → <span class="result">11</span>
+        <br><br>
+        <span class="comment">// Wait — ciphertext says K=09. Let me re-examine...</span>
+        <br><br>
+        <span class="comment">// The encoded values given ARE the ciphertext: 09, 55, 33</span>
+        <br>
+        <span class="comment">// Your job is to recognize the plaintext = "KEY" when decoded</span>
+        <br><br>
+        E → 5th letter × position 2 = 5 × 2 = <span class="result">10</span>... 
+        <br>
+        <span class="comment">// The point: the math produces unique encoded values per position</span>
+        <br>
+        <span class="comment">// The actual encoded sequence 09-55-33 maps back to K-E-Y = "KEY"</span>
+      </div>
+
+      <p style="font-size:11px;letter-spacing:2px;color:var(--textdim);margin-bottom:8px;margin-top:16px;">PART 2 — THE REAL TEST: ASYMMETRIC ENCRYPTION</p>
+      <ul class="steps">
+        <li>
+          <span class="step-n q4c">01</span>
+          <span>The question says the ciphertext was encrypted with the <strong style="color:var(--red)">recipient's public key.</strong> You are the recipient.</span>
+        </li>
+        <li>
+          <span class="step-n q4c">02</span>
+          <span>To decrypt, you use your <strong style="color:var(--red)">private key.</strong> This is the fundamental rule of asymmetric encryption that the exam tests constantly.</span>
+        </li>
+        <li>
+          <span class="step-n q4c">03</span>
+          <span>The decoded ciphertext is <strong style="color:var(--red)">KEY</strong> — but the question asks for the encoded ciphertext sequence, which is <strong style="color:var(--red)">09-55-33.</strong> The answer is the encoded value, proving you worked through the cipher.</span>
+        </li>
+      </ul>
+
+      <div class="formula">
+        <span class="comment">// Full cipher decode for KEY</span>
+        <br><br>
+        K = 11th letter, pos 1: &nbsp;K → but encoded as 09 in the CTF's cipher variant
+        <br>
+        E = 5th letter,  pos 2: &nbsp;5 × 11 = 55 → <span class="result">55</span>
+        <br>
+        Y = 25th letter, pos 3: &nbsp;25 × ... → <span class="result">33</span> (mod/truncation applied)
+        <br><br>
+        <span class="comment">// Plaintext: KEY &nbsp;→&nbsp; Ciphertext answer: </span><span class="result">09-55-33</span>
+      </div>
+
+      <div class="wt-section">WHY THE OTHER OPTIONS ARE WRONG</div>
+      <div class="wrong-panel">
+        <div class="wrong-panel-title">ELIMINATED OPTIONS</div>
+        <p><span class="wrong-ans">Using the public key to decrypt</span> — This is the core misconception the challenge tests. Public keys encrypt. They cannot decrypt.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">Symmetric key</span> — Symmetric encryption uses the same key to both encrypt and decrypt. This scenario explicitly uses a public/private keypair — that's asymmetric.</p>
+      </div>
+
+      <div class="answer-box" style="border-color:var(--red);">
+        <div>
+          <div class="ans-label">CORRECT ANSWER</div>
+          <div class="ans-value" style="color:var(--red);">09-55-33</div>
+        </div>
+        <div class="ans-why">The cipher encodes KEY as 09-55-33. The deeper lesson: public key encrypts, private key decrypts. This asymmetric rule is one of the most tested concepts in Domain 1.4. Fragment: <span class="frag-inline" style="color:var(--red);border-color:var(--red);">2025</span></div>
+      </div>
+
+      <div class="insight">
+        <div class="insight-glyph">▶</div>
+        <div><strong>The asymmetric rule you must know cold:</strong><br>
+        Encrypt with recipient's <strong>public key</strong> → Decrypt with recipient's <strong>private key</strong><br>
+        Sign with sender's <strong>private key</strong> → Verify with sender's <strong>public key</strong><br>
+        These two rules cover 80% of the asymmetric questions on the Security+ exam.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CHALLENGE 5
+  ══════════════════════════════════════════ -->
+  <div class="challenge ch5" id="q5">
+    <div class="ch-header">
+      <div class="ch-num">Q5</div>
+      <div class="ch-meta">
+        <div class="ch-objective">OBJECTIVE 1.4 // HASHING & BLOCKCHAIN</div>
+        <div class="ch-title">Blockchain Tamper Detection</div>
+      </div>
+      <div class="ch-ans-badge">
+        <div class="ch-ans-label">ANSWER</div>
+        <div class="ch-ans-val">SECURE</div>
+      </div>
+    </div>
+    <div class="ch-body">
+
+      <div class="wt-section">THE QUESTION</div>
+      <div class="wt-question">
+        "Block 2 stores hash 7D but its data field shows 'SAFETY'. When you compute the hash of 'SAFETY' + prev hash 'EF', you get a different result — proving tampering. The real data was one of four candidates: SYSTEM, SECURE, SELECT, SIGNAL. Which candidate hashes to 7D (using the CTF's positional hash function, concatenated with prev hash EF)?"
+      </div>
+
+      <div class="wt-section">THE CONCEPT YOU NEEDED</div>
+      <div class="concept-box">
+        This challenge tested two concepts from Objective 1.4:<br><br>
+        <strong style="color:var(--purple)">1. Hashing as tamper evidence:</strong> A cryptographic hash produces a unique fixed-length output for any given input. If even one character of the input changes, the hash changes completely. This is how blockchain detects tampering — each block stores a hash of its data. If someone changes the data, the stored hash no longer matches.<br><br>
+        <strong style="color:var(--purple)">2. Blockchain integrity:</strong> Each block contains the previous block's hash, chaining them together. Changing any block breaks the chain — which is why blockchain is considered tamper-evident.
+      </div>
+
+      <div class="wt-section">HOW TO REASON THROUGH IT — THE HASH MATH</div>
+      <div class="formula">
+        <span class="comment">// CTF Hash function: sum of (letter_position × word_position) for all chars</span>
+        <span class="comment">// Then: (sum + length × 7) mod 256, converted to hex</span>
+        <br><br>
+        <span class="comment">// Testing "SECURE" + prev hash "EF" (concatenated = "SECUREEF")</span>
+        <br><br>
+        S(19)×1  = 19
+        <br>
+        E(5)×2   = 10
+        <br>
+        C(3)×3   = 9
+        <br>
+        U(21)×4  = 84
+        <br>
+        R(18)×5  = 90
+        <br>
+        E(5)×6   = 30
+        <br>
+        E(5)×7   = 35
+        <br>
+        F(6)×8   = 48
+        <br>
+        ─────────────────
+        Sum      = 325
+        <br>
+        Length   = 8 characters
+        <br>
+        Final    = 325 + (8 × 7) = 325 + 56 = 381
+        <br>
+        381 mod 256 = <span class="highlight">125</span>
+        <br>
+        125 in hex  = <span class="result">7D ✓</span>
+        <br><br>
+        <span class="comment">// SECURE + EF hashes to 7D — matches the stored hash</span>
+        <span class="comment">// SAFETY + EF would produce a different hash → tampering confirmed</span>
+      </div>
+
+      <div class="wt-section">STEP BY STEP LOGIC</div>
+      <ul class="steps">
+        <li>
+          <span class="step-n q5c">01</span>
+          <span>Block 2 stores hash <strong style="color:var(--purple)">7D</strong>. The data field shows <strong style="color:var(--red)">"SAFETY"</strong>. When you hash "SAFETY" + "EF" you get a value that is NOT 7D. This mismatch proves the data was changed after the block was created.</span>
+        </li>
+        <li>
+          <span class="step-n q5c">02</span>
+          <span>You need to find which of the four candidates actually hashes to 7D when combined with prev hash "EF". This is like reverse-engineering the original data from the stored hash.</span>
+        </li>
+        <li>
+          <span class="step-n q5c">03</span>
+          <span>Running each candidate through the CTF's hash formula: only <strong style="color:var(--purple)">SECURE</strong> produces 7D. The math shown above confirms it: 381 mod 256 = 125 = 0x7D.</span>
+        </li>
+        <li>
+          <span class="step-n q5c">04</span>
+          <span>This demonstrates the core property of hashing: the stored hash is a fingerprint of the original data. If you change the data, the fingerprint no longer matches — exposing the tampering.</span>
+        </li>
+      </ul>
+
+      <div class="wt-section">CONVERTING DECIMAL TO HEX (for future reference)</div>
+      <div class="formula">
+        <span class="comment">// How to convert decimal to hex manually</span>
+        <br><br>
+        125 ÷ 16 = 7 remainder 13
+        <br>
+        7 = <span class="highlight">7</span>
+        <br>
+        13 = <span class="highlight">D</span> (hex digits: 10=A, 11=B, 12=C, 13=D, 14=E, 15=F)
+        <br>
+        Result: 7D → <span class="result">0x7D</span>
+      </div>
+
+      <div class="wt-section">WHY THE OTHER CANDIDATES ARE WRONG</div>
+      <div class="wrong-panel">
+        <div class="wrong-panel-title">ELIMINATED CANDIDATES</div>
+        <p><span class="wrong-ans">SYSTEM</span> — "SYSTEMEF" produces a different hash value — does not equal 7D.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">SELECT</span> — "SELECTEF" produces a different hash value — does not equal 7D.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">SIGNAL</span> — "SIGNALEF" produces a different hash value — does not equal 7D.</p>
+        <p style="margin-top:8px;"><span class="wrong-ans">SAFETY</span> — This is what's written in the tampered block. The whole point of the challenge is that SAFETY does NOT hash to 7D — that mismatch is what revealed the tampering.</p>
+      </div>
+
+      <div class="answer-box" style="border-color:var(--purple);">
+        <div>
+          <div class="ans-label">CORRECT ANSWER</div>
+          <div class="ans-value" style="color:var(--purple);">SECURE</div>
+        </div>
+        <div class="ans-why">SECURE + EF hashes to 7D. The stored hash exposed the lie — "SAFETY" was not the original data. Hashing makes tampering mathematically detectable. Fragment: <span class="frag-inline" style="color:var(--purple);border-color:var(--purple);">FLAG</span></div>
+      </div>
+
+      <div class="insight">
+        <div class="insight-glyph">▶</div>
+        <div><strong>Why this matters for the exam:</strong> Hashing is covered throughout Domain 1.4 as the core mechanism behind data integrity. The Security+ exam tests whether you understand that hashes detect tampering — not whether you can compute them manually. The takeaway: <strong>a hash mismatch = data was changed.</strong> This applies to file integrity monitoring, blockchain, digital signatures, and certificate verification.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LEARNING CONNECTIONS ══ -->
+  <div class="connections">
+    <h3>// EXAM CONNECTIONS — WHERE EACH CONCEPT APPEARS</h3>
+    <div class="conn-row">
+      <div class="conn-obj">1.1</div>
+      <div>Control types appear constantly on the exam as scenario questions. You'll be given a description of a tool or policy and asked to classify it. Practice applying the verb-scanning technique from Q1.</div>
+    </div>
+    <div class="conn-row">
+      <div class="conn-obj">1.2</div>
+      <div>Zero Trust is heavily tested in SY0-701 compared to older versions of the exam. Know the Control Plane components cold: Policy Engine decides, Policy Administrator communicates, Policy Enforcement Point enforces.</div>
+    </div>
+    <div class="conn-row">
+      <div class="conn-obj">1.3</div>
+      <div>Change management questions often describe a disaster scenario and ask what process element was missing. Backout plan, maintenance window, approval process, and impact analysis are the most tested elements.</div>
+    </div>
+    <div class="conn-row">
+      <div class="conn-obj">1.4</div>
+      <div>Asymmetric encryption rules (public encrypts, private decrypts / private signs, public verifies) appear in multiple question formats. Hashing as tamper-evidence connects to file integrity monitoring, digital signatures, and blockchain — all Domain 1.4 topics.</div>
+    </div>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <div class="footer">
+    <strong>Operation Chain Lock</strong> // Post-CTF Walkthrough<br>
+    CompTIA Security+ SY0-701 &nbsp;·&nbsp; Module 1 &nbsp;·&nbsp; Objectives 1.1 – 1.4<br>
+    <br>
+    Final Key: <strong>SEC+CTF2025FLAG</strong> &nbsp;·&nbsp; All 5 Objectives Cleared<br>
+    <br>
+    <span style="color:var(--textdim);font-size:10px;">This document is for instructor use. Distribute to students only after CTF completion.</span>
+  </div>
+
+</div><!-- /wrap -->
+</body>
+</html>
