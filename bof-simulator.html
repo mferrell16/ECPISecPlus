@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buffer Overflow Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0d0f0a;
+    --panel:    #131510;
+    --border:   #2a2d22;
+    --green:    #39ff14;
+    --green-dim:#1a7a08;
+    --yellow:   #f0e060;
+    --orange:   #ff8c00;
+    --red:      #ff2d2d;
+    --blue:     #00cfff;
+    --muted:    #4a5040;
+    --text:     #c8d0b8;
+    --cell-w:   52px;
+    --cell-h:   54px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 60px;
+    /* subtle scanline texture */
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: #0a0c08;
+    border-bottom: 1px solid var(--green-dim);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .header-title {
+    font-family: 'VT323', monospace;
+    font-size: 1.8rem;
+    color: var(--green);
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 12px rgba(57,255,20,0.4);
+    line-height: 1;
+  }
+
+  .header-title span { color: var(--red); text-shadow: 0 0 12px rgba(255,45,45,0.5); }
+
+  .header-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 28px 20px 0;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 24px;
+  }
+
+  @media (max-width: 860px) {
+    .main { grid-template-columns: 1fr; }
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+
+  .panel-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-label::before {
+    content: '//';
+    color: var(--green-dim);
+    font-size: 0.7rem;
+  }
+
+  /* ── INPUT SECTION ── */
+  .input-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 10px;
+  }
+
+  .input-prompt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--green);
+    background: #080a06;
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    text-shadow: 0 0 8px rgba(57,255,20,0.3);
+  }
+
+  #user-input {
+    flex: 1;
+    background: #080a06;
+    border: 1px solid var(--border);
+    border-radius: 0 4px 4px 0;
+    padding: 10px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--green);
+    outline: none;
+    caret-color: var(--green);
+    transition: border-color 0.2s;
+  }
+
+  #user-input:focus { border-color: var(--green-dim); }
+
+  .input-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .input-meta span {
+    color: var(--yellow);
+  }
+
+  /* ── MEMORY VISUALIZER ── */
+  .mem-section { margin-bottom: 8px; }
+
+  .mem-label-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    margin-top: 16px;
+  }
+
+  .mem-region-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+
+  .mem-region-label.buf  { color: var(--blue);   border-color: var(--blue);   background: rgba(0,207,255,0.06); }
+  .mem-region-label.admin { color: var(--yellow); border-color: var(--yellow); background: rgba(240,224,96,0.06); }
+  .mem-region-label.ret  { color: var(--red);    border-color: var(--red);    background: rgba(255,45,45,0.06); }
+
+  .mem-addr {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+  }
+
+  .cells-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .cell {
+    width: var(--cell-w);
+    height: var(--cell-h);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    background: #0a0c08;
+  }
+
+  .cell .cell-char {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .cell .cell-hex {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* states */
+  .cell.empty .cell-char { color: var(--muted); }
+  .cell.empty .cell-hex  { color: #2a2d22; }
+
+  .cell.filled-buf {
+    border-color: var(--blue);
+    background: rgba(0,207,255,0.07);
+  }
+  .cell.filled-buf .cell-char { color: var(--blue); text-shadow: 0 0 6px rgba(0,207,255,0.5); }
+
+  .cell.overflow {
+    border-color: var(--red);
+    background: rgba(255,45,45,0.12);
+    animation: flashCell 0.3s ease;
+    transform: scale(1.05);
+  }
+  .cell.overflow .cell-char { color: var(--red); text-shadow: 0 0 8px rgba(255,45,45,0.7); }
+  .cell.overflow .cell-hex  { color: var(--red); opacity: 0.6; }
+
+  .cell.overwritten {
+    border-color: var(--orange);
+    background: rgba(255,140,0,0.12);
+  }
+  .cell.overwritten .cell-char { color: var(--orange); text-shadow: 0 0 6px rgba(255,140,0,0.5); }
+  .cell.overwritten .cell-hex  { color: var(--orange); opacity: 0.6; }
+
+  @keyframes flashCell {
+    0%   { background: rgba(255,45,45,0.4); }
+    100% { background: rgba(255,45,45,0.12); }
+  }
+
+  /* cell index label underneath */
+  .cell-idx {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.5rem;
+    color: #2a3020;
+    text-align: center;
+    margin-top: 2px;
+  }
+
+  /* null terminator */
+  .cell.null-term { border-color: var(--green-dim); }
+  .cell.null-term .cell-char { color: var(--green-dim); }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    margin-top: 18px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #080a06;
+    transition: border-color 0.3s, background 0.3s;
+    min-height: 46px;
+  }
+
+  .status-bar.safe   { border-color: var(--blue);   }
+  .status-bar.warn   { border-color: var(--yellow);  }
+  .status-bar.danger { border-color: var(--red); background: rgba(255,45,45,0.05); }
+  .status-bar.pwned  { border-color: var(--red); background: rgba(255,45,45,0.1); }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-bar.safe   .status-dot { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+  .status-bar.warn   .status-dot { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .status-bar.danger .status-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .status-bar.pwned  .status-dot { background: var(--red); box-shadow: 0 0 10px var(--red); animation: pulse 0.8s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .status-text { color: var(--text); }
+  .status-bar.danger .status-text,
+  .status-bar.pwned  .status-text { color: var(--red); }
+  .status-bar.warn   .status-text { color: var(--yellow); }
+  .status-bar.safe   .status-text { color: var(--blue); }
+
+  /* ── CONSEQUENCE BANNER ── */
+  .consequence {
+    display: none;
+    margin-top: 14px;
+    border-radius: 5px;
+    padding: 14px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    animation: slideDown 0.25s ease;
+  }
+
+  @keyframes slideDown {
+    from { opacity:0; transform: translateY(-8px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  .consequence.priv {
+    display: block;
+    border: 1px solid var(--orange);
+    background: rgba(255,140,0,0.07);
+  }
+
+  .consequence.crash {
+    display: block;
+    border: 1px solid var(--red);
+    background: rgba(255,45,45,0.07);
+  }
+
+  .consequence .con-title {
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .consequence.priv  .con-title { color: var(--orange); }
+  .consequence.crash .con-title { color: var(--red); }
+
+  .consequence .con-body {
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .consequence .con-body strong { color: var(--yellow); }
+
+  /* shell */
+  .shell-line {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--green);
+    margin-top: 10px;
+    text-shadow: 0 0 6px rgba(57,255,20,0.3);
+  }
+
+  /* ── SIDEBAR ── */
+  .payload-card {
+    background: #080a06;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .payload-card:hover {
+    border-color: var(--green-dim);
+    background: rgba(57,255,20,0.03);
+  }
+
+  .payload-card:active { transform: scale(0.99); }
+
+  .p-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+
+  .p-tag.safe   { color: var(--blue); }
+  .p-tag.warn   { color: var(--yellow); }
+  .p-tag.danger { color: var(--orange); }
+  .p-tag.pwned  { color: var(--red); }
+
+  .p-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--green);
+    word-break: break-all;
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+
+  .p-desc {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .p-len {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* legend */
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── ADDR LABELS ── */
+  .addr-strip {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+
+  .addr-cell {
+    width: var(--cell-w);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.48rem;
+    color: #2a3020;
+    text-align: center;
+  }
+
+  .divider-line {
+    height: 1px;
+    background: var(--border);
+    margin: 18px 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">BUFFER <span>OVERFLOW</span> LAB</div>
+  <div class="header-meta">
+    Security+ SY0-701 &nbsp;|&nbsp; Memory Exploitation<br>
+    Stack Simulation &nbsp;|&nbsp; Classroom Demo
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- LEFT COLUMN -->
+  <div class="left-col">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-label">Program Input</div>
+      <div class="input-row">
+        <div class="input-prompt">Enter name:&nbsp;</div>
+        <input type="text" id="user-input" placeholder="type here..." maxlength="40" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="input-meta">
+        Buffer capacity: <span>8 bytes</span> &nbsp;&nbsp; Input length: <span id="len-display">0</span> bytes
+      </div>
+    </div>
+
+    <!-- MEMORY PANEL -->
+    <div class="panel">
+      <div class="panel-label">Stack Memory — Live View</div>
+
+      <!-- BUFFER region -->
+      <div class="mem-label-row">
+        <div class="mem-region-label buf">Buffer [8 bytes]</div>
+        <div class="mem-addr">0x0010 – 0x0017</div>
+      </div>
+      <div class="addr-strip" id="buf-addrs"></div>
+      <div class="cells-row" id="buf-cells"></div>
+
+      <div class="divider-line"></div>
+
+      <!-- ADMIN FLAG region -->
+      <div class="mem-label-row">
+        <div class="mem-region-label admin">admin_flag [4 bytes]</div>
+        <div class="mem-addr">0x0018 – 0x001B</div>
+      </div>
+      <div class="addr-strip" id="admin-addrs"></div>
+      <div class="cells-row" id="admin-cells"></div>
+
+      <div class="divider-line"></div>
+
+      <!-- RETURN ADDRESS region -->
+      <div class="mem-label-row">
+        <div class="mem-region-label ret">return_addr [4 bytes]</div>
+        <div class="mem-addr">0x001C – 0x001F</div>
+      </div>
+      <div class="addr-strip" id="ret-addrs"></div>
+      <div class="cells-row" id="ret-cells"></div>
+
+      <!-- STATUS BAR -->
+      <div class="status-bar safe" id="status-bar">
+        <div class="status-dot"></div>
+        <div class="status-text" id="status-text">Waiting for input...</div>
+      </div>
+
+      <!-- CONSEQUENCE BANNER -->
+      <div class="consequence" id="consequence-banner">
+        <div class="con-title" id="con-title"></div>
+        <div class="con-body" id="con-body"></div>
+        <div class="shell-line" id="shell-line"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="panel">
+      <div class="panel-label">Sample Inputs</div>
+      <div class="panel-label" style="margin-top:-8px; margin-bottom:10px; font-size:0.58rem;">Click to load</div>
+
+      <div class="payload-card" onclick="loadPayload('AAAAAAAA')">
+        <div class="p-tag safe">Safe — Exact Fit</div>
+        <div class="p-val">AAAAAAAA</div>
+        <div class="p-desc">Fills the buffer exactly. No overflow. Program runs normally.</div>
+        <div class="p-len">Length: 8</div>
+      </div>
+
+      <div class="payload-card" onclick="loadPayload('AAAAAAAABBBB')">
+        <div class="p-tag warn">Overflow — Hits admin_flag</div>
+        <div class="p-val">AAAAAAAAББBB</div>
+        <div class="p-desc">Spills 4 bytes into admin_flag. Privilege check bypassed.</div>
+        <div class="p-len">Length: 12</div>
+      </div>
+
+      <div class="payload-card" onclick="loadPayload('AAAAAAAABBBBCCCC')">
+        <div class="p-tag danger">Overflow — Hits Return Address</div>
+        <div class="p-val">AAAAAAAABBBBCCCC</div>
+        <div class="p-desc">Overwrites return address. Execution redirected to attacker code.</div>
+        <div class="p-len">Length: 16</div>
+      </div>
+
+      <div class="payload-card" onclick="loadPayload('AAAAAAAABBBBCCCCDDDDDDDDDDDDDDDDDDDDDDDD')">
+        <div class="p-tag pwned">Crash — Stack Smash</div>
+        <div class="p-val">AAAA...×40</div>
+        <div class="p-desc">Far overrun. Corrupts entire stack. Segmentation fault.</div>
+        <div class="p-len">Length: 40</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Legend</div>
+      <div class="legend">
+        <div class="legend-row">
+          <div class="legend-dot" style="background:rgba(0,207,255,0.3); border:1px solid #00cfff;"></div>
+          Buffer — normal write
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:rgba(255,45,45,0.3); border:1px solid #ff2d2d;"></div>
+          Overflow — past buffer end
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:rgba(255,140,0,0.3); border:1px solid #ff8c00;"></div>
+          Overwritten adjacent memory
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot" style="background:#0a0c08; border:1px solid #2a2d22;"></div>
+          Empty / unwritten
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const BUFFER_SIZE  = 8;
+  const ADMIN_SIZE   = 4;
+  const RET_SIZE     = 4;
+  const TOTAL        = BUFFER_SIZE + ADMIN_SIZE + RET_SIZE;
+
+  // Base addresses
+  const BASE = 0x0010;
+
+  const inputEl      = document.getElementById('user-input');
+  const lenDisplay   = document.getElementById('len-display');
+  const statusBar    = document.getElementById('status-bar');
+  const statusText   = document.getElementById('status-text');
+  const consequence  = document.getElementById('consequence-banner');
+  const conTitle     = document.getElementById('con-title');
+  const conBody      = document.getElementById('con-body');
+  const shellLine    = document.getElementById('shell-line');
+
+  // Build cell elements
+  function buildCells(containerId, addrId, count, startOffset) {
+    const cellsEl = document.getElementById(containerId);
+    const addrsEl = document.getElementById(addrId);
+    cellsEl.innerHTML = '';
+    addrsEl.innerHTML = '';
+
+    for (let i = 0; i < count; i++) {
+      const addr = BASE + startOffset + i;
+
+      const addrDiv = document.createElement('div');
+      addrDiv.className = 'addr-cell';
+      addrDiv.textContent = '0x' + addr.toString(16).toUpperCase().padStart(4,'0');
+      addrsEl.appendChild(addrDiv);
+
+      const cell = document.createElement('div');
+      cell.className = 'cell empty';
+      cell.id = `cell-${startOffset + i}`;
+      cell.innerHTML = `
+        <div class="cell-char">_</div>
+        <div class="cell-hex">00</div>
+      `;
+      cellsEl.appendChild(cell);
+    }
+  }
+
+  buildCells('buf-cells',   'buf-addrs',   BUFFER_SIZE, 0);
+  buildCells('admin-cells', 'admin-addrs', ADMIN_SIZE,  BUFFER_SIZE);
+  buildCells('ret-cells',   'ret-addrs',   RET_SIZE,    BUFFER_SIZE + ADMIN_SIZE);
+
+  function getCell(idx) {
+    return document.getElementById(`cell-${idx}`);
+  }
+
+  function setCell(idx, char, state) {
+    const cell = getCell(idx);
+    if (!cell) return;
+    const hex = char ? char.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0') : '00';
+    cell.querySelector('.cell-char').textContent = char || '_';
+    cell.querySelector('.cell-hex').textContent  = char ? `0x${hex}` : '00';
+    cell.className = `cell ${char ? state : 'empty'}`;
+  }
+
+  function update() {
+    const raw = inputEl.value;
+    lenDisplay.textContent = raw.length;
+
+    // Reset all cells
+    for (let i = 0; i < TOTAL; i++) setCell(i, '', 'empty');
+
+    // Fill cells
+    for (let i = 0; i < Math.min(raw.length, TOTAL); i++) {
+      const ch = raw[i];
+      if (i < BUFFER_SIZE) {
+        setCell(i, ch, 'filled-buf');
+      } else if (i < BUFFER_SIZE + ADMIN_SIZE) {
+        setCell(i, ch, 'overflow');
+        // After a brief delay mark as overwritten style for admin region
+        setTimeout(() => {
+          const c = getCell(i);
+          if (c && c.classList.contains('overflow')) {
+            c.classList.remove('overflow');
+            c.classList.add('overwritten');
+          }
+        }, 350);
+      } else {
+        setCell(i, ch, 'overflow');
+      }
+    }
+
+    // Determine state
+    const len = raw.length;
+    consequence.className = 'consequence';
+    consequence.style.display = 'none';
+    shellLine.textContent = '';
+
+    if (len === 0) {
+      setStatus('safe', 'Waiting for input...');
+    } else if (len <= BUFFER_SIZE) {
+      setStatus('safe', `OK — ${len}/${BUFFER_SIZE} bytes written to buffer.`);
+    } else if (len <= BUFFER_SIZE + ADMIN_SIZE) {
+      const spill = len - BUFFER_SIZE;
+      setStatus('warn', `OVERFLOW — ${spill} byte${spill>1?'s':''} past buffer end — admin_flag overwritten!`);
+      showConsequence('priv',
+        '⚠ Privilege Escalation',
+        `The program reads <strong>admin_flag</strong> to decide if you're an administrator. You just overwrote it with your input. The application now thinks you're an admin — without a password.`,
+        null
+      );
+    } else if (len <= TOTAL) {
+      setStatus('danger', `CRITICAL — Return address overwritten! Execution hijacked.`);
+      showConsequence('crash',
+        '☠ Arbitrary Code Execution',
+        `The <strong>return address</strong> tells the CPU where to go after this function ends. You just replaced it with your own bytes. When the function returns, the CPU jumps to whatever address you wrote — attacker-controlled code.`,
+        '$ root@victim:~# whoami → root'
+      );
+    } else {
+      setStatus('danger', `SEGFAULT — Stack smashed. Program crashed.`);
+      showConsequence('crash',
+        '☠ Stack Smash / Segmentation Fault',
+        `Input far exceeded all memory regions. The OS detected illegal memory access and killed the process. In real exploits, attackers carefully measure the overflow to <strong>land exactly on the return address</strong> — not go past it.`,
+        'Segmentation fault (core dumped)'
+      );
+    }
+  }
+
+  function setStatus(state, msg) {
+    statusBar.className = `status-bar ${state}`;
+    statusText.textContent = msg;
+  }
+
+  function showConsequence(type, title, body, shell) {
+    consequence.className = `consequence ${type === 'priv' ? 'priv' : 'crash'}`;
+    consequence.style.display = 'block';
+    conTitle.textContent = title;
+    conBody.innerHTML = body;
+    shellLine.textContent = shell || '';
+  }
+
+  function loadPayload(str) {
+    inputEl.value = str;
+    update();
+    inputEl.focus();
+  }
+
+  inputEl.addEventListener('input', update);
+
+  // Init
+  update();
+</script>
+</body>
+</html>

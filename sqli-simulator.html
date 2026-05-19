@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Injection Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0a0c10;
+    --panel:   #0f1318;
+    --border:  #1e2530;
+    --accent:  #00e5ff;
+    --accent2: #ff4d6d;
+    --green:   #39d353;
+    --yellow:  #ffd166;
+    --text:    #c9d1d9;
+    --muted:   #586069;
+    --sql-bg:  #060809;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 20px 16px 60px;
+  }
+
+  header { text-align: center; margin-bottom: 24px; }
+  header h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: 0.04em; color: #fff; }
+  header h1 span { color: var(--accent2); }
+  header p { font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; color: var(--muted); margin-top: 6px; letter-spacing: 0.08em; }
+
+  .outer {
+    max-width: 1300px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 900px) { .outer { grid-template-columns: 1fr; } }
+  .full-row { grid-column: 1 / -1; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+  }
+
+  .panel-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-label::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* LOGIN */
+  .login-form { display: flex; flex-direction: column; gap: 12px; }
+
+  .field label {
+    display: block;
+    font-size: 0.68rem;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--muted);
+    margin-bottom: 5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .field input {
+    width: 100%;
+    background: var(--sql-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 13px;
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.92rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .field input:focus { border-color: var(--accent); }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 4px; }
+
+  button {
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  button:active { transform: scale(0.97); }
+  .btn-submit { background: var(--accent); color: #000; flex: 1; }
+  .btn-reset  { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 9px 14px; }
+  .btn-reset:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .result-badge {
+    display: none;
+    margin-top: 12px;
+    border-radius: 7px;
+    padding: 11px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .result-badge.success { display: block; background: rgba(57,211,83,0.08); border: 1px solid var(--green); color: var(--green); }
+  .result-badge.fail    { display: block; background: rgba(255,77,109,0.08); border: 1px solid var(--accent2); color: var(--accent2); }
+
+  /* QUERY BOXES */
+  .query-box {
+    background: var(--sql-bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.9;
+    min-height: 50px;
+    word-break: break-all;
+  }
+
+  .kw  { color: #ff79c6; }
+  .val { color: var(--yellow); }
+  .inj { color: var(--accent2); font-weight: bold; background: rgba(255,77,109,0.12); border-radius: 3px; padding: 0 2px; }
+  .op  { color: var(--accent); }
+  .col { color: var(--green); }
+  .commented {
+    color: var(--muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--accent2);
+    text-decoration-thickness: 2px;
+    opacity: 0.5;
+  }
+
+  /* PAYLOADS */
+  .payload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 600px) { .payload-grid { grid-template-columns: 1fr; } }
+
+  .cheat-card {
+    background: var(--sql-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .cheat-card:hover { border-color: var(--accent); background: rgba(0,229,255,0.04); }
+  .cheat-card .tag     { font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .cheat-card .payload { font-family: 'Share Tech Mono', monospace; font-size: 0.82rem; color: var(--accent2); }
+  .cheat-card .desc    { font-size: 0.7rem; color: var(--muted); line-height: 1.4; }
+
+  /* DATABASE TABLE */
+  .db-table { width: 100%; border-collapse: collapse; font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; }
+  .db-table thead tr { background: var(--sql-bg); border-bottom: 2px solid var(--border); }
+  .db-table th { padding: 8px 14px; color: var(--accent); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; text-align: left; font-weight: 500; }
+  .db-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); color: var(--text); transition: background 0.25s, opacity 0.25s; vertical-align: middle; }
+
+  .db-table tbody tr { transition: background 0.3s, opacity 0.3s; }
+  .db-table tbody tr.row-match    { background: rgba(57,211,83,0.07); outline: 1px solid rgba(57,211,83,0.3); }
+  .db-table tbody tr.row-match td { color: #fff; }
+  .db-table tbody tr.row-no-match { opacity: 0.28; }
+
+  .match-check { color: var(--green); display:none; font-size: 0.85rem; }
+  .row-match .match-check { display: inline; }
+
+  .role-badge { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; border: 1px solid; }
+  .role-badge.admin { color: var(--yellow); border-color: rgba(255,209,102,0.3); background: rgba(255,209,102,0.07); }
+  .role-badge.user  { color: var(--muted);  border-color: var(--border); }
+  .role-badge.mod   { color: var(--accent);  border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.05); }
+
+  /* MATCHED CARDS */
+  .matched-section { display: none; margin-top: 14px; }
+
+  .matched-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+
+  .matched-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(57,211,83,0.06);
+    border: 1px solid rgba(57,211,83,0.25);
+    border-radius: 6px;
+    padding: 8px 13px;
+    margin-bottom: 5px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateX(-4px)} to{opacity:1} }
+  .matched-card .mc-user { color: var(--green); font-weight: 700; }
+  .matched-card .mc-role { color: var(--yellow); }
+  .matched-card .mc-pass { color: var(--muted); }
+
+  .no-match-card {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding: 10px 14px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    text-align: center;
+  }
+
+  /* ROW EVALUATION */
+  .eval-idle {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+  }
+
+  .eval-wrap { display: flex; flex-direction: column; gap: 8px; }
+
+  .eval-row {
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    padding: 11px 14px;
+    background: var(--sql-bg);
+    transition: border-color 0.3s;
+  }
+
+  .eval-row.match    { border-color: var(--green);   background: rgba(57,211,83,0.05); }
+  .eval-row.no-match { border-color: var(--border);  opacity: 0.5; }
+
+  .eval-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .eval-rowname {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .eval-rowname span { color: var(--accent); }
+
+  .eval-verdict {
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    padding: 2px 9px;
+    border-radius: 3px;
+  }
+
+  .eval-row.match    .eval-verdict { background: rgba(57,211,83,0.15);  color: var(--green); }
+  .eval-row.no-match .eval-verdict { background: rgba(255,77,109,0.08); color: var(--accent2); }
+
+  /* condition chips */
+  .eval-conds {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    line-height: 1.5;
+  }
+
+  .chip.t      { border-color: var(--green);   background: rgba(57,211,83,0.1);  color: var(--green); }
+  .chip.f      { border-color: var(--accent2);  background: rgba(255,77,109,0.08); color: var(--accent2); }
+  .chip.always { border-color: var(--yellow);   background: rgba(255,209,102,0.1); color: var(--yellow); }
+  .chip.struck { border-color: var(--muted); color: var(--muted); opacity: 0.4; text-decoration: line-through; }
+
+  .chip-stored { color: var(--muted); font-size: 0.6rem; }
+  .chip-input  { color: #ff79c6; margin: 0 2px; }
+  .chip-result { font-weight: 700; margin-left: 2px; }
+
+  .cond-op { color: var(--muted); padding: 0 2px; font-size: 0.62rem; }
+
+  .final-chip {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .final-chip.t { background: rgba(57,211,83,0.15);  color: var(--green);   border: 1px solid rgba(57,211,83,0.3); }
+  .final-chip.f { background: rgba(255,77,109,0.1);  color: var(--accent2); border: 1px solid rgba(255,77,109,0.2); }
+
+  .drop-card {
+    background: rgba(255,77,109,0.07);
+    border: 1px solid var(--accent2);
+    border-radius: 7px;
+    padding: 14px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent2);
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SQL Injection <span>Lab</span></h1>
+  <p>// Security+ Classroom Simulator — CompTIA SY0-701</p>
+</header>
+
+<div class="outer">
+
+  <!-- ROW 1: Login + Query -->
+  <div class="panel">
+    <div class="panel-label">Login Form</div>
+    <div class="login-form">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" placeholder="try: admin" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="text" id="password" placeholder="try: password123" autocomplete="off">
+      </div>
+      <div class="btn-row">
+        <button class="btn-submit" onclick="submitLogin()">Submit</button>
+        <button class="btn-reset"  onclick="resetAll()">Reset</button>
+      </div>
+      <div class="result-badge" id="result-badge"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Live Query — updates as you type</div>
+    <div class="query-box" id="live-query">
+      <span class="kw">SELECT</span> <span class="col">*</span> <span class="kw">FROM</span> <span class="col">users</span> <span class="kw">WHERE</span> username <span class="op">=</span> <span class="val">''</span> <span class="kw">AND</span> password <span class="op">=</span> <span class="val">''</span>
+    </div>
+    <div style="margin-top:12px;">
+      <div class="panel-label" style="margin-bottom:8px;">After Submit</div>
+      <div class="query-box" id="submitted-query" style="color:var(--muted);font-style:italic;font-size:0.75rem;">— submit to see executed query —</div>
+    </div>
+  </div>
+
+  <!-- ROW 2: DB Table + Evaluation -->
+  <div class="panel">
+    <div class="panel-label">Database — users table</div>
+    <table class="db-table">
+      <thead>
+        <tr>
+          <th>id</th>
+          <th>username</th>
+          <th>password</th>
+          <th>role</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="db-tbody"></tbody>
+    </table>
+
+    <div class="matched-section" id="matched-section">
+      <div class="matched-label" id="matched-label">Rows Returned</div>
+      <div id="matched-cards"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Row-by-Row Evaluation</div>
+    <div id="eval-area">
+      <div class="eval-idle">Submit a query to see how the database evaluates each row</div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Payloads -->
+  <div class="panel full-row">
+    <div class="panel-label">Sample Payloads — click to load</div>
+    <div class="payload-grid">
+
+      <div class="cheat-card" onclick="loadPayload('admin','password123')">
+        <div class="tag">Valid Login</div>
+        <div class="payload">admin / password123</div>
+        <div class="desc">Correct credentials — see which row matches and exactly why</div>
+      </div>
+
+      <div class="cheat-card" onclick="loadPayload('admin','wrongpass')">
+        <div class="tag">Wrong Password</div>
+        <div class="payload">admin / wrongpass</div>
+        <div class="desc">Username matches but password fails — watch the row turn false</div>
+      </div>
+
+      <div class="cheat-card" onclick="loadPayload(`admin'--`,'anything')">
+        <div class="tag">Comment Injection</div>
+        <div class="payload">admin'--</div>
+        <div class="desc">-- comments out the password check — only username is evaluated</div>
+      </div>
+
+      <div class="cheat-card" onclick="loadPayload(`'; DROP TABLE users;--`,'')">
+        <div class="tag">Destructive Payload</div>
+        <div class="payload">'; DROP TABLE users;--</div>
+        <div class="desc">Stacked query — attempts to delete the entire users table</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── DATA ──
+  const USERS = [
+    { id:1, username:'admin',   password:'password123', role:'admin' },
+    { id:2, username:'jsmith',  password:'hunter2',     role:'user'  },
+    { id:3, username:'mwilson', password:'securepass',  role:'mod'   },
+    { id:4, username:'guest',   password:'guest',       role:'user'  },
+  ];
+
+  // ── BUILD TABLE ──
+  function buildTable() {
+    const tbody = document.getElementById('db-tbody');
+    tbody.innerHTML = '';
+    USERS.forEach(u => {
+      const tr = document.createElement('tr');
+      tr.id = `dbrow-${u.id}`;
+      tr.innerHTML = `
+        <td style="color:var(--muted)">${u.id}</td>
+        <td>${u.username}</td>
+        <td style="color:var(--muted)">${u.password}</td>
+        <td><span class="role-badge ${u.role}">${u.role}</span></td>
+        <td><span class="match-check">&#x2714;</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  buildTable();
+
+  // ── HELPERS ──
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function highlightInj(raw) {
+    return esc(raw)
+      .replace(/(OR|AND|DROP|TABLE|SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|UNION|--|;)/gi,
+        m => `<span class="inj">${m}</span>`)
+      .replace(/(1=1|1='1')/gi, m => `<span class="inj">${m}</span>`);
+  }
+
+  function buildLiveSegment(u, p) {
+    const cui = u.indexOf('--'), cpi = p.indexOf('--');
+    if (cui !== -1) {
+      const b = u.substring(0, cui), a = u.substring(cui + 2);
+      return `${highlightInj(b)}<span class="inj">--</span><span class="commented">${esc(a)}' AND password = '${esc(p)}'</span>`;
+    }
+    if (cpi !== -1) {
+      const b = p.substring(0, cpi), a = p.substring(cpi + 2);
+      return `${highlightInj(u)}' <span class="kw">AND</span> password <span class="op">=</span> <span class="val">'${highlightInj(b)}<span class="inj">--</span></span><span class="commented">${esc(a)}'</span>`;
+    }
+    return `${highlightInj(u)}' <span class="kw">AND</span> password <span class="op">=</span> <span class="val">'${highlightInj(p)}'</span>`;
+  }
+
+  function buildRenderedQuery(u, p) {
+    const base = `<span class="kw">SELECT</span> <span class="col">*</span> <span class="kw">FROM</span> <span class="col">users</span> <span class="kw">WHERE</span> username <span class="op">=</span> <span class="val">'`;
+    const cui = u.indexOf('--'), cpi = p.indexOf('--');
+    if (cui !== -1) {
+      const b = u.substring(0, cui), a = u.substring(cui + 2);
+      return base + `${highlightInj(b)}<span class="inj">--</span></span><span class="commented">${esc(a)}' AND password = '${esc(p)}'</span>`;
+    }
+    if (cpi !== -1) {
+      const b = p.substring(0, cpi), a = p.substring(cpi + 2);
+      return base + `${highlightInj(u)}'</span> <span class="kw">AND</span> password <span class="op">=</span> <span class="val">'${highlightInj(b)}<span class="inj">--</span></span><span class="commented">${esc(a)}'</span>`;
+    }
+    return base + `${highlightInj(u)}'</span> <span class="kw">AND</span> password <span class="op">=</span> <span class="val">'${highlightInj(p)}'</span>`;
+  }
+
+  // ── LIVE UPDATE ──
+  function updateLive() {
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    document.getElementById('live-query').innerHTML =
+      `<span class="kw">SELECT</span> <span class="col">*</span> <span class="kw">FROM</span> <span class="col">users</span> <span class="kw">WHERE</span> username <span class="op">=</span> <span class="val">'` + buildLiveSegment(u, p);
+  }
+
+  document.getElementById('username').addEventListener('input', updateLive);
+  document.getElementById('password').addEventListener('input', updateLive);
+
+  // ── PARSE INPUT INTENT ──
+  function parseInput(u, p) {
+    const isDrop = /;\s*drop\s+table/i.test(u) || /;\s*drop\s+table/i.test(p);
+
+    // Comment: -- anywhere in username or password
+    const commentInUser = u.indexOf('--') !== -1;
+    const commentInPass = p.indexOf('--') !== -1;
+    const hasComment    = commentInUser || commentInPass;
+
+    // Tautology: any OR with an always-true condition in username field
+    // Catches: ' OR 1=1   ' OR '1'='1   ' OR 1=1--  etc.
+    const hasTautology = /or\s+(1\s*=\s*1|'1'\s*=\s*'1'|true)/i.test(u);
+
+    // Effective username = everything before the first apostrophe that breaks out
+    const apoIdx = u.indexOf("'");
+    const effectiveUser = apoIdx !== -1 ? u.substring(0, apoIdx).trim() : u.trim();
+
+    // Effective password:
+    //   - If tautology in username: irrelevant (whole clause is true)
+    //   - If comment in username:   rest of query commented out, password ignored
+    //   - If comment in password:   everything after -- in password is ignored
+    //   - Otherwise: literal password value
+    let effectivePass;
+    if (hasTautology || commentInUser) {
+      effectivePass = null; // not evaluated
+    } else if (commentInPass) {
+      effectivePass = p.substring(0, p.indexOf('--')); // only part before --
+    } else {
+      effectivePass = p;
+    }
+
+    return { isDrop, hasComment, commentInUser, commentInPass, hasTautology, effectiveUser, effectivePass };
+  }
+
+  // ── EVALUATE ONE ROW ──
+  function evalRow(row, parsed) {
+    if (parsed.isDrop) return { match: false, drop: true };
+
+    const userMatch = row.username === parsed.effectiveUser;
+    let   passMatch;
+
+    if (parsed.hasTautology) {
+      // OR 1=1 short-circuits the entire WHERE clause — every row matches
+      return { match: true, userMatch, passMatch: true, tautology: true, commented: false };
+    } else if (parsed.effectivePass === null) {
+      passMatch = true; // commented out
+    } else {
+      passMatch = row.password === parsed.effectivePass;
+    }
+
+    return {
+      match: userMatch && passMatch,
+      userMatch,
+      passMatch,
+      tautology: false,
+      commented: parsed.hasComment && parsed.commentInUser,
+    };
+  }
+
+  // ── BUILD CHIP HTML ──
+  function chip(storedVal, inputVal, isTrue, type) {
+    // type: 't' | 'f' | 'always' | 'struck'
+    return `<span class="chip ${type}">
+      <span class="chip-stored">${esc(storedVal)}</span>
+      <span class="chip-input">= '${esc(inputVal)}'</span>
+      <span class="chip-result">&rarr; ${isTrue ? 'TRUE' : 'FALSE'}</span>
+    </span>`;
+  }
+
+  // ── BUILD EVAL UI ──
+  function buildEval(u, p) {
+    const area   = document.getElementById('eval-area');
+    const parsed = parseInput(u, p);
+
+    if (parsed.isDrop) {
+      area.innerHTML = `<div class="drop-card">
+        &#x26A0; Stacked Query Detected<br>
+        <span style="opacity:0.7;font-size:0.72rem;">
+          The semicolon ends the SELECT and begins a new statement:<br>
+          <span style="color:var(--accent2)">DROP TABLE users</span><br>
+          If the database allows stacked queries, the entire users table is deleted.
+        </span>
+      </div>`;
+      return [];
+    }
+
+    const wrap    = document.createElement('div');
+    wrap.className = 'eval-wrap';
+    const matched = [];
+
+    USERS.forEach(row => {
+      const ev = evalRow(row, parsed);
+      if (ev.match) matched.push(row.id);
+
+      const div = document.createElement('div');
+      div.className = `eval-row ${ev.match ? 'match' : 'no-match'}`;
+
+      // Header
+      div.innerHTML = `
+        <div class="eval-header">
+          <span class="eval-rowname">Row ${row.id}: <span>${row.username}</span></span>
+          <span class="eval-verdict">${ev.match ? '&#x2714; MATCH — row returned' : '&#x2718; NO MATCH'}</span>
+        </div>`;
+
+      // Conditions row
+      const conds = document.createElement('div');
+      conds.className = 'eval-conds';
+
+      // Username chip
+      const uMatch = row.username === parsed.effectiveUser;
+      conds.innerHTML += chip(
+        `username='${row.username}'`,
+        parsed.effectiveUser,
+        uMatch,
+        uMatch ? 't' : 'f'
+      );
+
+      if (ev.tautology) {
+        // OR always-true chip — show the actual tautology from the input
+        const tautMatch = u.match(/or\s+('1'\s*=\s*'1'|1\s*=\s*1)/i);
+        const tautLabel = tautMatch ? tautMatch[1].replace(/\s+/g,'') : '1=1';
+        conds.innerHTML += `<span class="cond-op">OR</span>`;
+        conds.innerHTML += `<span class="chip always"><span class="chip-result">${esc(tautLabel)} &rarr; always TRUE &rarr; entire row matches</span></span>`;
+      } else if (ev.commented) {
+        // AND password -- struck through
+        conds.innerHTML += `<span class="cond-op">AND</span>`;
+        conds.innerHTML += `<span class="chip struck">password='${esc(row.password)}' &rarr; commented out</span>`;
+      } else {
+        // Normal password chip
+        const pMatch = row.password === parsed.effectivePass;
+        conds.innerHTML += `<span class="cond-op">AND</span>`;
+        conds.innerHTML += chip(
+          `password='${row.password}'`,
+          parsed.effectivePass || '',
+          pMatch,
+          pMatch ? 't' : 'f'
+        );
+      }
+
+      // Final result
+      conds.innerHTML += `<span class="cond-op">=</span>`;
+      conds.innerHTML += `<span class="final-chip ${ev.match ? 't' : 'f'}">${ev.match ? 'TRUE' : 'FALSE'}</span>`;
+
+      div.appendChild(conds);
+      wrap.appendChild(div);
+    });
+
+    area.innerHTML = '';
+    area.appendChild(wrap);
+    return matched;
+  }
+
+  // ── HIGHLIGHT TABLE ROWS ──
+  function highlightRows(matchedIds) {
+    USERS.forEach(u => {
+      const tr = document.getElementById(`dbrow-${u.id}`);
+      if (!tr) return;
+      if (matchedIds.length === 0) {
+        tr.className = '';
+      } else {
+        tr.className = matchedIds.includes(u.id) ? 'row-match' : 'row-no-match';
+      }
+    });
+  }
+
+  // ── MATCHED ROW CARDS ──
+  function showMatched(matchedIds) {
+    const sec   = document.getElementById('matched-section');
+    const label = document.getElementById('matched-label');
+    const cards = document.getElementById('matched-cards');
+
+    sec.style.display = 'block';
+    label.textContent = `${matchedIds.length} row${matchedIds.length !== 1 ? 's' : ''} returned`;
+    cards.innerHTML = '';
+
+    if (matchedIds.length === 0) {
+      cards.innerHTML = '<div class="no-match-card">No rows matched — login denied</div>';
+      return;
+    }
+
+    matchedIds.forEach(id => {
+      const row = USERS.find(u => u.id === id);
+      const c = document.createElement('div');
+      c.className = 'matched-card';
+      c.innerHTML = `
+        <span style="color:var(--muted);font-size:0.62rem">id=${row.id}</span>
+        <span class="mc-user">${row.username}</span>
+        <span class="mc-pass">••••••••</span>
+        <span class="mc-role">[${row.role}]</span>
+      `;
+      cards.appendChild(c);
+    });
+  }
+
+  // ── SUBMIT ──
+  function submitLogin() {
+    const u     = document.getElementById('username').value;
+    const p     = document.getElementById('password').value;
+    const badge = document.getElementById('result-badge');
+
+    document.getElementById('submitted-query').innerHTML = buildRenderedQuery(u, p);
+
+    const parsed = parseInput(u, p);
+
+    if (parsed.isDrop) {
+      buildEval(u, p);
+      highlightRows([]);
+      document.getElementById('matched-section').style.display = 'none';
+      badge.className = 'result-badge fail';
+      badge.innerHTML = '&#x26A0; Destructive payload — DROP TABLE users executed';
+      return;
+    }
+
+    const matched = buildEval(u, p);
+    highlightRows(matched);
+    showMatched(matched);
+
+    if (matched.length === 0) {
+      badge.className = 'result-badge fail';
+      badge.innerHTML = '&#x2718; Login Failed — 0 rows matched';
+    } else {
+      const first = USERS.find(u => u.id === matched[0]);
+      if (matched.length === 1) {
+        badge.className = 'result-badge success';
+        badge.innerHTML = `&#x2714; Login Successful — authenticated as <strong>${first.username}</strong> [${first.role}]`;
+      } else {
+        badge.className = 'result-badge success';
+        badge.innerHTML = `&#x26A0; Injection Bypassed Auth — ${matched.length} rows returned. Logged in as first match: <strong>${first.username}</strong> [${first.role}]`;
+      }
+    }
+  }
+
+  // ── RESET ──
+  function resetAll() {
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    document.getElementById('live-query').innerHTML =
+      `<span class="kw">SELECT</span> <span class="col">*</span> <span class="kw">FROM</span> <span class="col">users</span> <span class="kw">WHERE</span> username <span class="op">=</span> <span class="val">''</span> <span class="kw">AND</span> password <span class="op">=</span> <span class="val">''</span>`;
+    document.getElementById('submitted-query').innerHTML =
+      '<span style="color:var(--muted);font-style:italic;font-size:0.75rem;">— submit to see executed query —</span>';
+    document.getElementById('result-badge').className = 'result-badge';
+    document.getElementById('result-badge').innerHTML = '';
+    document.getElementById('eval-area').innerHTML =
+      '<div class="eval-idle">Submit a query to see how the database evaluates each row</div>';
+    document.getElementById('matched-section').style.display = 'none';
+    USERS.forEach(u => {
+      const tr = document.getElementById(`dbrow-${u.id}`);
+      if (tr) tr.className = '';
+    });
+  }
+
+  // ── LOAD PAYLOAD ──
+  function loadPayload(user, pass) {
+    document.getElementById('username').value = user;
+    document.getElementById('password').value = pass;
+    updateLive();
+  }
+</script>
+</body>
+</html>

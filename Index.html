@@ -1,399 +1,413 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Security Attack Simulators</title>
-  <style>
-    :root {
-      --bg: #0b1020;
-      --panel: #121933;
-      --panel-hover: #192246;
-      --text: #f5f7ff;
-      --muted: #b8c0e0;
-      --accent: #7c9cff;
-      --accent-2: #9f7cff;
-      --border: rgba(255,255,255,0.08);
-      --shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security+ Attack Labs</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0b0d14;
+    --surface:  #12151f;
+    --border:   #1e2436;
+    --border2:  #2a3050;
+    --text:     #c8d0e0;
+    --muted:    #4a5470;
+    --bright:   #f0f4ff;
 
-    * {
-      box-sizing: border-box;
-    }
+    /* per-lab accent colors */
+    --sqli:     #ff6b6b;
+    --xss:      #ffd166;
+    --bof:      #39d353;
+    --dll:      #4d9fff;
+    --race:     #c084fc;
+  }
 
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: linear-gradient(135deg, #0b1020 0%, #111935 45%, #161f45 100%);
-      color: var(--text);
-      min-height: 100vh;
-    }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .container {
-      width: min(1100px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 56px 0 64px;
-    }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 
-    .hero {
-      text-align: center;
-      margin-bottom: 40px;
-    }
+  /* animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(77,159,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(77,159,255,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
 
-    .hero h1 {
-      margin: 0 0 12px;
-      font-size: clamp(2rem, 4vw, 3.25rem);
-      line-height: 1.1;
-    }
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 72px 24px 56px;
+  }
 
-    .hero p {
-      margin: 0 auto;
-      max-width: 760px;
-      color: var(--muted);
-      font-size: 1.05rem;
-      line-height: 1.7;
-    }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 5px 14px;
+    margin-bottom: 24px;
+  }
 
-    .badge {
-      display: inline-block;
-      margin-bottom: 16px;
-      padding: 8px 14px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: rgba(255,255,255,0.05);
-      color: #dbe4ff;
-      font-size: 0.92rem;
-      letter-spacing: 0.02em;
-    }
+  .hero-eyebrow::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sqli);
+    box-shadow: 0 0 8px var(--sqli);
+    animation: pulse 2s infinite;
+  }
 
-    .module {
-      margin-bottom: 40px;
-    }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    .module-title {
-      margin: 0 0 18px;
-      font-size: 1.5rem;
-      letter-spacing: 0.01em;
-    }
+  .hero h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 8vw, 6rem);
+    letter-spacing: 0.04em;
+    color: var(--bright);
+    line-height: 0.95;
+    margin-bottom: 20px;
+  }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 20px;
-    }
+  .hero h1 .accent-sqli  { color: var(--sqli); }
+  .hero h1 .accent-xss   { color: var(--xss); }
+  .hero h1 .accent-bof   { color: var(--bof); }
 
-    .card {
-      background: rgba(18, 25, 51, 0.95);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 24px;
-      text-decoration: none;
-      color: inherit;
-      box-shadow: var(--shadow);
-      transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      min-height: 220px;
-    }
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 500px;
+    margin: 0 auto 12px;
+    line-height: 1.7;
+  }
 
-    .card:hover,
-    .card:focus-visible {
-      transform: translateY(-4px);
-      background: var(--panel-hover);
-      border-color: rgba(124, 156, 255, 0.45);
-      outline: none;
-    }
+  .hero-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    opacity: 0.6;
+  }
 
-    .icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 14px;
-      display: grid;
-      place-items: center;
-      font-size: 1.4rem;
-      margin-bottom: 18px;
-      background: linear-gradient(135deg, rgba(124, 156, 255, 0.2), rgba(159, 124, 255, 0.2));
-      border: 1px solid rgba(255,255,255,0.08);
-    }
+  /* ── LABS GRID ── */
+  .labs-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+  }
 
-    .card h2 {
-      margin: 0 0 10px;
-      font-size: 1.2rem;
-    }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
-    .card p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.6;
-      flex-grow: 1;
-    }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
 
-    .cta {
-      margin-top: 18px;
-      color: #cdddff;
-      font-weight: bold;
-      font-size: 0.95rem;
-    }
+  .labs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
 
-    .footer {
-      margin-top: 36px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
+  /* ── LAB CARD ── */
+  .lab-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 26px 24px 22px;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+  }
 
-    @media (max-width: 640px) {
-      .container {
-        padding-top: 36px;
-      }
+  .lab-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, #fff);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
 
-      .card {
-        min-height: auto;
-      }
-    }
-  </style>
+  .lab-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--card-accent, var(--border2));
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px var(--card-accent, transparent);
+  }
+
+  .lab-card:hover::before { opacity: 1; }
+
+  /* accent glow on hover */
+  .lab-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top left, var(--card-accent-glow, transparent), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .lab-card:hover::after { opacity: 1; }
+
+  /* card number */
+  .card-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* icon */
+  .card-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+    border: 1px solid;
+    transition: box-shadow 0.2s;
+  }
+
+  .lab-card:hover .card-icon {
+    box-shadow: 0 0 16px var(--card-accent-glow, transparent);
+  }
+
+  .card-title {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--bright);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .card-desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.65;
+    flex: 1;
+    margin-bottom: 20px;
+  }
+
+  .card-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .card-cta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--card-accent, var(--muted));
+    text-transform: uppercase;
+    transition: gap 0.15s;
+  }
+
+  .lab-card:hover .card-cta { gap: 10px; }
+
+  .card-cta::after {
+    content: '→';
+    font-size: 0.9rem;
+  }
+
+  /* ── ACCENT THEMES ── */
+  .lab-sqli {
+    --card-accent:      var(--sqli);
+    --card-accent-glow: rgba(255,107,107,0.08);
+  }
+  .lab-sqli .card-icon { background: rgba(255,107,107,0.08); border-color: rgba(255,107,107,0.2); }
+
+  .lab-xss {
+    --card-accent:      var(--xss);
+    --card-accent-glow: rgba(255,209,102,0.08);
+  }
+  .lab-xss .card-icon { background: rgba(255,209,102,0.08); border-color: rgba(255,209,102,0.2); }
+
+  .lab-bof {
+    --card-accent:      var(--bof);
+    --card-accent-glow: rgba(57,211,83,0.08);
+  }
+  .lab-bof .card-icon { background: rgba(57,211,83,0.08); border-color: rgba(57,211,83,0.2); }
+
+  .lab-dll {
+    --card-accent:      var(--dll);
+    --card-accent-glow: rgba(77,159,255,0.08);
+  }
+  .lab-dll .card-icon { background: rgba(77,159,255,0.08); border-color: rgba(77,159,255,0.2); }
+
+  .lab-race {
+    --card-accent:      var(--race);
+    --card-accent-glow: rgba(192,132,252,0.08);
+  }
+  .lab-race .card-icon { background: rgba(192,132,252,0.08); border-color: rgba(192,132,252,0.2); }
+
+  /* ── FOOTER ── */
+  .footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 24px;
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+  }
+
+  /* ── STAGGER ANIMATION ── */
+  .lab-card {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: cardIn 0.4s ease forwards;
+  }
+
+  @keyframes cardIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .lab-card:nth-child(1) { animation-delay: 0.05s; }
+  .lab-card:nth-child(2) { animation-delay: 0.10s; }
+  .lab-card:nth-child(3) { animation-delay: 0.15s; }
+  .lab-card:nth-child(4) { animation-delay: 0.20s; }
+  .lab-card:nth-child(5) { animation-delay: 0.25s; }
+</style>
 </head>
 <body>
-  <main class="container">
-    <section class="hero">
-      <div class="badge">Interactive Security Learning</div>
-      <h1>Security Attack Simulators</h1>
-      <p>
-        Explore common cybersecurity attack concepts through interactive simulations.
-        Select a topic below to better understand how each exploit works, what causes it,
-        and how defenders can prevent it.
-      </p>
-    </section>
 
-    <section class="module">
-      <h2 class="module-title">Module 2</h2>
-      <div class="grid" aria-label="Module 2 simulation links">
-      <a class="card" href="buffer_overflow_simulator.html">
-        <div class="icon">💾</div>
-        <h2>Buffer Overflow</h2>
-        <p>
-          Learn how writing more data than a program expects can overwrite adjacent memory
-          and lead to crashes or unintended code execution.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">Security+ SY0-701 &nbsp;·&nbsp; Interactive Labs</div>
+  <h1>
+    <span class="accent-sqli">Attack</span><br>
+    <span class="accent-xss">Simulat</span><span class="accent-bof">ors</span>
+  </h1>
+  <p class="hero-sub">Choose a lab below to explore how each attack works — hands on, no setup required.</p>
+  <div class="hero-meta">All labs run in your browser &nbsp;·&nbsp; No login needed</div>
+</div>
 
-      <a class="card" href="sqli_simulator.html">
-        <div class="icon">🗄️</div>
-        <h2>SQL Injection</h2>
-        <p>
-          See how unsafe input handling can alter database queries, expose sensitive data,
-          or bypass application logic.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
+<!-- LABS -->
+<div class="labs-wrap">
+  <div class="section-label">Available Labs</div>
+  <div class="labs-grid">
 
-      <a class="card" href="crypto_attacks_simulator.html">
-        <div class="icon">🔐</div>
-        <h2>Cryptography Attacks</h2>
-        <p>
-          Understand common weaknesses in cryptographic systems, including poor key handling,
-          weak algorithms, and misuse of encryption.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
-
-      <a class="card" href="xss_simulator.html">
-        <div class="icon">🧪</div>
-        <h2>Cross-Site Scripting (XSS)</h2>
-        <p>
-          Explore how untrusted input can be interpreted as browser code and how output encoding
-          helps protect users.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
-
-      <a class="card" href="race_condition_simulator.html">
-        <div class="icon">⚙️</div>
-        <h2>Race Condition</h2>
-        <p>
-          Visualize how timing issues between processes or threads can cause inconsistent behavior,
-          bypass checks, or corrupt shared resources.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
-          <a class="card" href="command_injection_simulator.html">
-        <div class="icon">💻</div>
-        <h2>Command Injection</h2>
-        <p>
-          Learn how unsanitized user input can allow attackers to execute operating system
-          commands on a vulnerable server.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
-
-      <a class="card" href="directory_traversal_simulator.html">
-        <div class="icon">📁</div>
-        <h2>Directory Traversal</h2>
-        <p>
-          See how attackers can manipulate file paths to access restricted files
-          outside of an application's intended directory.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
-
-      <a class="card" href="csrf_simulator.html">
-        <div class="icon">🔁</div>
-        <h2>Cross-Site Request Forgery (CSRF)</h2>
-        <p>
-          Understand how attackers trick authenticated users into performing unintended
-          actions on web applications.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
-
-      <a class="card" href="dns_simulator.html">
-        <div class="icon">🌐</div>
-        <h2>DNS Attacks</h2>
-        <p>
-          Explore attacks such as DNS spoofing and cache poisoning that redirect
-          users to malicious destinations.
-        </p>
-        <div class="cta">Open simulator →</div>
-      </a>
-
-          </div>
-    </section>
-
-    <section class="module">
-      <h2 class="module-title">Module 3</h2>
-      <div class="grid" aria-label="Module 3 lab links">
-        <a class="card" href="network_diagram_lab.html">
-          <div class="icon">🗺️</div>
-          <h2>Network Diagrams</h2>
-          <p>
-            Practice reading and interpreting network layouts, trust boundaries,
-            segmentation, and common enterprise components.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="protocol_match.html">
-          <div class="icon">🔌</div>
-          <h2>Protocol Matching</h2>
-          <p>
-            Match common protocols to their purposes, ports, and secure alternatives
-            to strengthen foundational networking knowledge.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="access_control_lab.html">
-          <div class="icon">🪪</div>
-          <h2>Access Control Models</h2>
-          <p>
-            Compare DAC, MAC, RBAC, and ABAC through interactive scenarios that show
-            how permissions are assigned and enforced.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="firewall_sim.html">
-          <div class="icon">🔥</div>
-          <h2>Firewall Rules</h2>
-          <p>
-            Build and evaluate firewall rules to understand how traffic is allowed,
-            denied, and filtered across a network.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="hardenlab.html">
-          <div class="icon">🛡️</div>
-          <h2>Hardening &amp; Log Analysis</h2>
-          <p>
-            Explore secure configuration practices and interpret log activity to spot
-            suspicious behavior and improve system defenses.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
+    <a class="lab-card lab-sqli" href="sqli-simulator.html">
+      <div class="card-num">LAB 01</div>
+      <div class="card-icon">🗄️</div>
+      <div class="card-title">SQL Injection</div>
+      <div class="card-desc">See how unsanitized input breaks database queries. Watch the live query update as you type and see which rows match — and why.</div>
+      <div class="card-tags">
+        <span class="tag">Web App</span>
+        <span class="tag">Authentication</span>
+        <span class="tag">Database</span>
       </div>
-    </section>
+      <div class="card-cta">Open Lab</div>
+    </a>
 
-
-    <section class="module">
-      <h2 class="module-title">Module 4</h2>
-      <div class="grid" aria-label="Module 4 lab links">
-        <a class="card" href="file_hashing_lab.html">
-          <div class="icon">#️⃣</div>
-          <h2>File Integrity &amp; Hashing Lab</h2>
-          <p>
-            PowerShell terminal simulator covering Get-FileHash, algorithm selection,
-            and hash comparison for the cryptography and data integrity objectives.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="c2_investigation_lab.html">
-          <div class="icon">🖥️</div>
-          <h2>Network Forensics &amp; C2 Detection Lab</h2>
-          <p>
-            Simulated PowerShell and CMD terminal covering active connection enumeration
-            and process attribution for the network security monitoring objectives.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="vuln_prioritization_lab.html">
-          <div class="icon">📊</div>
-          <h2>Vulnerability Prioritization Lab</h2>
-          <p>
-            Drag-to-rank interface covering CVSS, EPSS, KEV, exposure, and asset criticality
-            for the vulnerability management objectives.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="ir_phases_lab.html">
-          <div class="icon">🚨</div>
-          <h2>Incident Response Lifecycle Lab</h2>
-          <p>
-            Dual-mode sequencing and diagnosis lab covering NIST SP 800-61 phase ordering
-            and common IR mistakes for the incident response objectives.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="volatility_lab.html">
-          <div class="icon">🧬</div>
-          <h2>Digital Forensics: Order of Volatility Lab</h2>
-          <p>
-            Drag-to-sequence and evidence-loss analysis lab covering forensic acquisition order
-            and volatile evidence preservation for the digital forensics and incident response objectives.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="wireless_security_lab.html">
-          <div class="icon">📶</div>
-          <h2>Wireless Security Protocol Selection Lab</h2>
-          <p>
-            Requirement-matching simulator covering WPA2/WPA3, 802.1X, RADIUS,
-            EAP methods, and SAE for the wireless security objectives.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
-
-        <a class="card" href="log_analysis_lab.html">
-          <div class="icon">📜</div>
-          <h2>Log Analysis &amp; SIEM Investigation Lab</h2>
-          <p>
-            Live split-pane terminal lab covering grep, Select-String, and log file parsing
-            for the security monitoring and threat detection objectives.
-          </p>
-          <div class="cta">Open lab →</div>
-        </a>
+    <a class="lab-card lab-xss" href="xss-simulator.html">
+      <div class="card-num">LAB 02</div>
+      <div class="card-icon">📝</div>
+      <div class="card-title">Stored XSS</div>
+      <div class="card-desc">Post malicious scripts to a fake blog. See how stored input executes silently in every visitor's browser — no warning, no visible trace.</div>
+      <div class="card-tags">
+        <span class="tag">Web App</span>
+        <span class="tag">Injection</span>
+        <span class="tag">Client-Side</span>
       </div>
-    </section>
+      <div class="card-cta">Open Lab</div>
+    </a>
 
-    <div class="footer">
-      Built for student learning and safe classroom demonstrations.
-    </div>
-  </main>
+    <a class="lab-card lab-bof" href="bof-simulator.html">
+      <div class="card-num">LAB 03</div>
+      <div class="card-icon">💾</div>
+      <div class="card-title">Buffer Overflow</div>
+      <div class="card-desc">Type past a buffer's limit and watch adjacent memory get overwritten in real time — spilling into the admin flag and return address.</div>
+      <div class="card-tags">
+        <span class="tag">Memory</span>
+        <span class="tag">Exploitation</span>
+        <span class="tag">Low-Level</span>
+      </div>
+      <div class="card-cta">Open Lab</div>
+    </a>
+
+    <a class="lab-card lab-race" href="race-condition-adminflag.html">
+      <div class="card-num">LAB 04</div>
+      <div class="card-icon">⏱️</div>
+      <div class="card-title">Race Condition</div>
+      <div class="card-desc">Fire an inject between a permission CHECK and a dashboard LOAD. Hit the vulnerable window and watch a regular user land on the admin panel.</div>
+      <div class="card-tags">
+        <span class="tag">Timing</span>
+        <span class="tag">Privilege Escalation</span>
+        <span class="tag">Logic</span>
+      </div>
+      <div class="card-cta">Open Lab</div>
+    </a>
+
+  </div>
+</div>
+
+<div class="footer">Security+ SY0-701 &nbsp;·&nbsp; Classroom Use Only &nbsp;·&nbsp; All simulations are sandboxed in-browser</div>
+
 </body>
 </html>
