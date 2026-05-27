@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What's the Attack? — Security+ Domain 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f5f0e8;
+  --paper2: #ede8dc;
+  --ink: #1a1714;
+  --ink2: #3d3830;
+  --ink3: #6b6459;
+  --ink4: #9e9589;
+  --rule: #d6d0c4;
+  --red: #c0392b;
+  --red-light: #fdf0ee;
+  --green: #1a6b3a;
+  --green-light: #edf7f1;
+  --amber: #b7620a;
+  --amber-light: #fef6eb;
+  --blue: #1a4e8c;
+  --blue-light: #eef3fb;
+  --stamp-red: #d32f2f;
+  --stamp-blue: #1565c0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--paper2);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(180,160,120,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(180,160,120,0.1) 0%, transparent 50%);
+}
+
+/* Subtle paper texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+.app { position: relative; z-index: 1; max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* HEADER */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+  gap: 1rem;
+}
+
+.header-left { flex: 1; }
+
+.eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink4);
+  margin-bottom: 6px;
+}
+
+h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(28px, 5vw, 42px);
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+h1 span {
+  color: var(--red);
+  position: relative;
+}
+
+h1 span::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 0; right: 0;
+  height: 3px;
+  background: var(--red);
+  opacity: 0.3;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--ink3);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Score dashboard */
+.dashboard {
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 12px;
+  padding: 16px 20px;
+  min-width: 160px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.dashboard-score {
+  font-family: 'Syne', sans-serif;
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.dashboard-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink4);
+  margin-top: 2px;
+}
+
+.dashboard-progress {
+  margin-top: 10px;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.prog-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  transition: background 0.3s;
+}
+
+.prog-dot.correct { background: #2ecc71; }
+.prog-dot.wrong   { background: #e74c3c; }
+.prog-dot.current { background: rgba(255,255,255,0.5); animation: blink 1s ease-in-out infinite; }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Progress bar */
+.progress-track {
+  height: 3px;
+  background: var(--rule);
+  border-radius: 2px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* SCENARIO CARD */
+.scenario-card {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  animation: slide-in 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.case-number {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink4);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.case-number::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+.incident-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.incident-body {
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: var(--ink2);
+}
+
+/* highlight clue words */
+.clue {
+  background: rgba(180,140,60,0.15);
+  border-bottom: 1.5px solid rgba(180,140,60,0.5);
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+/* hint reveal */
+.hint-row {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hint-chip {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px dashed var(--rule);
+  color: var(--ink4);
+  background: var(--paper2);
+  display: none;
+  animation: fade-in 0.3s ease;
+}
+
+.hint-chip.visible { display: inline-block; }
+
+@keyframes fade-in { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+
+.hint-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink4);
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 14px;
+  display: block;
+}
+
+.hint-btn:hover { border-color: var(--amber); color: var(--amber); }
+.hint-btn.used { opacity: 0.4; pointer-events: none; }
+
+/* LABELS SECTION */
+.labels-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.labels-title::after {
+  content: 'Select all that apply';
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink4);
+}
+
+/* Category groups */
+.category-group {
+  margin-bottom: 1.25rem;
+}
+
+.category-name {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink4);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.label-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.label-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1.5px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.label-btn:hover {
+  border-color: var(--ink3);
+  background: var(--paper2);
+  transform: translateY(-1px);
+}
+
+.label-btn.selected {
+  border-color: var(--blue);
+  background: var(--blue-light);
+  color: var(--blue);
+}
+
+.label-btn.correct-pick {
+  border-color: var(--green);
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.label-btn.wrong-pick {
+  border-color: var(--red);
+  background: var(--red-light);
+  color: var(--red);
+  text-decoration: line-through;
+}
+
+.label-btn.missed {
+  border-color: var(--amber);
+  background: var(--amber-light);
+  color: var(--amber);
+}
+
+.label-btn.correct-pick::after,
+.label-btn.wrong-pick::after,
+.label-btn.missed::after {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+}
+
+.label-btn.correct-pick::after { content: '✓'; }
+.label-btn.wrong-pick::after   { content: '✗'; }
+.label-btn.missed::after       { content: '!'; }
+
+/* Submit row */
+.submit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 1.5rem;
+}
+
+.btn-submit {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 12px 28px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-submit:hover {
+  background: var(--ink2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.btn-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-next {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 12px 28px;
+  border-radius: 8px;
+  background: var(--green);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: none;
+}
+
+.btn-next:hover { background: #145c30; transform: translateY(-1px); }
+.btn-next.visible { display: block; }
+
+.hint-cost {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--ink4);
+  letter-spacing: 0.08em;
+}
+
+/* FEEDBACK PANEL */
+.feedback {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin-top: 1rem;
+  display: none;
+  animation: slide-in 0.3s ease;
+}
+
+.feedback.open { display: block; }
+
+.feedback-verdict {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.verdict-stamp {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 2px solid;
+  transform: rotate(-2deg);
+  flex-shrink: 0;
+}
+
+.verdict-stamp.correct {
+  color: var(--green);
+  border-color: var(--green);
+  background: var(--green-light);
+}
+
+.verdict-stamp.partial {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: var(--amber-light);
+  transform: rotate(1deg);
+}
+
+.verdict-stamp.wrong {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-light);
+  transform: rotate(-1.5deg);
+}
+
+.feedback-points {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.feedback-points span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink4);
+  font-family: 'DM Mono', monospace;
+}
+
+.feedback-explanation {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink2);
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.feedback-explanation strong { color: var(--ink); }
+
+/* RESULTS SCREEN */
+.results-screen {
+  display: none;
+  text-align: center;
+  padding: 3rem 2rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  animation: slide-in 0.4s ease;
+}
+
+.results-screen.open { display: block; }
+
+.results-grade {
+  font-family: 'Syne', sans-serif;
+  font-size: 80px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.results-pct {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  letter-spacing: 0.15em;
+  color: var(--ink4);
+  margin-bottom: 1.5rem;
+}
+
+.results-msg {
+  font-size: 16px;
+  color: var(--ink2);
+  line-height: 1.6;
+  max-width: 480px;
+  margin: 0 auto 2rem;
+}
+
+.results-breakdown {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.breakdown-stat {
+  text-align: center;
+}
+
+.breakdown-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.breakdown-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink4);
+}
+
+.btn-restart {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 36px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-restart:hover { background: var(--ink2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+
+/* Divider */
+hr.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 1.5rem 0;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  padding: 10px 20px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: all 0.25s;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+}
+
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .header { flex-direction: column; }
+  .dashboard { min-width: unset; width: 100%; }
+  .label-btn { font-size: 12px; padding: 7px 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">Security+ SY0-701 · Domain 2 Review</div>
+      <h1>What's the <span>Attack?</span></h1>
+      <p class="subtitle">Read each incident report. Label the attack type, vector, and indicators. Instant feedback on every answer.</p>
+    </div>
+    <div class="dashboard">
+      <div class="dashboard-score" id="dash-score">0</div>
+      <div class="dashboard-label">pts earned</div>
+      <div class="dashboard-progress" id="dash-progress"></div>
+    </div>
+  </div>
+
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <!-- SCENARIO CARD -->
+  <div class="scenario-card" id="scenario-card">
+    <div class="case-number" id="case-number">Case 001 of 012</div>
+    <div class="incident-title" id="incident-title"></div>
+    <div class="incident-body" id="incident-body"></div>
+    <button class="hint-btn" id="hint-btn" onclick="revealHint()">▶ Reveal Hint (−2 pts)</button>
+    <div class="hint-row" id="hint-row"></div>
+  </div>
+
+  <!-- LABEL SECTION -->
+  <div id="label-section">
+    <div class="labels-title">Label this incident</div>
+    <div id="categories-wrap"></div>
+    <hr class="section-rule">
+    <div class="submit-row">
+      <button class="btn-submit" id="btn-submit" onclick="submitAnswer()">Check My Labels</button>
+      <button class="btn-next visible" id="btn-next" onclick="nextScenario()" style="display:none">Next Scenario →</button>
+      <span class="hint-cost" id="hint-cost-msg"></span>
+    </div>
+  </div>
+
+  <!-- FEEDBACK -->
+  <div class="feedback" id="feedback">
+    <div class="feedback-verdict">
+      <div class="verdict-stamp" id="verdict-stamp">—</div>
+      <div class="feedback-points" id="feedback-points">0 <span>/ 10 pts</span></div>
+    </div>
+    <div class="feedback-explanation" id="feedback-explanation"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-screen" id="results-screen">
+    <div class="results-grade" id="results-grade">—</div>
+    <div class="results-pct" id="results-pct">0 / 120 points</div>
+    <p class="results-msg" id="results-msg"></p>
+    <div class="results-breakdown">
+      <div class="breakdown-stat">
+        <div class="breakdown-num" id="res-correct" style="color:var(--green)">0</div>
+        <div class="breakdown-label">Correct</div>
+      </div>
+      <div class="breakdown-stat">
+        <div class="breakdown-num" id="res-partial" style="color:var(--amber)">0</div>
+        <div class="breakdown-label">Partial</div>
+      </div>
+      <div class="breakdown-stat">
+        <div class="breakdown-num" id="res-wrong" style="color:var(--red)">0</div>
+        <div class="breakdown-label">Missed</div>
+      </div>
+    </div>
+    <button class="btn-restart" onclick="restart()">Try Again ↺</button>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+
+const CATEGORIES = [
+  {
+    id: "attack_type",
+    name: "Attack / Malware Type",
+    options: [
+      "Ransomware","Trojan","Worm","Spyware","Rootkit","Keylogger",
+      "Logic Bomb","Virus","Bloatware","DDoS","DNS Attack",
+      "On-Path Attack","Credential Replay","SQL Injection","XSS",
+      "Buffer Overflow","Directory Traversal","Privilege Escalation"
+    ]
+  },
+  {
+    id: "vector",
+    name: "Threat Vector / Social Engineering",
+    options: [
+      "Phishing","Spear Phishing","Vishing","Smishing","Watering Hole",
+      "Removable Device","Typosquatting","Brand Impersonation",
+      "Pretexting","Business Email Compromise","Misinformation",
+      "Supply Chain","Default Credentials","Open Service Port"
+    ]
+  },
+  {
+    id: "actor",
+    name: "Likely Threat Actor",
+    options: [
+      "Nation-State","Organized Crime","Hacktivist",
+      "Insider Threat","Unskilled Attacker","Shadow IT"
+    ]
+  },
+  {
+    id: "indicator",
+    name: "Indicators Present",
+    options: [
+      "Account Lockout","Impossible Travel","Resource Consumption",
+      "Out-of-Cycle Logging","Missing Logs","Blocked Content",
+      "Concurrent Session Usage","Resource Inaccessibility"
+    ]
+  }
+];
+
+const SCENARIOS = [
+  {
+    title: "Incident #4471 — Regional Hospital Network",
+    body: `At 03:14 on a Tuesday morning, the security operations center at Mercy General Hospital detected that file servers across three wings had become inaccessible. When IT staff arrived, they found a text file on every desktop reading <em>"Your files have been encrypted. Send 40 Bitcoin to restore access."</em> Investigation revealed a <span class="clue">compressed email attachment</span> opened by a billing clerk the previous afternoon. Event logs showed <span class="clue">unusual disk I/O activity</span> beginning at 23:47 and <span class="clue">network shares being mapped</span> before encryption began.`,
+    hints: ["Encryption of files is the payload", "Started via email attachment", "Financial motivation suggests organized crime"],
+    answers: {
+      attack_type: ["Ransomware"],
+      vector: ["Phishing"],
+      actor: ["Organized Crime"],
+      indicator: ["Resource Inaccessibility","Out-of-Cycle Logging"]
+    },
+    explanation: "<strong>Ransomware</strong> delivered via <strong>Phishing</strong> — the billing clerk opened a malicious attachment triggering encryption. The 03:14 discovery with activity starting 23:47 is classic out-of-cycle logging. Resource inaccessibility (file servers down) is the primary operational indicator. Organized crime groups dominate ransomware campaigns targeting healthcare for its high ransom-payment rates."
+  },
+  {
+    title: "Incident #2209 — City Government IT Department",
+    body: `The city's IT director received a voicemail from someone claiming to be from "Microsoft Support" stating that the city's domain controller had been compromised and required <span class="clue">immediate remote access credentials</span> to fix. The caller knew the director's full name, department, and the name of the city's IT vendor. Several <span class="clue">staff members had already called back</span> the number and provided their <span class="clue">Active Directory passwords</span>. No actual compromise had been detected prior to the call campaign.`,
+    hints: ["The attack was conducted over the phone", "Caller used personal details to build trust", "No malware was involved in the initial stage"],
+    answers: {
+      attack_type: ["Credential Replay"],
+      vector: ["Vishing","Pretexting"],
+      actor: ["Organized Crime","Unskilled Attacker"],
+      indicator: []
+    },
+    explanation: "<strong>Vishing</strong> (voice phishing) with <strong>Pretexting</strong> — the attacker fabricated a false scenario (Microsoft Support) and used previously gathered personal details about the target to appear legitimate. This is textbook pretexting. Credential harvesting via vishing often precedes credential replay attacks. No technical indicators were present because no systems were accessed yet."
+  },
+  {
+    title: "Incident #8813 — E-Commerce Platform",
+    body: `A threat intelligence firm alerted a mid-size online retailer that customer credit card data was appearing on dark web forums. Forensic review revealed a hidden <span class="clue">JavaScript snippet</span> had been injected into the checkout page. The script silently <span class="clue">captured form field values</span> — including card numbers, CVVs, and billing addresses — and <span class="clue">transmitted them to an external domain</span> that closely resembled the payment processor's legitimate domain (payme<em>n</em>tco.com vs payme<em>nt</em>co.com).`,
+    hints: ["Script executed in the victim's browser", "Data was captured client-side", "The fake domain name differs by one letter"],
+    answers: {
+      attack_type: ["XSS","Spyware"],
+      vector: ["Typosquatting","Watering Hole"],
+      actor: ["Organized Crime"],
+      indicator: ["Resource Consumption"]
+    },
+    explanation: "<strong>Cross-Site Scripting (XSS)</strong> was used to inject malicious JavaScript that behaved like <strong>Spyware</strong> — silently capturing and exfiltrating data. The lookalike domain (one letter off) is <strong>Typosquatting</strong>. The checkout page being compromised makes it a <strong>Watering Hole</strong> style attack — users were targeted where they naturally congregate. Organized crime groups frequently run Magecart-style card skimming operations."
+  },
+  {
+    title: "Incident #3302 — Global Logistics Company",
+    body: `A logistics company's help desk began receiving calls from employees unable to log into their accounts. Security analysts discovered that <span class="clue">thousands of login attempts</span> had been made across hundreds of employee accounts over a 6-hour window. Each account had seen <span class="clue">only 2–3 attempts</span>, all using the <span class="clue">same small set of common passwords</span>. Notably, <span class="clue">17 accounts were successfully accessed</span>, all belonging to employees who had reused passwords from a previously breached service.`,
+    hints: ["Few attempts per account to avoid lockout", "Same passwords tried across many accounts", "Check what the opposite of brute force is"],
+    answers: {
+      attack_type: ["Credential Replay"],
+      vector: ["Default Credentials"],
+      actor: ["Organized Crime","Unskilled Attacker"],
+      indicator: ["Account Lockout","Concurrent Session Usage"]
+    },
+    explanation: "This is <strong>Password Spraying</strong> (a form of brute force / credential attack) — using a small list of common passwords across many accounts to stay under lockout thresholds. The 17 successful logins from previously breached passwords are also <strong>Credential Replay</strong>. Account lockout (on some accounts) and concurrent session usage (attacker + legitimate user both active) are the key indicators. Low sophistication suggests unskilled or automated attackers."
+  },
+  {
+    title: "Incident #5540 — Software Development Firm",
+    body: `Developers at a software company began noticing their builds were <span class="clue">taking longer than usual</span> and consuming <span class="clue">abnormally high CPU</span>. A security review found a <span class="clue">self-replicating process</span> had spread from one developer's workstation across the entire internal network by exploiting a known vulnerability in the company's unpatched file-sharing service. Unlike most malware, <span class="clue">no user interaction was required</span> for it to spread — it propagated automatically once inside the network.`,
+    hints: ["It spreads on its own without user interaction", "Exploited a network vulnerability to move laterally", "This is one of the classic malware types"],
+    answers: {
+      attack_type: ["Worm"],
+      vector: ["Open Service Port"],
+      actor: ["Unskilled Attacker","Nation-State"],
+      indicator: ["Resource Consumption","Out-of-Cycle Logging"]
+    },
+    explanation: "A <strong>Worm</strong> — the defining characteristic is self-replication without user interaction, spreading autonomously across a network. Entry point was an <strong>Open Service Port</strong> on an unpatched file-sharing service. <strong>Resource consumption</strong> (high CPU, slow builds) and <strong>out-of-cycle logging</strong> from unexpected processes are the technical indicators. Worms can be deployed by both unsophisticated actors using existing exploit code and nation-states building custom variants."
+  },
+  {
+    title: "Incident #7791 — Law Firm",
+    body: `A paralegal at a prestigious law firm received an email appearing to come from the firm's <span class="clue">managing partner</span>, requesting an urgent wire transfer of $185,000 to a client escrow account. The email address was <em>jsmith@harrington-lawfirm.co</em> instead of the real <em>jsmith@harrington-lawfirm.com</em>. The paralegal, under time pressure, completed the transfer. IT later confirmed the managing partner <span class="clue">never sent the email</span> and that no internal systems had been breached.`,
+    hints: ["The attack impersonated a specific internal person", "No malware or system access was used", "Look at the domain name closely"],
+    answers: {
+      attack_type: [],
+      vector: ["Business Email Compromise","Typosquatting","Brand Impersonation"],
+      actor: ["Organized Crime"],
+      indicator: []
+    },
+    explanation: "<strong>Business Email Compromise (BEC)</strong> — the attacker impersonated a senior executive to authorize a fraudulent wire transfer. The fake domain (.co vs .com) is <strong>Typosquatting</strong> combined with <strong>Brand Impersonation</strong>. No malware was used — this is a pure social engineering financial fraud. BEC is one of the highest-dollar-loss attack categories globally and is almost exclusively operated by organized crime."
+  },
+  {
+    title: "Incident #1123 — University Research Department",
+    body: `A professor's research workstation began sending <span class="clue">large volumes of data</span> to an external IP at 2 AM each night. Endpoint analysis uncovered a hidden process running under a legitimate Windows service name that was <span class="clue">recording all keystrokes</span> and periodically <span class="clue">uploading the collected data</span>. The infection originated from a <span class="clue">conference proceedings PDF</span> downloaded from a legitimate-looking but compromised academic website.`,
+    hints: ["The malware captures what you type", "It hid itself using a legit service name", "The delivery method was a compromised website"],
+    answers: {
+      attack_type: ["Keylogger","Spyware","Trojan"],
+      vector: ["Watering Hole"],
+      actor: ["Nation-State","Organized Crime"],
+      indicator: ["Resource Consumption","Out-of-Cycle Logging"]
+    },
+    explanation: "A <strong>Keylogger</strong> (a type of <strong>Spyware</strong>) delivered via a <strong>Trojan</strong> PDF — the malicious file posed as a legitimate academic document. The infected academic website is a classic <strong>Watering Hole</strong> attack, targeting a specific community (researchers) through sites they naturally frequent. The 2 AM data exfiltration is textbook <strong>out-of-cycle logging</strong>. Nation-state actors frequently target academic research for intellectual property."
+  },
+  {
+    title: "Incident #6654 — Manufacturing Plant",
+    body: `Workers at a manufacturing facility found <span class="clue">several USB drives</span> scattered across the employee parking lot and break room. Three employees plugged the drives into workstations, curious about the contents. Within hours, the plant's <span class="clue">operational technology (OT) network</span> was communicating with an external command-and-control server. The drives had contained a self-executing payload disguised as a folder icon labeled <em>"Salary_2024.xlsx"</em>.`,
+    hints: ["The infection vector was physical media", "Social curiosity was exploited", "The payload disguised itself as something desirable"],
+    answers: {
+      attack_type: ["Trojan","Worm"],
+      vector: ["Removable Device"],
+      actor: ["Nation-State","Organized Crime"],
+      indicator: ["Resource Consumption","Out-of-Cycle Logging"]
+    },
+    explanation: "A <strong>Trojan</strong> delivered via <strong>Removable Device</strong> (USB drop) — a classic physical social engineering technique where curiosity or greed drives victims to plug in unknown drives. The payload disguised as a salary spreadsheet is the Trojan component. Targeting OT/industrial networks and the C2 establishment suggest sophisticated actors, likely <strong>Nation-State</strong>. Out-of-cycle and unexpected network communications are the key indicators."
+  },
+  {
+    title: "Incident #9921 — Financial Services Firm",
+    body: `A trading platform became intermittently unavailable during peak market hours over three consecutive days. Network monitoring showed <span class="clue">traffic volume spiking to 400Gbps</span> during outages — 200 times the normal baseline. The traffic originated from <span class="clue">thousands of distinct IP addresses</span> worldwide. Deeper analysis showed the inbound packets were mostly <span class="clue">DNS query responses</span> that had never been requested by the firm's servers, each response significantly <span class="clue">larger than the original query</span>.`,
+    hints: ["Multiple sources, one target", "DNS is being weaponized as an amplifier", "The firm is the target, not the source of the DNS traffic"],
+    answers: {
+      attack_type: ["DDoS","DNS Attack"],
+      vector: ["Open Service Port"],
+      actor: ["Organized Crime","Hacktivist","Nation-State"],
+      indicator: ["Resource Consumption","Resource Inaccessibility"]
+    },
+    explanation: "<strong>Amplified DDoS</strong> using <strong>DNS</strong> as the amplification vector — attackers sent spoofed DNS queries to public resolvers, with the firm's IP as the return address. DNS responses are much larger than queries, massively amplifying the attack (400Gbps). This is a <strong>Reflected Amplified DDoS</strong>. Resource consumption (400Gbps traffic) and resource inaccessibility (trading platform down) are the direct indicators. Financial firms are targeted by organized crime (extortion), hacktivists, and nation-states alike."
+  },
+  {
+    title: "Incident #3381 — Tech Startup",
+    body: `An employee's account began accessing corporate GitHub repositories and downloading source code at <span class="clue">3 AM from an IP address in a foreign country</span>, despite the employee being physically in the office at 9 AM the same morning. HR records showed the employee had <span class="clue">submitted resignation two weeks prior</span>. The account had also <span class="clue">disabled logging</span> on several key systems and created <span class="clue">three new admin accounts</span> in the week before the departure date.`,
+    hints: ["The threat is internal to the organization", "Timing of resignation is a key clue", "Access from two locations simultaneously is suspicious"],
+    answers: {
+      attack_type: ["Privilege Escalation"],
+      vector: ["Credential Replay"],
+      actor: ["Insider Threat"],
+      indicator: ["Impossible Travel","Missing Logs","Concurrent Session Usage","Account Lockout"]
+    },
+    explanation: "A classic <strong>Insider Threat</strong> — a departing employee conducting data theft and sabotage before leaving. <strong>Impossible Travel</strong> (foreign IP at 3 AM + office at 9 AM) and <strong>Concurrent Session Usage</strong> (two simultaneous locations) are the primary detection indicators. <strong>Missing logs</strong> (disabled logging) is a critical indicator of intentional cover-up. Creating new admin accounts is <strong>Privilege Escalation</strong>. The credential replay vector suggests the attacker may have shared or sold credentials."
+  },
+  {
+    title: "Incident #4408 — Retail Chain",
+    body: `Customers of a national clothing retailer began receiving convincing promotional emails from <em>support@clothingbrannd.com</em> (two n's) offering a 70% discount that redirected to a <span class="clue">near-perfect replica</span> of the retailer's real website. Customers who entered payment details on the fake site had their cards charged and received no merchandise. The real retailer had <span class="clue">no involvement</span> and their systems were <span class="clue">never compromised</span>.`,
+    hints: ["Look at the domain name spelling carefully", "The website was a fake copy", "No internal systems were actually breached"],
+    answers: {
+      attack_type: [],
+      vector: ["Typosquatting","Brand Impersonation","Phishing"],
+      actor: ["Organized Crime"],
+      indicator: []
+    },
+    explanation: "<strong>Typosquatting</strong> and <strong>Brand Impersonation</strong> via <strong>Phishing</strong> — attackers registered a lookalike domain (clothingbrannd.com) and built a convincing replica site. No systems were breached; this is entirely a social engineering and fraud operation. The phishing emails drove victims to the fake site. This is a consumer-facing credential/payment harvesting campaign typical of organized financial crime. No technical indicators appear on the victim organization's systems since they were never actually breached."
+  },
+  {
+    title: "Incident #2277 — Healthcare Software Vendor",
+    body: `Dozens of hospitals using a popular patient scheduling application began reporting that a recent <span class="clue">automatic software update</span> had introduced a hidden background process. The process collected <span class="clue">patient demographic data</span> and transmitted it externally. Investigation traced the malicious code to a <span class="clue">third-party component library</span> that the software vendor had incorporated into their build pipeline. The software vendor had not written or reviewed the malicious code themselves.`,
+    hints: ["The malware came in via a legitimate update", "The vendor was also a victim, not the attacker", "Think about the software development and distribution chain"],
+    answers: {
+      attack_type: ["Spyware","Trojan"],
+      vector: ["Supply Chain"],
+      actor: ["Nation-State","Organized Crime"],
+      indicator: ["Out-of-Cycle Logging","Resource Consumption"]
+    },
+    explanation: "A <strong>Supply Chain</strong> attack — malicious code was injected into a third-party library used by the software vendor, which was then distributed to all customers via a legitimate automatic update. The payload functioned as <strong>Spyware</strong> (harvesting patient data) delivered via a <strong>Trojan</strong> (disguised as a legitimate update). This mirrors real incidents like SolarWinds. Out-of-cycle background processes and unexpected network transmissions are the indicators. Nation-states frequently use supply chain attacks for scale and stealth."
+  }
+];
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let current = 0;
+let totalScore = 0;
+let hintUsed = false;
+let answered = false;
+let results = [];
+let shuffled = [];
+let selected = {};
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function init() {
+  shuffled = shuffle(SCENARIOS);
+  results = [];
+  totalScore = 0;
+  current = 0;
+  buildDashDots();
+  loadScenario(0);
+}
+
+function buildDashDots() {
+  const prog = document.getElementById("dash-progress");
+  prog.innerHTML = "";
+  shuffled.forEach((_, i) => {
+    const dot = document.createElement("div");
+    dot.className = "prog-dot" + (i === 0 ? " current" : "");
+    dot.id = `dot-${i}`;
+    prog.appendChild(dot);
+  });
+}
+
+function loadScenario(idx) {
+  const s = shuffled[idx];
+  hintUsed = false;
+  answered = false;
+  selected = {};
+
+  document.getElementById("case-number").textContent = `Case ${String(idx+1).padStart(3,"0")} of ${String(shuffled.length).padStart(3,"0")}`;
+  document.getElementById("incident-title").textContent = s.title;
+  document.getElementById("incident-body").innerHTML = s.body;
+  document.getElementById("hint-btn").classList.remove("used");
+  document.getElementById("hint-btn").textContent = "▶ Reveal Hint (−2 pts)";
+  document.getElementById("hint-row").innerHTML = "";
+  document.getElementById("hint-cost-msg").textContent = "";
+
+  document.getElementById("feedback").classList.remove("open");
+  document.getElementById("btn-next").style.display = "none";
+  document.getElementById("btn-submit").disabled = false;
+  document.getElementById("btn-submit").style.display = "";
+
+  buildLabels(s);
+  updateProgress();
+
+  document.getElementById("scenario-card").style.animation = "none";
+  void document.getElementById("scenario-card").offsetWidth;
+  document.getElementById("scenario-card").style.animation = "";
+}
+
+function buildLabels(s) {
+  const wrap = document.getElementById("categories-wrap");
+  wrap.innerHTML = "";
+  selected = {};
+
+  CATEGORIES.forEach(cat => {
+    // only show categories that have correct answers OR always show all
+    const group = document.createElement("div");
+    group.className = "category-group";
+
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "category-name";
+    nameDiv.textContent = cat.name;
+    group.appendChild(nameDiv);
+
+    const grid = document.createElement("div");
+    grid.className = "label-grid";
+
+    cat.options.forEach(opt => {
+      const btn = document.createElement("button");
+      btn.className = "label-btn";
+      btn.textContent = opt;
+      btn.dataset.cat = cat.id;
+      btn.dataset.val = opt;
+      btn.onclick = () => toggleLabel(btn, cat.id, opt);
+      grid.appendChild(btn);
+    });
+
+    group.appendChild(grid);
+    wrap.appendChild(group);
+  });
+}
+
+function toggleLabel(btn, catId, val) {
+  if (answered) return;
+  if (!selected[catId]) selected[catId] = [];
+  const idx = selected[catId].indexOf(val);
+  if (idx >= 0) {
+    selected[catId].splice(idx, 1);
+    btn.classList.remove("selected");
+  } else {
+    selected[catId].push(val);
+    btn.classList.add("selected");
+  }
+}
+
+function revealHint() {
+  if (hintUsed) return;
+  hintUsed = true;
+  const hints = shuffled[current].hints;
+  const row = document.getElementById("hint-row");
+  hints.forEach((h, i) => {
+    setTimeout(() => {
+      const chip = document.createElement("span");
+      chip.className = "hint-chip visible";
+      chip.textContent = "💡 " + h;
+      row.appendChild(chip);
+    }, i * 300);
+  });
+  document.getElementById("hint-btn").classList.add("used");
+  document.getElementById("hint-btn").textContent = "Hint revealed (−2 pts applied on submit)";
+  showToast("Hint revealed — 2 points deducted on this question");
+}
+
+function submitAnswer() {
+  if (answered) return;
+  answered = true;
+
+  const s = shuffled[current];
+  let pts = 0;
+  let maxPts = 0;
+
+  document.querySelectorAll(".label-btn").forEach(btn => {
+    btn.classList.remove("selected");
+  });
+
+  CATEGORIES.forEach(cat => {
+    const correct = s.answers[cat.id] || [];
+    const chosen  = selected[cat.id] || [];
+
+    // Score: +2 per correct pick, -1 per wrong pick, min 0 per category
+    // Max per category = 2 * correct.length (or 2 if no correct answers exist)
+    const catMax = correct.length > 0 ? correct.length * 2 : 0;
+    maxPts += catMax;
+
+    let catPts = 0;
+    chosen.forEach(v => {
+      if (correct.includes(v)) catPts += 2;
+      else catPts -= 1;
+    });
+    // missed answers don't subtract — just lost opportunity
+    catPts = Math.max(0, catPts);
+    pts += catPts;
+
+    // Color the buttons
+    document.querySelectorAll(`.label-btn[data-cat="${cat.id}"]`).forEach(btn => {
+      const val = btn.dataset.val;
+      const wasChosen = chosen.includes(val);
+      const isCorrect = correct.includes(val);
+
+      if (wasChosen && isCorrect)  btn.classList.add("correct-pick");
+      else if (wasChosen && !isCorrect) btn.classList.add("wrong-pick");
+      else if (!wasChosen && isCorrect) btn.classList.add("missed");
+    });
+  });
+
+  if (hintUsed) pts = Math.max(0, pts - 2);
+  maxPts = Math.max(maxPts, 1);
+
+  // Clamp
+  const finalPts = Math.min(pts, maxPts);
+  totalScore += finalPts;
+
+  // Verdict
+  const ratio = finalPts / maxPts;
+  let verdict, vClass;
+  if (ratio >= 0.85)      { verdict = "Correct";  vClass = "correct"; }
+  else if (ratio >= 0.4)  { verdict = "Partial";  vClass = "partial"; }
+  else                    { verdict = "Missed";   vClass = "wrong"; }
+
+  document.getElementById("verdict-stamp").textContent = verdict;
+  document.getElementById("verdict-stamp").className = `verdict-stamp ${vClass}`;
+  document.getElementById("feedback-points").innerHTML = `${finalPts} <span>/ ${maxPts} pts</span>`;
+  document.getElementById("feedback-explanation").innerHTML = s.explanation;
+  document.getElementById("feedback").classList.add("open");
+
+  document.getElementById("btn-submit").style.display = "none";
+  document.getElementById("btn-next").style.display = "";
+  document.getElementById("btn-next").textContent =
+    current < shuffled.length - 1 ? "Next Scenario →" : "See Results →";
+
+  // Update dashboard
+  document.getElementById("dash-score").textContent = totalScore;
+  const dot = document.getElementById(`dot-${current}`);
+  if (dot) {
+    dot.classList.remove("current");
+    dot.classList.add(vClass === "correct" ? "correct" : vClass === "partial" ? "correct" : "wrong");
+  }
+
+  results.push({ verdict, pts: finalPts, max: maxPts });
+
+  // Mark next dot current
+  if (current + 1 < shuffled.length) {
+    const nextDot = document.getElementById(`dot-${current+1}`);
+    if (nextDot) nextDot.classList.add("current");
+  }
+
+  document.getElementById("feedback").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function nextScenario() {
+  current++;
+  if (current >= shuffled.length) {
+    showResults();
+  } else {
+    loadScenario(current);
+    document.getElementById("scenario-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function updateProgress() {
+  const pct = (current / shuffled.length) * 100;
+  document.getElementById("progress-fill").style.width = pct + "%";
+}
+
+function showResults() {
+  document.getElementById("scenario-card").style.display = "none";
+  document.getElementById("label-section").style.display = "none";
+  document.getElementById("feedback").style.display = "none";
+  document.getElementById("results-screen").classList.add("open");
+
+  const maxTotal = results.reduce((a, r) => a + r.max, 0);
+  const pct = maxTotal > 0 ? Math.round((totalScore / maxTotal) * 100) : 0;
+
+  let grade, msg;
+  if (pct >= 90)      { grade = "A"; msg = "Outstanding. You have a strong command of Domain 2 attack types, vectors, and indicators. You're ready for exam-level scenario questions."; }
+  else if (pct >= 80) { grade = "B"; msg = "Strong performance. A few attack types or vectors tripped you up — review the explanations above and pay attention to the subtle differences between similar attacks."; }
+  else if (pct >= 70) { grade = "C"; msg = "Solid foundation. Focus on the categories where you lost the most points — particularly indicators and threat actors, which require memorization alongside conceptual understanding."; }
+  else if (pct >= 55) { grade = "D"; msg = "Needs work. Re-read Domain 2 in your study guide, especially the malware types and social engineering vectors. Then attempt the activity again."; }
+  else                { grade = "F"; msg = "Keep studying. Domain 2 requires knowing the specific characteristics of each attack type. Flashcards for malware definitions and attack vector categories will help."; }
+
+  document.getElementById("results-grade").textContent = grade;
+  document.getElementById("results-pct").textContent = `${totalScore} / ${maxTotal} points (${pct}%)`;
+  document.getElementById("results-msg").textContent = msg;
+
+  const correct = results.filter(r => r.verdict === "Correct").length;
+  const partial  = results.filter(r => r.verdict === "Partial").length;
+  const wrong    = results.filter(r => r.verdict !== "Correct" && r.verdict !== "Partial").length;
+
+  document.getElementById("res-correct").textContent = correct;
+  document.getElementById("res-partial").textContent = partial;
+  document.getElementById("res-wrong").textContent   = wrong;
+
+  document.getElementById("progress-fill").style.width = "100%";
+  document.getElementById("results-screen").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function restart() {
+  document.getElementById("scenario-card").style.display = "";
+  document.getElementById("label-section").style.display = "";
+  document.getElementById("feedback").style.display = "";
+  document.getElementById("results-screen").classList.remove("open");
+  totalScore = 0;
+  current = 0;
+  results = [];
+  document.getElementById("dash-score").textContent = "0";
+  shuffled = shuffle(SCENARIOS);
+  buildDashDots();
+  loadScenario(0);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
