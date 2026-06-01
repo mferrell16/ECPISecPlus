@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firewall Rule Lab | Security+</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #f0f4f8;
+    --panel: #ffffff;
+    --panel2: #f7f9fc;
+    --border: #d0dae8;
+    --border2: #b8c9de;
+    --accent: #1a5fa8;
+    --accent-light: #e8f1fb;
+    --accent2: #c0392b;
+    --accent2-light: #fdf0ef;
+    --accent3: #1a7a3a;
+    --accent3-light: #eaf5ee;
+    --gold: #8a6200;
+    --gold-light: #fff8e6;
+    --text: #1e2d3d;
+    --muted: #6b7d93;
+    --correct: #eaf5ee;
+    --correct-border: #1a7a3a;
+    --wrong: #fdf0ef;
+    --wrong-border: #c0392b;
+    --rule-bg: #f9fbfd;
+    --rule-alt: #f2f6fb;
+    --header-bg: #1a3a5c;
+    --warmup-accent: #5b2d8e;
+    --warmup-light: #f3eeff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    background: var(--header-bg);
+    padding: 22px 40px 18px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  }
+
+  .shield-icon {
+    width: 44px; height: 44px;
+    border: 2px solid rgba(255,255,255,0.35);
+    clip-path: polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%);
+    background: rgba(255,255,255,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .header-text h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.55rem;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    text-transform: uppercase;
+  }
+
+  .header-text p {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .badge {
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    letter-spacing: 0.1em;
+    background: rgba(255,255,255,0.08);
+    flex-shrink: 0;
+  }
+
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 32px 60px;
+  }
+
+  /* Score panel */
+  .score-panel {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  .score-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 24px;
+    flex: 1;
+    text-align: center;
+  }
+
+  .score-item + .score-item { border-left: 1px solid var(--border); }
+
+  .score-label {
+    font-size: 0.62rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+
+  .score-value {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  /* Progress */
+  .progress-bar-outer {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+
+  .progress-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #2ecc71);
+    transition: width 0.5s ease;
+    border-radius: 3px;
+  }
+
+  .progress-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-align: right;
+    margin-bottom: 22px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Section labels */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .section-label-pill {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .pill-warmup {
+    background: var(--warmup-light);
+    color: var(--warmup-accent);
+    border: 1px solid rgba(91,45,142,0.25);
+  }
+
+  .pill-security {
+    background: var(--accent-light);
+    color: var(--accent);
+    border: 1px solid rgba(26,95,168,0.25);
+  }
+
+  .section-label-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Scenario card */
+  .scenario-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+
+  .scenario-card.warmup-card {
+    border-top: 3px solid var(--warmup-accent);
+  }
+
+  .scenario-card.security-card {
+    border-top: 3px solid var(--accent);
+  }
+
+  .scenario-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .scenario-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 3px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .scenario-num.warmup-num {
+    color: var(--warmup-accent);
+    background: var(--warmup-light);
+    border-color: rgba(91,45,142,0.2);
+  }
+
+  .scenario-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.12rem;
+    color: var(--text);
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+  }
+
+  .scenario-desc {
+    font-size: 0.875rem;
+    color: #3d5066;
+    line-height: 1.65;
+    margin-top: 4px;
+  }
+
+  .tag-pill {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem;
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.06em;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .tag-vuln {
+    background: var(--accent2-light);
+    color: var(--accent2);
+    border: 1px solid rgba(192,57,43,0.25);
+  }
+
+  .tag-warmup {
+    background: var(--warmup-light);
+    color: var(--warmup-accent);
+    border: 1px solid rgba(91,45,142,0.2);
+  }
+
+  /* Rule table */
+  .rule-table-wrapper {
+    margin: 18px 0;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+  }
+
+  thead tr {
+    background: #eaf0f8;
+    border-bottom: 2px solid var(--border2);
+  }
+
+  thead th {
+    padding: 10px 14px;
+    text-align: left;
+    color: var(--accent);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    background: var(--rule-bg);
+  }
+
+  tbody tr:nth-child(even) { background: var(--rule-alt); }
+  tbody tr:hover { background: #edf4ff; }
+
+  td { padding: 9px 14px; color: var(--text); }
+
+  .rule-num { color: var(--muted); font-size: 0.72rem; }
+  .allow { color: var(--accent3); font-weight: 600; }
+  .deny { color: var(--accent2); font-weight: 600; }
+  .any-val { color: #8a6200; }
+  .default-allow { color: var(--accent2); font-weight: 600; }
+
+  .highlight-rule { background: #fffbea !important; }
+  .highlight-rule td { color: #6b4700 !important; }
+  .highlight-rule .allow { color: #1a7a3a !important; }
+  .highlight-rule .deny { color: var(--accent2) !important; }
+
+  /* Questions */
+  .questions-section { margin-top: 6px; }
+
+  .question-block {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+
+  .question-text {
+    font-size: 0.9rem;
+    color: var(--text);
+    margin-bottom: 14px;
+    line-height: 1.55;
+    font-weight: 500;
+  }
+
+  .q-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-right: 6px;
+  }
+
+  .q-label.warmup-q { color: var(--warmup-accent); }
+
+  .options-grid { display: grid; gap: 7px; }
+
+  .option-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.84rem;
+    padding: 10px 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border-radius: 5px;
+    line-height: 1.45;
+  }
+
+  .option-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  .option-btn:disabled { cursor: default; }
+
+  .option-btn.correct {
+    background: var(--correct);
+    border-color: var(--correct-border);
+    color: #0f5c28;
+  }
+
+  .option-btn.wrong {
+    background: var(--wrong);
+    border-color: var(--wrong-border);
+    color: #922b21;
+  }
+
+  .option-letter {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    min-width: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+
+  .option-btn.correct .option-letter { color: var(--accent3); }
+  .option-btn.wrong .option-letter { color: var(--accent2); }
+
+  /* Feedback */
+  .feedback-box {
+    display: none;
+    margin-top: 10px;
+    padding: 12px 16px;
+    font-size: 0.83rem;
+    line-height: 1.6;
+    border-left: 3px solid;
+    border-radius: 0 5px 5px 0;
+  }
+
+  .feedback-box.show { display: block; }
+  .feedback-box.correct-fb { border-color: var(--correct-border); background: var(--correct); color: #0d4d22; }
+  .feedback-box.wrong-fb { border-color: var(--wrong-border); background: var(--wrong); color: #7b241c; }
+  .feedback-box strong { display: block; margin-bottom: 4px; font-size: 0.88rem; }
+
+  /* Concept note */
+  .concept-note {
+    font-size: 0.8rem;
+    color: #3d5066;
+    border-left: 3px solid var(--border2);
+    padding-left: 14px;
+    margin-top: 14px;
+    line-height: 1.7;
+    background: var(--panel2);
+    border-radius: 0 5px 5px 0;
+    padding: 10px 14px;
+  }
+
+  .concept-note strong { color: var(--accent); font-size: 0.78rem; letter-spacing: 0.06em; }
+
+  .warmup-concept { border-left-color: var(--warmup-accent); }
+  .warmup-concept strong { color: var(--warmup-accent); }
+
+  /* Navigation */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 24px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .nav-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border: 2px solid;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.18s;
+    border-radius: 5px;
+  }
+
+  .nav-btn.primary { border-color: var(--accent); color: var(--accent); }
+  .nav-btn.primary:hover { background: var(--accent); color: #fff; }
+  .nav-btn.secondary { border-color: var(--border2); color: var(--muted); }
+  .nav-btn.secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .nav-btn:disabled:hover { background: transparent; }
+
+  /* Results */
+  #results-screen {
+    display: none;
+    text-align: center;
+    padding: 50px 20px;
+  }
+
+  .result-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 2.4rem;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .result-sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+
+  .result-score-big {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 5rem;
+    color: var(--accent3);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .result-score-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+
+  .result-grade {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 10px 28px;
+    display: inline-block;
+    margin-bottom: 36px;
+    letter-spacing: 0.08em;
+    border-radius: 4px;
+  }
+
+  .grade-pass { border: 2px solid var(--correct-border); color: var(--accent3); background: var(--correct); }
+  .grade-fail { border: 2px solid var(--wrong-border); color: var(--accent2); background: var(--wrong); }
+
+  .result-breakdown {
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+  }
+
+  .breakdown-item { display: flex; flex-direction: column; gap: 4px; }
+  .breakdown-num { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 2.2rem; }
+  .breakdown-lbl { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .restart-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 12px 36px;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 5px;
+  }
+
+  .restart-btn:hover { background: var(--accent); color: #fff; }
+
+  @media (max-width: 680px) {
+    header { padding: 16px 18px; }
+    .main { padding: 18px 14px 40px; }
+    .scenario-card { padding: 16px 14px; }
+    .score-item { padding: 10px 14px; }
+    .badge { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="shield-icon">&#128737;</div>
+  <div class="header-text">
+    <h1>Firewall Rule Analysis Lab</h1>
+    <p>Security+ SY0-701 &mdash; Network Security &mdash; Rule Reading &amp; Misconfiguration Analysis</p>
+  </div>
+  <div class="badge">CYB300 // ECPI</div>
+</header>
+
+<div class="main">
+  <div id="lab-screen">
+
+    <div class="score-panel">
+      <div class="score-item">
+        <span class="score-label">Score</span>
+        <span class="score-value" id="score-display" style="color:var(--accent)">0%</span>
+      </div>
+      <div class="score-item">
+        <span class="score-label">Correct</span>
+        <span class="score-value" id="correct-display" style="color:var(--accent3)">0</span>
+      </div>
+      <div class="score-item">
+        <span class="score-label">Incorrect</span>
+        <span class="score-value" id="wrong-display" style="color:var(--accent2)">0</span>
+      </div>
+      <div class="score-item">
+        <span class="score-label">Scenario</span>
+        <span class="score-value" id="scenario-display" style="color:var(--gold)">1 / 8</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-outer">
+      <div class="progress-bar-inner" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progress-label">0% Complete</div>
+
+    <div id="scenario-container"></div>
+
+    <div class="nav-row">
+      <button class="nav-btn secondary" id="prev-btn" onclick="navigate(-1)" disabled>&#8592; Previous</button>
+      <button class="nav-btn primary" id="next-btn" onclick="navigate(1)">Next Scenario &#8594;</button>
+    </div>
+
+  </div>
+
+  <div id="results-screen">
+    <div class="result-title">Lab Complete</div>
+    <div class="result-sub">Firewall Rule Analysis &mdash; Session Results</div>
+    <div class="result-score-big" id="final-pct">0%</div>
+    <div class="result-score-label">Final Score</div>
+    <div id="final-grade" class="result-grade"></div>
+    <div class="result-breakdown">
+      <div class="breakdown-item">
+        <span class="breakdown-num" id="final-correct" style="color:var(--accent3)">0</span>
+        <span class="breakdown-lbl">Correct</span>
+      </div>
+      <div class="breakdown-item">
+        <span class="breakdown-num" id="final-wrong" style="color:var(--accent2)">0</span>
+        <span class="breakdown-lbl">Incorrect</span>
+      </div>
+      <div class="breakdown-item">
+        <span class="breakdown-num" id="final-total" style="color:var(--gold)">0</span>
+        <span class="breakdown-lbl">Total Questions</span>
+      </div>
+    </div>
+    <button class="restart-btn" onclick="restartLab()">Restart Lab</button>
+  </div>
+</div>
+
+<script>
+const scenarios = [
+  // ============================================================
+  // WARM-UP 1 — Traffic Matching
+  // ============================================================
+  {
+    id: 1,
+    type: "warmup",
+    title: "Warm-Up: Will This Traffic Be Allowed?",
+    tag: "Rule Reading",
+    context: "Before analyzing security issues, you need to be able to read a ruleset and trace how a packet moves through it. Firewalls evaluate rules top-down and stop at the FIRST match. Read the ruleset below and answer each traffic question.",
+    rules: [
+      { num: 1, name: "Allow-Web-In",   src: "ANY",           dst: "10.0.0.50", proto: "TCP", port: "443",  action: "ALLOW", highlight: false },
+      { num: 2, name: "Allow-DNS-Out",  src: "10.0.0.0/24",   dst: "8.8.8.8",   proto: "UDP", port: "53",   action: "ALLOW", highlight: false },
+      { num: 3, name: "Block-Telnet",   src: "ANY",           dst: "10.0.0.50", proto: "TCP", port: "23",   action: "DENY",  highlight: false },
+      { num: 4, name: "Allow-Internal", src: "10.0.0.0/24",   dst: "10.0.0.50", proto: "TCP", port: "ANY",  action: "ALLOW", highlight: false },
+      { num: 5, name: "Deny-All",       src: "ANY",           dst: "ANY",        proto: "ANY", port: "ANY",  action: "DENY",  highlight: false },
+    ],
+    questions: [
+      {
+        text: "Traffic: Source = 203.0.113.5 (internet), Destination = 10.0.0.50, Protocol = TCP, Port = 443. Which rule matches first, and what happens to this packet?",
+        options: [
+          "Rule 1 matches — the packet is ALLOWED",
+          "Rule 4 matches — the packet is ALLOWED",
+          "Rule 5 matches — the packet is DENIED",
+          "No rule matches — the packet passes through"
+        ],
+        correct: 0,
+        feedback: {
+          correct: "Rule 1 matches immediately. It permits TCP port 443 from ANY source to 10.0.0.50. The firewall stops evaluating after the first match, so Rules 2 through 5 are never checked for this packet. The packet is allowed.",
+          wrong: "Work top-down. Rule 1 checks: source ANY (203.0.113.5 qualifies), destination 10.0.0.50 (matches), protocol TCP (matches), port 443 (matches). That is a match — stop here. The packet is allowed by Rule 1."
+        }
+      },
+      {
+        text: "Traffic: Source = 10.0.0.15, Destination = 10.0.0.50, Protocol = TCP, Port = 23 (Telnet). Which rule matches first?",
+        options: [
+          "Rule 3 — Block-Telnet — the packet is DENIED",
+          "Rule 4 — Allow-Internal — the packet is ALLOWED (internal hosts bypass Telnet block)",
+          "Rule 5 — Deny-All — the packet is DENIED",
+          "Rule 1 — Allow-Web-In — the packet is ALLOWED"
+        ],
+        correct: 0,
+        feedback: {
+          correct: "Rule 3 matches before Rule 4. Even though 10.0.0.15 is an internal host and Rule 4 would allow it, Rule 3 appears higher in the list. Since Rule 3 (Block-Telnet) matches — source ANY, destination 10.0.0.50, TCP port 23 — the firewall denies the packet without ever reaching Rule 4. Rule order determines outcome.",
+          wrong: "Even though the source is internal, the firewall still processes rules top-down. Before it reaches Rule 4 (Allow-Internal), it hits Rule 3 (Block-Telnet), which matches ANY source to 10.0.0.50 on TCP/23. Rule 3 fires first and denies the packet."
+        }
+      },
+      {
+        text: "Traffic: Source = 10.0.0.22, Destination = 8.8.8.8, Protocol = UDP, Port = 53 (DNS). Which rule matches?",
+        options: [
+          "Rule 1 — Allow-Web-In",
+          "Rule 2 — Allow-DNS-Out — the packet is ALLOWED",
+          "Rule 5 — Deny-All — the packet is DENIED",
+          "Rule 4 — Allow-Internal"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Rule 2 matches. It allows UDP port 53 from the 10.0.0.0/24 subnet to 8.8.8.8 specifically. The source (10.0.0.22) falls within that subnet, the destination and port match, so Rule 2 fires and the packet is allowed.",
+          wrong: "Check each rule top-down. Rule 1 is for TCP/443 to 10.0.0.50 — no match. Rule 2 is for UDP/53 from 10.0.0.0/24 to 8.8.8.8 — source 10.0.0.22 is in the /24, destination and port match. Rule 2 fires."
+        }
+      }
+    ],
+    concept: "KEY SKILL: Always trace packets top-down through the ruleset. Stop at the first match. The action on that first matching rule is what the firewall applies. Packet attributes that must ALL match: source IP, destination IP, protocol, and port."
+  },
+
+  // ============================================================
+  // WARM-UP 2 — Redundant & Unreachable Rules
+  // ============================================================
+  {
+    id: 2,
+    type: "warmup",
+    title: "Warm-Up: Redundant and Unreachable Rules",
+    tag: "Rule Reading",
+    context: "A ruleset can contain rules that never fire — either because they are already covered by a broader rule above them (redundant), or because a prior rule always matches first (unreachable/shadowed). Identify these issues in the ruleset below.",
+    rules: [
+      { num: 1, name: "Allow-All-HTTP",   src: "ANY",         dst: "ANY",        proto: "TCP", port: "80",  action: "ALLOW", highlight: false },
+      { num: 2, name: "Allow-Corp-HTTP",  src: "10.10.0.0/16",dst: "192.168.1.5",proto: "TCP", port: "80",  action: "ALLOW", highlight: true },
+      { num: 3, name: "Block-Guest-HTTP", src: "172.16.0.0/12",dst: "ANY",        proto: "TCP", port: "80",  action: "DENY",  highlight: true },
+      { num: 4, name: "Allow-HTTPS",      src: "ANY",         dst: "ANY",        proto: "TCP", port: "443", action: "ALLOW", highlight: false },
+      { num: 5, name: "Allow-HTTPS-Corp", src: "10.10.0.0/16",dst: "ANY",        proto: "TCP", port: "443", action: "ALLOW", highlight: true },
+      { num: 6, name: "Deny-All",         src: "ANY",         dst: "ANY",        proto: "ANY", port: "ANY", action: "DENY",  highlight: false },
+    ],
+    questions: [
+      {
+        text: "Rule 2 (Allow-Corp-HTTP) allows 10.10.0.0/16 to reach 192.168.1.5 on TCP/80. Is Rule 2 reachable, and does it have any effect?",
+        options: [
+          "Yes — it is reachable and has a unique effect because it specifies a particular destination IP",
+          "No — Rule 1 (Allow-All-HTTP) already allows ALL sources to ANY destination on TCP/80, so Rule 2 can never be the first match for any packet that also matches Rule 1",
+          "Yes — it is reachable because it uses a smaller source subnet than Rule 1",
+          "No — it conflicts with Rule 6 (Deny-All) and is ignored"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Rule 2 is shadowed (unreachable) by Rule 1. Rule 1 allows TCP/80 from ANY source to ANY destination — that is the broadest possible match on those fields. Any packet heading to 192.168.1.5 on TCP/80 from the corporate subnet will match Rule 1 first (source ANY covers it, destination ANY covers it). Rule 2 is never the first match. It is a dead rule.",
+          wrong: "Even though Rule 2 specifies a narrower source and a specific destination, the firewall evaluates top-down. Rule 1 says: ANY source, ANY destination, TCP/80 — that matches every possible HTTP packet. A packet from 10.10.0.0/16 to 192.168.1.5 on TCP/80 hits Rule 1 first. Rule 2 is never reached."
+        }
+      },
+      {
+        text: "Rule 3 (Block-Guest-HTTP) is intended to deny guest wireless clients (172.16.0.0/12) from browsing the web on port 80. Will this rule ever block any guest traffic?",
+        options: [
+          "Yes — it will block all guest HTTP traffic because the source subnet is specific",
+          "No — Rule 1 (Allow-All-HTTP) matches guest traffic on TCP/80 before Rule 3 is ever evaluated, so guest HTTP is always allowed",
+          "Yes — DENY rules always take priority over ALLOW rules regardless of order",
+          "No — 172.16.0.0/12 is a private range and is automatically trusted"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Rule 3 is unreachable for guest HTTP traffic. Rule 1 (Allow-All-HTTP) covers ANY source to ANY destination on TCP/80. A guest client at 172.16.50.1 sending TCP/80 traffic hits Rule 1 immediately and is allowed — the firewall never reaches Rule 3. On most firewalls, DENY rules do NOT have inherent priority; the first match wins regardless of action type.",
+          wrong: "On standard firewalls, rules have no inherent DENY-first priority. The first matching rule wins, whether it is ALLOW or DENY. Because Rule 1 allows ALL TCP/80 traffic from ANY source, it matches guest HTTP traffic first. Rule 3 is never consulted for those packets."
+        }
+      },
+      {
+        text: "Rule 5 (Allow-HTTPS-Corp) allows 10.10.0.0/16 to reach ANY destination on TCP/443. Is this rule redundant given Rule 4?",
+        options: [
+          "No — Rule 5 has a more specific source and could behave differently",
+          "Yes — Rule 4 already allows ANY source to ANY destination on TCP/443, making Rule 5 redundant and unreachable for corporate HTTPS traffic",
+          "No — Rule 5 uses a corporate subnet so it takes priority",
+          "Yes — but only for traffic to destinations outside the 10.10.0.0/16 subnet"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Rule 5 is fully redundant. Rule 4 allows TCP/443 from ANY to ANY — the broadest possible match. Any corporate HTTPS packet will match Rule 4 first. Rule 5 adds nothing; it can never be the first match for traffic that also matches Rule 4. Redundant rules clutter the policy and make it harder to audit. They should be removed.",
+          wrong: "A more specific source in a later rule does not help if a broader earlier rule already covers it. Rule 4 says ANY source, ANY destination, TCP/443. A corporate HTTPS packet matches that immediately. Rule 5's corporate-only source restriction is irrelevant because the packet never gets that far."
+        }
+      }
+    ],
+    concept: "REDUNDANT RULES appear when a broader rule above already covers every packet the lower rule would match. SHADOWED RULES are a specific type where a previous rule always matches first, making the later rule unreachable. Both waste policy space and create a false sense of security. Always audit from top to bottom, asking: 'Can a packet ever reach this rule?'"
+  },
+
+  // ============================================================
+  // SECURITY SCENARIO 1
+  // ============================================================
+  {
+    id: 3,
+    type: "security",
+    title: "Corporate Inbound Web Traffic",
+    tag: "Overly Permissive Rule",
+    context: "A junior admin configured the following ruleset for a DMZ web server (192.168.10.5). The server should only accept HTTPS traffic from the internet. Review the ruleset and answer the questions.",
+    rules: [
+      { num: 1, name: "Allow-HTTPS", src: "ANY", dst: "192.168.10.5", proto: "TCP", port: "443", action: "ALLOW", highlight: false },
+      { num: 2, name: "Allow-HTTP",  src: "ANY", dst: "192.168.10.5", proto: "TCP", port: "80",  action: "ALLOW", highlight: true },
+      { num: 3, name: "Allow-SSH",   src: "ANY", dst: "192.168.10.5", proto: "TCP", port: "22",  action: "ALLOW", highlight: true },
+      { num: 4, name: "Deny-All",    src: "ANY", dst: "ANY",          proto: "ANY", port: "ANY", action: "DENY",  highlight: false },
+    ],
+    questions: [
+      {
+        text: "Which rule represents the MOST critical security misconfiguration in this ruleset?",
+        options: [
+          "Rule 1 — HTTPS should not be allowed from ANY source",
+          "Rule 2 — HTTP (port 80) is unencrypted and should not be allowed from the internet",
+          "Rule 3 — SSH (port 22) should never be open to ANY source on a DMZ server",
+          "Rule 4 — The implicit deny should be higher in the ruleset"
+        ],
+        correct: 2,
+        feedback: {
+          correct: "Rule 3 is the critical issue. SSH port 22 open to ANY source gives every attacker on the internet the ability to attempt brute-force or exploit-based authentication attacks directly against this server. SSH management access must be restricted to specific trusted admin IPs or a jump host — never ANY.",
+          wrong: "Consider which rule gives attackers the most dangerous capability. HTTP on port 80 is a concern (cleartext), but SSH open to the entire internet is a direct remote management attack surface and far more critical."
+        }
+      },
+      {
+        text: "Rule 2 allows HTTP (port 80). Beyond the cleartext problem, what is the BEST remediation while maintaining usability?",
+        options: [
+          "Delete Rule 2 entirely and block all port 80 traffic",
+          "Change Rule 2 to redirect port 80 to port 443 (HTTP to HTTPS redirect)",
+          "Change the source on Rule 2 from ANY to only internal RFC 1918 addresses",
+          "Move Rule 2 below Rule 4 in the ruleset"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Best practice is to redirect HTTP to HTTPS rather than simply block port 80. This maintains usability — users who type http:// still reach the site securely — while ensuring all traffic is encrypted. A firewall or load balancer redirect from port 80 to 443 is standard hardening for public web servers.",
+          wrong: "Simply blocking port 80 breaks access for users who type plain HTTP URLs. Best practice is to redirect HTTP to HTTPS so users always land on the encrypted version of the site."
+        }
+      }
+    ],
+    concept: "Management protocols like SSH must always be source-restricted to known admin IPs or a dedicated management subnet — never ANY. For web servers, redirect HTTP to HTTPS rather than block it outright. Every exposed port is a potential attack surface."
+  },
+
+  // ============================================================
+  // SECURITY SCENARIO 2
+  // ============================================================
+  {
+    id: 4,
+    type: "security",
+    title: "Rule Order Conflict",
+    tag: "Rule Shadowing",
+    context: "A network admin created this outbound ruleset for a corporate workstation subnet (10.1.0.0/24). A ticket reports that blocked social media sites are still accessible. Identify why.",
+    rules: [
+      { num: 1, name: "Allow-All-Outbound", src: "10.1.0.0/24", dst: "ANY",           proto: "TCP", port: "ANY", action: "ALLOW", highlight: true },
+      { num: 2, name: "Block-Social",        src: "10.1.0.0/24", dst: "203.0.113.0/24",proto: "TCP", port: "443", action: "DENY",  highlight: false },
+      { num: 3, name: "Allow-DNS",           src: "10.1.0.0/24", dst: "8.8.8.8",       proto: "UDP", port: "53",  action: "ALLOW", highlight: false },
+      { num: 4, name: "Implicit-Deny",       src: "ANY",          dst: "ANY",           proto: "ANY", port: "ANY", action: "DENY",  highlight: false },
+    ],
+    questions: [
+      {
+        text: "Why is the Block-Social rule (Rule 2) ineffective?",
+        options: [
+          "The destination IP range is incorrect for social media platforms",
+          "Rule 1 matches all TCP traffic from the workstation subnet before Rule 2 is evaluated, so Rule 2 is never reached",
+          "The implicit deny in Rule 4 is overriding Rule 2",
+          "DNS must be blocked first to prevent social media access"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "This is classic rule shadowing. Rule 1 allows any TCP traffic from 10.1.0.0/24 to ANY. Because rules are evaluated top-down, every outbound connection from workstations matches Rule 1 first and is allowed — Rule 2 is never evaluated. The deny rule is shadowed by the permissive rule above it.",
+          wrong: "Focus on sequential evaluation. Rule 1 allows ALL outbound TCP from the workstation subnet. Any packet from those workstations matches Rule 1 immediately. The firewall stops there and never reaches Rule 2."
+        }
+      },
+      {
+        text: "What is the CORRECT fix to block social media while maintaining general internet access?",
+        options: [
+          "Delete Rule 1 and add specific ALLOW rules for each permitted destination",
+          "Move Rule 2 (Block-Social) above Rule 1 so the deny is evaluated first",
+          "Change Rule 4 from Implicit-Deny to an Explicit-Deny for 203.0.113.0/24",
+          "Change Rule 1 to use UDP instead of TCP"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Moving specific DENY rules above broad ALLOW rules ensures they are evaluated first. With Rule 2 above Rule 1, traffic to the social media destination hits the deny before the broad allow. Specific exceptions must always precede broad permissions.",
+          wrong: "The fix must address rule ordering. Specific, narrow rules must appear before broad, permissive rules. If the broad allow fires first, specific denies will never be reached."
+        }
+      }
+    ],
+    concept: "Rule shadowing: a broad rule earlier in the list makes subsequent specific rules unreachable. Always place narrow/specific rules ABOVE broad rules. Verify rulesets with traffic simulation after every change."
+  },
+
+  // ============================================================
+  // SECURITY SCENARIO 3
+  // ============================================================
+  {
+    id: 5,
+    type: "security",
+    title: "Implicit vs Explicit Deny",
+    tag: "Missing Deny-All",
+    context: "A firewall protects a small office network (172.16.0.0/16). The admin only configured explicit allow rules and relies on the firewall's default-allow behavior (the device shipped with default-allow). Review the ruleset.",
+    rules: [
+      { num: 1, name: "Allow-HTTP",      src: "ANY", dst: "172.16.5.10", proto: "TCP", port: "80",  action: "ALLOW",        highlight: false },
+      { num: 2, name: "Allow-HTTPS",     src: "ANY", dst: "172.16.5.10", proto: "TCP", port: "443", action: "ALLOW",        highlight: false },
+      { num: 3, name: "Allow-SMTP",      src: "ANY", dst: "172.16.5.20", proto: "TCP", port: "25",  action: "ALLOW",        highlight: false },
+      { num: 4, name: "(No Deny Rule)",  src: "---", dst: "---",         proto: "---", port: "---", action: "DEFAULT ALLOW", highlight: true },
+    ],
+    questions: [
+      {
+        text: "What is the primary security problem with this firewall configuration?",
+        options: [
+          "HTTP (port 80) should not be explicitly allowed alongside HTTPS",
+          "SMTP (port 25) should use port 587 instead",
+          "There is no deny-all at the end; the default action is ALLOW, permitting all unmatched traffic including RDP, SMB, and any other port not listed",
+          "The source is too restrictive and should be scoped to specific subnets"
+        ],
+        correct: 2,
+        feedback: {
+          correct: "A firewall with default-allow permits all traffic not explicitly matched by a rule. Any port not listed — RDP on 3389, SMB on 445, WinRM on 5985, database ports, etc. — is accessible from the internet. Firewalls must operate on default-deny: block everything unless explicitly permitted. A deny-all must be the final rule.",
+          wrong: "The protocol and source choices matter, but the foundational issue is the default-allow policy. A properly configured firewall denies all traffic that is not explicitly permitted."
+        }
+      },
+      {
+        text: "Which Security+ principle does the 'default deny' (implicit deny) firewall model enforce?",
+        options: [
+          "Defense in depth",
+          "Least privilege / least functionality",
+          "Separation of duties",
+          "Non-repudiation"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Implicit deny directly enforces least privilege / least functionality: systems should only accept connections that are explicitly required. Everything else is denied by default. This limits the attack surface by ensuring no service is accidentally reachable simply because it was never mentioned in policy.",
+          wrong: "Think about which principle says 'only what is required should be permitted, nothing else.' Implicit deny is a direct implementation of least privilege at the network layer."
+        }
+      }
+    ],
+    concept: "Default deny is a foundational firewall principle. Every ruleset should end with a deny-all (explicit or implicit). Never deploy a firewall in default-allow mode. All traffic is blocked unless a rule explicitly permits it."
+  },
+
+  // ============================================================
+  // SECURITY SCENARIO 4
+  // ============================================================
+  {
+    id: 6,
+    type: "security",
+    title: "Stateless vs Stateful Confusion",
+    tag: "Return Traffic Issue",
+    context: "An admin configured a stateless ACL on a router protecting an internal server (10.0.0.100). Users report they cannot receive web traffic responses after the new ACL was applied.",
+    rules: [
+      { num: 1, name: "Allow-Out-HTTP",    src: "10.0.0.100", dst: "ANY",        proto: "TCP", port: "80",  action: "ALLOW", highlight: false },
+      { num: 2, name: "Allow-Out-HTTPS",   src: "10.0.0.100", dst: "ANY",        proto: "TCP", port: "443", action: "ALLOW", highlight: false },
+      { num: 3, name: "Deny-Inbound-All",  src: "ANY",         dst: "10.0.0.100",proto: "ANY", port: "ANY", action: "DENY",  highlight: true },
+    ],
+    questions: [
+      {
+        text: "Why can't 10.0.0.100 receive responses to its outbound HTTP/HTTPS requests?",
+        options: [
+          "The outbound rules use the wrong port numbers",
+          "A stateless ACL does not track connection state; return traffic arrives as separate inbound packets on high ports and is blocked by Rule 3",
+          "The server needs an additional rule for DNS (port 53) lookups first",
+          "Rules 1 and 2 should use UDP, not TCP"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Stateless ACLs treat every packet independently. When 10.0.0.100 makes an HTTP request, the response from the internet arrives as inbound traffic on ephemeral high ports (1024-65535). Since the ACL has no session awareness, Rule 3 blocks it. A stateful firewall tracks sessions and automatically permits established return traffic.",
+          wrong: "The issue is stateless vs stateful operation. A stateless device evaluates every packet in isolation. Return traffic needs to be explicitly permitted, or the device needs stateful inspection."
+        }
+      },
+      {
+        text: "What is the MOST appropriate fix for this stateless ACL to allow return traffic?",
+        options: [
+          "Delete Rule 3 entirely to allow all inbound traffic",
+          "Add a rule above Rule 3 that allows inbound TCP with the ACK flag set to 10.0.0.100 on ports 1024-65535",
+          "Change Rule 3 to only deny UDP traffic",
+          "Replace the router ACL with a rule allowing port 80 inbound from ANY"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "For stateless ACLs, return traffic must be explicitly permitted. Allowing inbound TCP with the ACK flag set on ephemeral ports (1024-65535) permits return traffic while blocking unsolicited inbound connections. The ACK flag indicates a reply to an established session, not a new connection initiation.",
+          wrong: "Deleting the deny-all would expose the server entirely. The correct approach is to permit established return traffic specifically — TCP with ACK flag on high destination ports — distinguishing replies from new connection attempts."
+        }
+      }
+    ],
+    concept: "Stateful firewalls track TCP sessions and automatically permit established/related return traffic. Stateless ACLs treat every packet independently — return traffic must be explicitly allowed. Know the difference for Security+: stateful = session awareness, stateless = packet-by-packet."
+  },
+
+  // ============================================================
+  // SECURITY SCENARIO 5
+  // ============================================================
+  {
+    id: 7,
+    type: "security",
+    title: "Inbound Management Access",
+    tag: "Exposed Management Interface",
+    context: "A managed switch has the following ACL protecting remote management access. The security team flagged this during a compliance review. Identify all issues.",
+    rules: [
+      { num: 1, name: "Allow-Telnet", src: "ANY",            dst: "10.10.10.1", proto: "TCP",  port: "23",  action: "ALLOW", highlight: true },
+      { num: 2, name: "Allow-SSH",    src: "10.10.10.0/24",  dst: "10.10.10.1", proto: "TCP",  port: "22",  action: "ALLOW", highlight: false },
+      { num: 3, name: "Allow-ICMP",   src: "ANY",            dst: "10.10.10.1", proto: "ICMP", port: "N/A", action: "ALLOW", highlight: false },
+      { num: 4, name: "Deny-All",     src: "ANY",            dst: "ANY",        proto: "ANY",  port: "ANY", action: "DENY",  highlight: false },
+    ],
+    questions: [
+      {
+        text: "Which rule is the MOST serious violation of secure network management principles?",
+        options: [
+          "Rule 2 — SSH should not be restricted to a /24 subnet",
+          "Rule 1 — Telnet transmits credentials and data in cleartext and should never be used for device management",
+          "Rule 3 — ICMP should always be completely blocked",
+          "Rule 4 — Deny-All should include explicit logging, not just a deny"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Telnet (port 23) sends all data including usernames and passwords in cleartext. Any attacker with network access can capture credentials with a packet capture. Telnet is a deprecated protocol that must never be used for management. SSH is the required replacement. This is a core Security+ topic: always use encrypted management protocols — SSH over Telnet, HTTPS over HTTP, SNMPv3 over SNMPv1/v2c.",
+          wrong: "The fundamental issue is using a protocol that exposes credentials in cleartext. On Security+, Telnet vs SSH is a critical comparison: SSH encrypts the session, Telnet does not. Telnet must be disabled on all network devices."
+        }
+      },
+      {
+        text: "Rule 3 allows ICMP from ANY source. What is the BEST approach to handling ICMP in a hardened ruleset?",
+        options: [
+          "Block all ICMP completely — it serves no legitimate purpose and only aids attackers",
+          "Allow ICMP only from specific trusted management hosts or subnets, and rate-limit; block ICMP from untrusted sources",
+          "Allow ICMP from ANY since ping is required for all troubleshooting",
+          "Redirect all ICMP to a honeypot for attacker profiling"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "ICMP is dual-use. It is necessary for legitimate diagnostics (ping, traceroute, path MTU discovery) but can also enable reconnaissance, tunneling, and DoS amplification. Best practice is to restrict ICMP to trusted management subnets rather than blocking it entirely (which breaks diagnostics) or allowing it from anywhere (which enables reconnaissance).",
+          wrong: "Complete ICMP blocking breaks legitimate functions. Complete allowance from ANY enables reconnaissance. The answer is source-restricted ICMP from trusted hosts."
+        }
+      }
+    ],
+    concept: "Secure management protocols: SSH (not Telnet), HTTPS (not HTTP), SNMPv3 (not v1/v2). Restrict management access to dedicated management VLANs or jump hosts. ICMP should be controlled, not blindly permitted or blocked."
+  },
+
+  // ============================================================
+  // SECURITY SCENARIO 6
+  // ============================================================
+  {
+    id: 8,
+    type: "security",
+    title: "Complex Multi-Zone DMZ Policy",
+    tag: "Zone-Based Misconfiguration",
+    context: "A three-tier architecture separates zones: Internet (untrusted), DMZ (172.16.1.0/24), and Internal LAN (192.168.1.0/24). A web app server in the DMZ (172.16.1.10) needs access to a database at 192.168.1.20. Review the inter-zone rules.",
+    rules: [
+      { num: 1, name: "Internet-to-DMZ-Web",    src: "ANY",             dst: "172.16.1.10",      proto: "TCP", port: "443", action: "ALLOW", highlight: false },
+      { num: 2, name: "DMZ-to-Internal-DB",     src: "172.16.1.0/24",   dst: "192.168.1.0/24",   proto: "TCP", port: "ANY", action: "ALLOW", highlight: true },
+      { num: 3, name: "Internal-to-DMZ-Admin",  src: "192.168.1.0/24",  dst: "172.16.1.0/24",    proto: "TCP", port: "22",  action: "ALLOW", highlight: false },
+      { num: 4, name: "DMZ-to-Internet",        src: "172.16.1.0/24",   dst: "ANY",              proto: "TCP", port: "ANY", action: "ALLOW", highlight: true },
+      { num: 5, name: "Deny-All",               src: "ANY",             dst: "ANY",              proto: "ANY", port: "ANY", action: "DENY",  highlight: false },
+    ],
+    questions: [
+      {
+        text: "Rule 2 allows the entire DMZ subnet to reach the entire internal LAN on any port. What attack scenario does this create?",
+        options: [
+          "It allows internal users to access DMZ servers without authentication",
+          "If the DMZ web server is compromised, an attacker can pivot from it to attack the entire internal network on ALL ports, bypassing DMZ isolation",
+          "It exposes the internal LAN to direct internet traffic",
+          "It allows the database server to initiate connections to the internet"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "The DMZ exists to isolate public-facing servers so that if one is compromised, the internal network remains protected. Rule 2 defeats this entirely. The correct rule should only allow 172.16.1.10 (the specific web app) to reach 192.168.1.20 (the specific DB) on the specific database port (TCP 3306/MySQL, 1433/MSSQL, 5432/PostgreSQL). Allowing /24 to /24 on ANY port eliminates DMZ segmentation.",
+          wrong: "Think about what an attacker can do after compromising the web server in the DMZ. With ANY port open to the entire internal LAN, that compromised server becomes a pivot point for lateral movement, port scanning, and internal attacks."
+        }
+      },
+      {
+        text: "Rule 4 allows the entire DMZ to initiate outbound connections to the internet on ANY port. Which attack technique does this MOST enable if a DMZ server is compromised?",
+        options: [
+          "ARP poisoning against internal hosts",
+          "Command and Control (C2) callbacks, data exfiltration, and malware downloads from the compromised DMZ server",
+          "DNS cache poisoning of the internal resolver",
+          "VLAN hopping attacks against the internal switch"
+        ],
+        correct: 1,
+        feedback: {
+          correct: "Allowing unrestricted outbound internet access from the DMZ enables an attacker to phone home (C2 callback), download additional tools, and exfiltrate stolen data. DMZ servers should have minimal, specific outbound access — only to required update servers or services. Egress filtering is as important as ingress filtering.",
+          wrong: "When an attacker owns a server, outbound internet access enables them to maintain control (C2) and steal data (exfiltration). Unrestricted ANY outbound from a DMZ is one of the most dangerous egress misconfigurations."
+        }
+      }
+    ],
+    concept: "DMZ isolation principle: if a DMZ host is compromised, internal hosts must remain unreachable. Zone-to-zone rules must be host-specific and port-specific, never subnet-to-subnet on ANY. Egress filtering (outbound restrictions) is as critical as ingress filtering."
+  }
+];
+
+// State
+let currentScenario = 0;
+let answers = {};
+let correct = 0;
+let wrong = 0;
+let totalAnswered = 0;
+const totalQuestions = scenarios.reduce((s, sc) => s + sc.questions.length, 0);
+const totalScenarios = scenarios.length;
+
+function renderScenario(idx) {
+  const sc = scenarios[idx];
+  const isWarmup = sc.type === 'warmup';
+  const cardClass = isWarmup ? 'warmup-card' : 'security-card';
+
+  let sectionHtml = '';
+  // Show section label on first warmup and first security scenario
+  if (idx === 0) {
+    sectionHtml = `<div class="section-label"><span class="section-label-pill pill-warmup">Warm-Up: Rule Reading</span><span class="section-label-line"></span></div>`;
+  } else if (idx === 2) {
+    sectionHtml = `<div class="section-label"><span class="section-label-pill pill-security">Security Analysis</span><span class="section-label-line"></span></div>`;
+  }
+
+  let html = sectionHtml + `
+    <div class="scenario-card ${cardClass}">
+      <div class="scenario-header">
+        <span class="scenario-num ${isWarmup ? 'warmup-num' : ''}">${isWarmup ? 'WARM-UP' : 'SCENARIO'} ${sc.id} / ${totalScenarios}</span>
+        <div>
+          <div class="scenario-title">${sc.title} <span class="tag-pill ${isWarmup ? 'tag-warmup' : 'tag-vuln'}">${sc.tag}</span></div>
+          <div class="scenario-desc" style="margin-top:5px">${sc.context}</div>
+        </div>
+      </div>
+
+      <div class="rule-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Rule Name</th><th>Source</th><th>Destination</th><th>Proto</th><th>Port</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  sc.rules.forEach(r => {
+    const hlClass = r.highlight ? ' class="highlight-rule"' : '';
+    const actionClass = r.action === 'ALLOW' ? 'allow' : r.action === 'DENY' ? 'deny' : 'default-allow';
+    const srcCls = (r.src === 'ANY' || r.src === '---') ? 'any-val' : '';
+    const dstCls = (r.dst === 'ANY' || r.dst === '---') ? 'any-val' : '';
+    html += `
+      <tr${hlClass}>
+        <td class="rule-num">${r.num}</td>
+        <td>${r.name}</td>
+        <td class="${srcCls}">${r.src}</td>
+        <td class="${dstCls}">${r.dst}</td>
+        <td>${r.proto}</td>
+        <td>${r.port}</td>
+        <td class="${actionClass}">${r.action}</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table></div><div class="questions-section">`;
+
+  sc.questions.forEach((q, qi) => {
+    const key = `${idx}_${qi}`;
+    const answered = answers[key] !== undefined;
+    const chosen = answers[key];
+    const qLabelClass = isWarmup ? 'warmup-q' : '';
+
+    html += `<div class="question-block">
+      <div class="question-text"><span class="q-label ${qLabelClass}">Q${qi+1}.</span> ${q.text}</div>
+      <div class="options-grid">`;
+
+    ['A','B','C','D'].forEach((letter, oi) => {
+      let cls = '';
+      if (answered) {
+        if (oi === q.correct) cls = 'correct';
+        else if (oi === chosen && chosen !== q.correct) cls = 'wrong';
+      }
+      html += `
+        <button class="option-btn ${cls}" ${answered ? 'disabled' : ''} onclick="answerQuestion(${idx},${qi},${oi})">
+          <span class="option-letter">${letter}.</span>
+          <span>${q.options[oi]}</span>
+        </button>`;
+    });
+
+    html += `</div>`;
+
+    if (answered) {
+      const isCorrect = chosen === q.correct;
+      html += `<div class="feedback-box ${isCorrect ? 'correct-fb' : 'wrong-fb'} show">
+        <strong>${isCorrect ? 'Correct' : 'Incorrect'}</strong>
+        ${isCorrect ? q.feedback.correct : q.feedback.wrong}
+      </div>`;
+    } else {
+      html += `<div class="feedback-box"></div>`;
+    }
+
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+
+  const conceptClass = isWarmup ? 'concept-note warmup-concept' : 'concept-note';
+  const conceptIcon = isWarmup ? '&#128218;' : '&#128161;';
+  html += `<div class="${conceptClass}"><strong>${conceptIcon} ${isWarmup ? 'SKILL NOTE' : 'CONCEPT'}</strong> &mdash; ${sc.concept}</div>`;
+  html += `</div>`;
+
+  document.getElementById('scenario-container').innerHTML = html;
+  updateUI();
+}
+
+function answerQuestion(si, qi, chosen) {
+  const key = `${si}_${qi}`;
+  if (answers[key] !== undefined) return;
+  answers[key] = chosen;
+
+  const isCorrect = chosen === scenarios[si].questions[qi].correct;
+  if (isCorrect) correct++; else wrong++;
+  totalAnswered++;
+
+  const pct = Math.round((correct / totalQuestions) * 100);
+  document.getElementById('score-display').textContent = pct + '%';
+  document.getElementById('correct-display').textContent = correct;
+  document.getElementById('wrong-display').textContent = wrong;
+
+  updateProgress();
+  renderScenario(si);
+}
+
+function navigate(dir) {
+  currentScenario = Math.max(0, Math.min(totalScenarios - 1, currentScenario + dir));
+  renderScenario(currentScenario);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateUI() {
+  document.getElementById('prev-btn').disabled = currentScenario === 0;
+  document.getElementById('scenario-display').textContent = `${currentScenario + 1} / ${totalScenarios}`;
+  const nextBtn = document.getElementById('next-btn');
+  const isLast = currentScenario === totalScenarios - 1;
+  if (isLast) {
+    nextBtn.textContent = 'View Results';
+    const allDone = Object.keys(answers).length >= totalQuestions;
+    nextBtn.onclick = allDone ? showResults : () => {};
+    nextBtn.disabled = !allDone;
+  } else {
+    nextBtn.textContent = 'Next Scenario \u2192';
+    nextBtn.onclick = () => navigate(1);
+    nextBtn.disabled = false;
+  }
+}
+
+function updateProgress() {
+  const pct = Math.round((totalAnswered / totalQuestions) * 100);
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = pct + '% Complete (' + totalAnswered + ' / ' + totalQuestions + ' questions answered)';
+}
+
+function showResults() {
+  document.getElementById('lab-screen').style.display = 'none';
+  document.getElementById('results-screen').style.display = 'block';
+  const pct = Math.round((correct / totalQuestions) * 100);
+  document.getElementById('final-pct').textContent = pct + '%';
+  document.getElementById('final-correct').textContent = correct;
+  document.getElementById('final-wrong').textContent = wrong;
+  document.getElementById('final-total').textContent = totalQuestions;
+  const gradeEl = document.getElementById('final-grade');
+  if (pct >= 70) {
+    gradeEl.textContent = 'PASS — Solid Understanding of Firewall Concepts';
+    gradeEl.className = 'result-grade grade-pass';
+  } else {
+    gradeEl.textContent = 'REVIEW NEEDED — Revisit Firewall Rule Principles';
+    gradeEl.className = 'result-grade grade-fail';
+  }
+}
+
+function restartLab() {
+  currentScenario = 0; answers = {}; correct = 0; wrong = 0; totalAnswered = 0;
+  document.getElementById('score-display').textContent = '0%';
+  document.getElementById('correct-display').textContent = '0';
+  document.getElementById('wrong-display').textContent = '0';
+  document.getElementById('scenario-display').textContent = '1 / ' + totalScenarios;
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-label').textContent = '0% Complete';
+  document.getElementById('results-screen').style.display = 'none';
+  document.getElementById('lab-screen').style.display = 'block';
+  renderScenario(0);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+renderScenario(0);
+updateProgress();
+</script>
+</body>
+</html>
