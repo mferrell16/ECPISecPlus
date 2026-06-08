@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOC Alert Tuning Lab — CYB300</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ─────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:       #0A1628;
+    --navy-mid:   #0F2044;
+    --navy-card:  #132038;
+    --navy-light: #1C3055;
+    --border:     rgba(255,255,255,0.08);
+    --border-mid: rgba(255,255,255,0.14);
+
+    --teal:       #00C2A8;
+    --teal-dim:   rgba(0,194,168,0.15);
+    --teal-glow:  rgba(0,194,168,0.3);
+    --orange:     #FF7C3E;
+    --orange-dim: rgba(255,124,62,0.15);
+    --red:        #FF4D4D;
+    --red-dim:    rgba(255,77,77,0.12);
+    --yellow:     #FFD166;
+    --yellow-dim: rgba(255,209,102,0.12);
+    --green:      #3DD68C;
+    --green-dim:  rgba(61,214,140,0.12);
+    --purple:     #A78BFA;
+    --purple-dim: rgba(167,139,250,0.12);
+
+    --text-primary:   #E8EDF5;
+    --text-secondary: #8A99B3;
+    --text-muted:     #4A5A72;
+
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--navy);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── Scanline texture overlay ──────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── Layout ──────────────────────────────────────── */
+  .shell {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Header ──────────────────────────────────────── */
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 0;
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 12px var(--teal-glow);
+    animation: pulse 2.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--teal-glow); }
+    50% { opacity: 0.6; box-shadow: 0 0 4px var(--teal-glow); }
+  }
+  .logo-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: .06em;
+  }
+  .header-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 100px;
+    letter-spacing: .04em;
+  }
+
+  /* ── Phase bar ───────────────────────────────────── */
+  .phase-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 32px;
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .phase-step {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: all .3s ease;
+    border-right: 1px solid var(--border);
+    cursor: default;
+  }
+  .phase-step:last-child { border-right: none; }
+  .phase-step.active { color: var(--text-primary); background: var(--navy-light); }
+  .phase-step.done { color: var(--teal); }
+  .phase-step .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid currentColor;
+    flex-shrink: 0;
+    transition: all .3s ease;
+  }
+  .phase-step.active .step-num { background: var(--teal); color: var(--navy); border-color: var(--teal); }
+  .phase-step.done .step-num { background: var(--teal-dim); }
+  .phase-step.done .step-num::after { content: '✓'; }
+  .phase-step.done .step-num span { display: none; }
+
+  /* ── Cards ───────────────────────────────────────── */
+  .card {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  /* ── Briefing screen ─────────────────────────────── */
+  .brief-hero {
+    text-align: center;
+    padding: 48px 0 36px;
+  }
+  .brief-time {
+    font-family: var(--mono);
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: -.02em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .brief-date {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: .06em;
+    margin-bottom: 28px;
+  }
+  .brief-h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .brief-p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 580px;
+    margin: 0 auto 32px;
+    line-height: 1.7;
+  }
+  .brief-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 36px;
+    text-align: left;
+  }
+  .brief-tile {
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+  }
+  .brief-tile-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--teal);
+  }
+  .brief-tile-t {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .brief-tile-s {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ── Buttons ─────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 26px;
+    border-radius: var(--radius-md);
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .2s;
+    border: none;
+    text-decoration: none;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary {
+    background: var(--teal);
+    color: var(--navy);
+    font-weight: 600;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-mid);
+  }
+  .btn-ghost:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+  }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn:disabled:active { transform: none; }
+
+  /* ── Rule rows ───────────────────────────────────── */
+  .rules-list { display: flex; flex-direction: column; gap: 0; }
+  .rule-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 72px;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rule-row:last-child { border-bottom: none; }
+  .rule-label-main {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+  .rule-label-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+  .rule-val-display {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: right;
+  }
+  .rule-val-unit {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+  /* Slider styling */
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--navy-light);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--teal);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--teal-glow);
+    transition: box-shadow .15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 14px var(--teal-glow);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--teal);
+    cursor: pointer;
+    border: none;
+  }
+
+  /* ── Queue preview ───────────────────────────────── */
+  .queue-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    margin-top: 20px;
+    border: 1px solid var(--border);
+    background: var(--navy-light);
+  }
+  .qp-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .qp-text { flex: 1; color: var(--text-secondary); }
+  .qp-text strong { color: var(--text-primary); }
+
+  /* ── Hint box ────────────────────────────────────── */
+  .hint-box {
+    display: flex;
+    gap: 12px;
+    background: rgba(0,194,168,0.06);
+    border: 1px solid rgba(0,194,168,0.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-top: 16px;
+  }
+  .hint-icon { color: var(--teal); flex-shrink: 0; font-size: 14px; padding-top: 1px; }
+
+  /* ── Metrics row ─────────────────────────────────── */
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .metric-card {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+  }
+  .metric-label { font-size: 11px; color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+  .metric-val { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--text-primary); }
+  .metric-val.red { color: var(--red); }
+  .metric-val.yellow { color: var(--yellow); }
+  .metric-val.green { color: var(--green); }
+
+  /* ── Alert queue ─────────────────────────────────── */
+  .queue-wrap {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .queue-thead {
+    display: grid;
+    grid-template-columns: 80px 1fr 80px 170px;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--navy-light);
+    border-bottom: 1px solid var(--border);
+  }
+  .queue-thead span {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .queue-body {
+    max-height: 380px;
+    overflow-y: auto;
+  }
+  .queue-body::-webkit-scrollbar { width: 4px; }
+  .queue-body::-webkit-scrollbar-track { background: transparent; }
+  .queue-body::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+
+  .alert-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 80px 170px;
+    gap: 12px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+    transition: background .2s;
+  }
+  .alert-row:last-child { border-bottom: none; }
+  .alert-row.triaged-investigate { background: rgba(255,77,77,0.06); }
+  .alert-row.triaged-suppress { background: rgba(255,255,255,0.02); }
+  .alert-row.triaged-tune { background: rgba(255,209,102,0.05); }
+
+  .sev-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .sev-crit { background: rgba(255,77,77,0.18); color: var(--red); border: 1px solid rgba(255,77,77,0.3); }
+  .sev-high { background: rgba(255,124,62,0.18); color: var(--orange); border: 1px solid rgba(255,124,62,0.3); }
+  .sev-med  { background: rgba(255,209,102,0.15); color: var(--yellow); border: 1px solid rgba(255,209,102,0.3); }
+  .sev-low  { background: rgba(138,153,179,0.15); color: var(--text-secondary); border: 1px solid var(--border-mid); }
+
+  .alert-desc-main { font-size: 13px; line-height: 1.45; color: var(--text-primary); margin-bottom: 3px; }
+  .alert-desc-src {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .alert-time {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    padding-top: 2px;
+  }
+
+  .triage-set { display: flex; flex-direction: column; gap: 4px; }
+  .triage-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+    text-align: left;
+    width: 100%;
+  }
+  .triage-btn:hover { border-color: var(--border-mid); color: var(--text-primary); background: var(--navy-light); }
+  .triage-btn .tb-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .triage-btn.active-inv { border-color: rgba(255,77,77,0.4); color: var(--red); background: var(--red-dim); }
+  .triage-btn.active-sup { border-color: var(--border-mid); color: var(--text-secondary); background: var(--navy-light); }
+  .triage-btn.active-tun { border-color: rgba(255,209,102,0.4); color: var(--yellow); background: var(--yellow-dim); }
+
+  .empty-queue {
+    padding: 48px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .empty-queue strong { display: block; font-size: 20px; color: var(--yellow); margin-bottom: 8px; }
+
+  /* ── Triage footer ───────────────────────────────── */
+  .triage-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+  .triage-count {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .triage-count strong { color: var(--teal); }
+
+  /* ── Results ─────────────────────────────────────── */
+  .rating-hero {
+    text-align: center;
+    padding: 40px 28px 36px;
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+  }
+  .rating-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .rating-title {
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .rating-pct {
+    font-family: var(--mono);
+    font-size: 64px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .rating-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .score-tile {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+  }
+  .score-tile-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .score-tile-val { font-family: var(--mono); font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .score-tile-sub { font-size: 11px; color: var(--text-muted); }
+
+  /* Debrief table */
+  .debrief-list { display: flex; flex-direction: column; }
+  .debrief-row {
+    display: grid;
+    grid-template-columns: 1fr 150px;
+    gap: 16px;
+    align-items: start;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .debrief-row:last-child { border-bottom: none; }
+  .debrief-alert { font-size: 13px; color: var(--text-primary); margin-bottom: 4px; line-height: 1.45; }
+  .debrief-expl { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .verdict {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .verdict-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 100px;
+    letter-spacing: .04em;
+  }
+  .verdict-correct { background: var(--green-dim); color: var(--green); border: 1px solid rgba(61,214,140,0.25); }
+  .verdict-wrong   { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,77,77,0.25); }
+  .verdict-partial { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,209,102,0.25); }
+  .verdict-your { font-size: 11px; color: var(--text-muted); }
+
+  .missed-banner {
+    background: var(--red-dim);
+    border: 1px solid rgba(255,77,77,0.3);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--red);
+    font-weight: 500;
+    margin: 12px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ── Footer bar ──────────────────────────────────── */
+  .page-footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+
+  /* ── Section divider ─────────────────────────────── */
+  .section-head {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding-bottom: 10px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .section-head.teal { color: var(--teal); }
+
+  @media (max-width: 640px) {
+    .brief-tiles { grid-template-columns: 1fr; }
+    .rule-row { grid-template-columns: 1fr 60px; }
+    .rule-row > *:first-child { grid-column: 1 / -1; }
+    .rule-row input[type=range] { grid-column: 1; }
+    .rule-val-display { grid-column: 2; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .queue-thead,
+    .alert-row { grid-template-columns: 70px 1fr 130px; }
+    .alert-time { display: none; }
+    .score-grid { grid-template-columns: repeat(2, 1fr); }
+    .phase-step .step-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="site-header">
+    <div class="header-left">
+      <div class="logo-dot"></div>
+      <span class="logo-text">SOC // ALERT TUNING LAB</span>
+    </div>
+    <span class="header-badge">CYB300 · Security Operations</span>
+  </header>
+
+  <!-- ── Phase progress bar ── -->
+  <div class="phase-bar" id="phase-bar">
+    <div class="phase-step" id="ps-0">
+      <div class="step-num"><span>1</span></div>
+      <span class="step-label">Briefing</span>
+    </div>
+    <div class="phase-step" id="ps-1">
+      <div class="step-num"><span>2</span></div>
+      <span class="step-label">Configure rules</span>
+    </div>
+    <div class="phase-step" id="ps-2">
+      <div class="step-num"><span>3</span></div>
+      <span class="step-label">Triage queue</span>
+    </div>
+    <div class="phase-step" id="ps-3">
+      <div class="step-num"><span>4</span></div>
+      <span class="step-label">Shift report</span>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PHASE 0 — BRIEFING                              -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div id="phase-briefing">
+    <div class="brief-hero">
+      <div class="brief-time" id="live-time">22:47</div>
+      <div class="brief-date" id="live-date">LOADING...</div>
+      <h1 class="brief-h1">Your overnight shift starts in 13 minutes.</h1>
+      <p class="brief-p">Before the queue opens, you need to configure your detection rules. The thresholds you set determine what fires — and what doesn't. One misconfigured rule and the breach runs all night undetected.</p>
+
+      <div class="brief-tiles">
+        <div class="brief-tile">
+          <div class="brief-tile-icon">⚙</div>
+          <div class="brief-tile-t">Phase 1 — Configure</div>
+          <div class="brief-tile-s">Set 5 detection thresholds before your shift. Your choices determine what fires.</div>
+        </div>
+        <div class="brief-tile">
+          <div class="brief-tile-icon">⚡</div>
+          <div class="brief-tile-t">Phase 2 — Triage</div>
+          <div class="brief-tile-s">Work the alert queue you created. Investigate, suppress, or flag to tune each alert.</div>
+        </div>
+        <div class="brief-tile">
+          <div class="brief-tile-icon">📋</div>
+          <div class="brief-tile-t">Phase 3 — Debrief</div>
+          <div class="brief-tile-s">Review your score, missed threats, and per-alert explanations.</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="goPhase(1)">Accept shift assignment →</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PHASE 1 — CONFIGURE RULES                       -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div id="phase-config" style="display:none;">
+    <div class="card">
+      <div class="card-title">Detection rule configuration</div>
+      <div class="card-sub">Adjust each threshold before your shift begins. The status indicator shows whether your current setting is too loose, too tight, or about right — but won't tell you the optimal value.</div>
+      <p class="section-head teal" style="margin-bottom:16px;">Active rules</p>
+      <div class="rules-list" id="rule-rows"></div>
+      <div class="hint-box">
+        <span class="hint-icon">💡</span>
+        <span><strong style="color:var(--teal)">Hint:</strong> Think about what each rule is actually detecting. A failed-login alert at threshold 1 fires every time someone miskeys their password. A data-transfer threshold of 50 GB might let significant exfiltration slide past. Neither extreme is good.</span>
+      </div>
+      <div class="queue-preview" id="queue-preview">
+        <div class="qp-dot" id="qp-dot" style="background:var(--text-muted)"></div>
+        <span class="qp-text" id="qp-text">Adjust rules to see queue forecast</span>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+      <button class="btn btn-primary" onclick="goPhase(2)">Start shift — open the queue →</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PHASE 2 — TRIAGE                                -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div id="phase-triage" style="display:none;">
+    <div class="metrics-row" id="triage-metrics"></div>
+
+    <div class="queue-wrap">
+      <div class="queue-thead">
+        <span>Severity</span>
+        <span>Alert</span>
+        <span>Time</span>
+        <span>Action</span>
+      </div>
+      <div class="queue-body" id="alert-list"></div>
+    </div>
+
+    <div class="hint-box" style="margin-bottom:16px;">
+      <span class="hint-icon">💡</span>
+      <span>
+        <strong style="color:var(--red)">Investigate</strong> — could be a real threat, needs analyst review. &nbsp;
+        <strong style="color:var(--text-secondary)">Suppress</strong> — known-good event, safe to close. &nbsp;
+        <strong style="color:var(--yellow)">Tune rule</strong> — fires too often, the threshold needs adjusting.
+      </span>
+    </div>
+
+    <div class="triage-footer">
+      <span class="triage-count" id="triage-count"><strong>0</strong> of <strong>0</strong> triaged</span>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitTriage()" disabled>Submit shift report →</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════ -->
+  <!-- PHASE 3 — RESULTS                               -->
+  <!-- ════════════════════════════════════════════════ -->
+  <div id="phase-results" style="display:none;">
+    <div id="results-content"></div>
+    <div style="display:flex; gap:12px; margin-top:20px; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="resetLab()">⟳ &nbsp;Run another shift</button>
+      <button class="btn btn-ghost" onclick="goPhase(1)">← &nbsp;Reconfigure rules</button>
+    </div>
+  </div>
+
+  <footer class="page-footer">
+    <span>CYB300 // ECPI University</span>
+    <span>Security Operations — Module 4</span>
+  </footer>
+</div>
+
+<script>
+/* ── Data ─────────────────────────────────────────── */
+const RULES = [
+  {
+    id:'failed_login',
+    label:'Failed login threshold',
+    unit:'attempts / 10 min',
+    min:1, max:20, default:5,
+    hint:'Fires when N failed logins occur on the same account within 10 minutes.',
+    getStatus: v => v<=2?'loose': v<=8?'good':'tight',
+  },
+  {
+    id:'data_transfer',
+    label:'Outbound data transfer',
+    unit:'MB / hour',
+    min:10, max:2000, default:500,
+    hint:'Fires when a single host transfers more than N MB outbound in 1 hour.',
+    getStatus: v => v<=50?'loose': v<=800?'good':'tight',
+  },
+  {
+    id:'port_scan',
+    label:'Port scan detection',
+    unit:'unique ports / min',
+    min:5, max:200, default:50,
+    hint:'Fires when a host probes more than N unique ports per minute.',
+    getStatus: v => v<=10?'loose': v<=80?'good':'tight',
+  },
+  {
+    id:'after_hours',
+    label:'After-hours login window',
+    unit:'hour (0 = off)',
+    min:0, max:8, default:3,
+    hint:'Fires on privileged logins between midnight and this hour (0 = rule disabled).',
+    getStatus: v => v>=7?'loose': v>=2?'good':'tight',
+  },
+  {
+    id:'new_process',
+    label:'Process spawn rate',
+    unit:'new processes / min',
+    min:1, max:50, default:15,
+    hint:'Fires when an endpoint spawns more than N new processes per minute.',
+    getStatus: v => v<=3?'loose': v<=20?'good':'tight',
+  },
+];
+
+const ALERT_TEMPLATES = [
+  { id:'a1',  baseSev:'crit', desc:'Admin account "svc_backup" logged in at 02:47 from 185.220.101.42 (Tor exit node).', src:'Auth / SIEM', time:'02:47', ruleId:'after_hours', realThreat:true,  correct:'investigate', explanation:'Tor exit node + service account + 02:47am = high suspicion. Authenticate the source and lock the account while investigating.' },
+  { id:'a2',  baseSev:'high', desc:'WKSTN-047 transferred 1.2 GB to external IP 203.0.113.99 in 38 minutes.', src:'NetFlow / DLP', time:'01:14', ruleId:'data_transfer', realThreat:true,  correct:'investigate', explanation:'1.2 GB outbound from a workstation in under an hour is a strong exfiltration indicator. Isolate the host and pull NetFlow logs.' },
+  { id:'a3',  baseSev:'med',  desc:'Failed login ×6 on jsmith@corp in 8 minutes. Source: 10.0.14.22 (internal).', src:'Auth logs', time:'08:03', ruleId:'failed_login', realThreat:false, correct:'suppress',    explanation:'Internal IP with 6 attempts is most likely a user who forgot their password. Suppress and note for pattern analysis over time.' },
+  { id:'a4',  baseSev:'med',  desc:'Failed login ×6 on jsmith@corp fires every weekday 08:00–09:00.', src:'Auth logs', time:'08:04', ruleId:'failed_login', realThreat:false, correct:'tune',        explanation:'If this fires every morning at login time, the threshold is too low. Tune to require more attempts or add a time-window exclusion.' },
+  { id:'a5',  baseSev:'high', desc:'WKSTN-022 probed 312 unique ports on 10.0.0.0/24 in 2 minutes.', src:'IDS / NIDS', time:'00:18', ruleId:'port_scan', realThreat:true,  correct:'investigate', explanation:'312 ports/min from an endpoint is aggressive scanning — likely reconnaissance or a compromised host. Isolate and investigate.' },
+  { id:'a6',  baseSev:'low',  desc:'IT-MGMT-01 transferred 680 MB to cloud-backup-corp.com (authorized vendor).', src:'DLP / NetFlow', time:'02:00', ruleId:'data_transfer', realThreat:false, correct:'suppress',    explanation:'Known scheduled backup job to an authorized destination. Classic false positive — suppress and consider a rule exclusion for this host.' },
+  { id:'a7',  baseSev:'low',  desc:'IT-MGMT-01 backup job fires this rule every night at 02:00.', src:'DLP', time:'02:01', ruleId:'data_transfer', realThreat:false, correct:'tune',        explanation:'If this fires every night on schedule, add a time-window or host exclusion. Recurring known-good events should never burn analyst time.' },
+  { id:'a8',  baseSev:'high', desc:'WKSTN-031 spawned cmd.exe → powershell.exe → wscript.exe (42 processes/60 sec).', src:'EDR / Sysmon', time:'23:51', ruleId:'new_process', realThreat:true,  correct:'investigate', explanation:'Office app spawning powershell and cmd in rapid succession is a classic macro-malware pattern. Quarantine the endpoint immediately.' },
+  { id:'a9',  baseSev:'med',  desc:'SCCM pushed 18 processes/min to 40 endpoints during scheduled patch window 18:00–20:00.', src:'EDR', time:'18:22', ruleId:'new_process', realThreat:false, correct:'suppress',    explanation:'Scheduled patch deployment during a maintenance window. Normal and expected — suppress. Consider excluding SCCM from this rule.' },
+  { id:'a10', baseSev:'med',  desc:'Patch deployment rule fires every second Tuesday at 18:00 across 40 endpoints.', src:'EDR', time:'18:23', ruleId:'new_process', realThreat:false, correct:'tune',        explanation:'Recurring patch-window noise. Add a time-window exclusion or increase the threshold during scheduled maintenance.' },
+  { id:'a11', baseSev:'crit', desc:'Root login from 203.0.113.55 (external) on prod-db-01 via SSH at 03:14.', src:'Auth / SIEM', time:'03:14', ruleId:'after_hours', realThreat:true,  correct:'investigate', explanation:'Direct root SSH from an external IP on a production database at 03:14am. Escalate immediately — treat as active incident.' },
+  { id:'a12', baseSev:'low',  desc:'Authorized vuln scanner (10.0.5.10) ran discovery — probed 80 ports on 10.0.0.0/24.', src:'IDS', time:'10:00', ruleId:'port_scan', realThreat:false, correct:'suppress',    explanation:'Authorized scanner on a known schedule. Suppress and consider an IP-based exclusion for the scanning host.' },
+];
+
+/* ── State ────────────────────────────────────────── */
+let ruleValues = {};
+let activeAlerts = [];
+let triageDecisions = {};
+let currentPhase = 0;
+
+/* ── Clock ────────────────────────────────────────── */
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('live-time').textContent = h + ':' + m;
+  document.getElementById('live-date').textContent =
+    days[now.getDay()].toUpperCase() + ' · ' +
+    now.getDate() + ' ' + months[now.getMonth()].toUpperCase() + ' ' + now.getFullYear();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ── Phase navigation ─────────────────────────────── */
+function goPhase(n) {
+  currentPhase = n;
+  ['briefing','config','triage','results'].forEach((name, i) => {
+    document.getElementById('phase-'+name).style.display = i === n ? 'block' : 'none';
+  });
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('ps-'+i);
+    el.className = 'phase-step' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+  if (n === 1) renderRules();
+  if (n === 2) { triageDecisions = {}; renderAlerts(); }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── Rule rendering ───────────────────────────────── */
+
+function renderRules() {
+  const container = document.getElementById('rule-rows');
+  container.innerHTML = '';
+  RULES.forEach(rule => {
+    const val = ruleValues[rule.id];
+    const row = document.createElement('div');
+    row.className = 'rule-row';
+    row.innerHTML = `
+      <div>
+        <div class="rule-label-main">${rule.label}</div>
+        <div class="rule-label-hint">${rule.hint}</div>
+      </div>
+      <input type="range" min="${rule.min}" max="${rule.max}" step="1" value="${val}"
+        oninput="updateRule('${rule.id}', parseInt(this.value))">
+      <div class="rule-val-display" id="val-${rule.id}">
+        ${val}<span class="rule-val-unit"> ${rule.unit}</span>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+  updateQueuePreview();
+}
+
+function updateRule(id, val) {
+  ruleValues[id] = val;
+  const rule = RULES.find(r => r.id === id);
+  document.getElementById('val-'+id).innerHTML =
+    val + '<span class="rule-val-unit"> ' + rule.unit + '</span>';
+  updateQueuePreview();
+}
+
+function generateAlerts() {
+  const out = [];
+  const seen = new Set();
+  ALERT_TEMPLATES.forEach(t => {
+    if (seen.has(t.id)) return;
+    const rule = RULES.find(r => r.id === t.ruleId);
+    if (!rule) return;
+    const s = rule.getStatus(ruleValues[rule.id]);
+    if (s === 'loose') { out.push(t); seen.add(t.id); }
+    else if (s === 'good' && t.realThreat) { out.push(t); seen.add(t.id); }
+    // tight: real threat never fires
+  });
+  return out;
+}
+
+function updateQueuePreview() {
+  const count = generateAlerts().length;
+  const dot = document.getElementById('qp-dot');
+  const txt = document.getElementById('qp-text');
+  let col, msg;
+  if (count > 15) {
+    col = 'var(--red)';
+    msg = `Your settings will generate <strong style="color:var(--red)">${count} alerts</strong> — analysts will drown in noise.`;
+  } else if (count < 3) {
+    col = 'var(--yellow)';
+    msg = `Your settings will generate <strong style="color:var(--yellow)">${count} alert${count===1?'':'s'}</strong> — suspiciously quiet. Real threats may never surface.`;
+  } else {
+    col = 'var(--green)';
+    msg = `Your settings will generate <strong style="color:var(--green)">${count} alerts</strong> — a manageable queue.`;
+  }
+  dot.style.background = col;
+  txt.innerHTML = msg;
+}
+
+/* ── Alert queue rendering ───────────────────────── */
+function renderAlerts() {
+  activeAlerts = generateAlerts();
+  const list = document.getElementById('alert-list');
+  list.innerHTML = '';
+
+  if (activeAlerts.length === 0) {
+    list.innerHTML = `<div class="empty-queue">
+      <strong>⚠ Zero alerts fired</strong>
+      Your thresholds are set so high that nothing triggered. If a real attack is happening, you would never know. Go back and reconfigure.
+    </div>`;
+    document.getElementById('submit-btn').disabled = true;
+    renderTriageMetrics();
+    updateTriageCount();
+    return;
+  }
+
+  activeAlerts.forEach(a => {
+    const item = document.createElement('div');
+    item.className = 'alert-row';
+    item.id = 'alert-row-' + a.id;
+    item.innerHTML = `
+      <div><span class="sev-badge sev-${a.baseSev}">${a.baseSev.toUpperCase()}</span></div>
+      <div>
+        <div class="alert-desc-main">${a.desc}</div>
+        <div class="alert-desc-src">${a.src}</div>
+      </div>
+      <div class="alert-time">${a.time}</div>
+      <div class="triage-set">
+        <button class="triage-btn" id="inv-${a.id}" onclick="triage('${a.id}','investigate')">
+          <span class="tb-dot" style="background:var(--red)"></span> Investigate
+        </button>
+        <button class="triage-btn" id="sup-${a.id}" onclick="triage('${a.id}','suppress')">
+          <span class="tb-dot" style="background:var(--text-muted)"></span> Suppress
+        </button>
+        <button class="triage-btn" id="tun-${a.id}" onclick="triage('${a.id}','tune')">
+          <span class="tb-dot" style="background:var(--yellow)"></span> Tune rule
+        </button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  renderTriageMetrics();
+  updateTriageCount();
+}
+
+function triage(id, action) {
+  triageDecisions[id] = action;
+  const row = document.getElementById('alert-row-' + id);
+  row.className = 'alert-row triaged-' + action;
+  ['inv','sup','tun'].forEach(prefix => {
+    const btn = document.getElementById(prefix+'-'+id);
+    if (btn) btn.className = 'triage-btn';
+  });
+  const map = { investigate:'inv', suppress:'sup', tune:'tun' };
+  const active = document.getElementById(map[action]+'-'+id);
+  if (active) {
+    const cls = action==='investigate'?'active-inv':action==='suppress'?'active-sup':'active-tun';
+    active.className = 'triage-btn ' + cls;
+  }
+  renderTriageMetrics();
+  updateTriageCount();
+}
+
+function renderTriageMetrics() {
+  const total = activeAlerts.length;
+  const inv = Object.values(triageDecisions).filter(v=>v==='investigate').length;
+  const sup = Object.values(triageDecisions).filter(v=>v==='suppress').length;
+  const tun = Object.values(triageDecisions).filter(v=>v==='tune').length;
+  const qClass = total>15?'red':total<3?'yellow':'green';
+  document.getElementById('triage-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Queue size</div><div class="metric-val ${qClass}">${total}</div></div>
+    <div class="metric-card"><div class="metric-label">Investigating</div><div class="metric-val red">${inv}</div></div>
+    <div class="metric-card"><div class="metric-label">Suppressed</div><div class="metric-val">${sup}</div></div>
+    <div class="metric-card"><div class="metric-label">Flag to tune</div><div class="metric-val yellow">${tun}</div></div>
+  `;
+}
+
+function updateTriageCount() {
+  const done = Object.keys(triageDecisions).length;
+  const total = activeAlerts.length;
+  document.getElementById('triage-count').innerHTML =
+    '<strong style="color:var(--teal)">' + done + '</strong> of <strong>' + total + '</strong> triaged';
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = !(done === total && total > 0);
+}
+
+/* ── Scoring & results ───────────────────────────── */
+function submitTriage() {
+  let tp=0, noiseHandled=0, wrongCount=0;
+  const debriefItems = [];
+
+  activeAlerts.forEach(a => {
+    const decision = triageDecisions[a.id];
+    const isCorrect =
+      decision === a.correct ||
+      (a.correct === 'suppress' && decision === 'tune') ||
+      (a.correct === 'tune' && decision === 'suppress');
+    const isPartial = !isCorrect && (
+      (a.realThreat && decision === 'investigate') ||
+      (!a.realThreat && (decision === 'suppress' || decision === 'tune'))
+    );
+
+    if (isCorrect) {
+      if (a.realThreat) tp++;
+      else noiseHandled++;
+    } else {
+      wrongCount++;
+    }
+    debriefItems.push({ ...a, decision, isCorrect, isPartial });
+  });
+
+  const allRealThreats = ALERT_TEMPLATES.filter(t => t.realThreat);
+  const missedThreats = allRealThreats.filter(t => !activeAlerts.find(a => a.id === t.id));
+  const fn = missedThreats.length;
+  const total = activeAlerts.length;
+  const score = total > 0
+    ? Math.max(0, Math.round(((tp + noiseHandled) / (total + fn)) * 100))
+    : 0;
+
+  let rating, ratingColor, ratingSub;
+  if (fn >= 3) {
+    rating = 'Breach risk'; ratingColor = 'var(--red)';
+    ratingSub = 'Your thresholds were too high — ' + fn + ' real threat' + (fn>1?'s':'') + ' never fired. An attacker could operate inside your network all night without triggering a single alert.';
+  } else if (score >= 85 && fn === 0) {
+    rating = 'Sharp analyst'; ratingColor = 'var(--green)';
+    ratingSub = 'Clean shift. You caught real threats and kept noise under control. Review the tune-rule candidates to tighten those rules before the next shift.';
+  } else if (score >= 65) {
+    rating = 'Needs tuning'; ratingColor = 'var(--yellow)';
+    ratingSub = 'You caught most of what mattered but some decisions need review. Revisit the rules that generated high noise and tighten them.';
+  } else if (total > 15) {
+    rating = 'Alert fatigue'; ratingColor = 'var(--orange)';
+    ratingSub = 'Your queue was overloaded. Real threats were buried in noise — this is exactly how breaches go undetected. Set higher thresholds and add exclusions for known-good sources.';
+  } else {
+    rating = 'Keep at it'; ratingColor = 'var(--text-secondary)';
+    ratingSub = 'Review the debrief below, focus on why each alert was rated the way it was, then run another shift with adjusted thresholds.';
+  }
+
+  let debriefHTML = '';
+  debriefItems.forEach(a => {
+    const vClass = a.isCorrect ? 'verdict-correct' : 'verdict-wrong';
+    const vLabel = a.isCorrect ? '✓ Correct' : '✗ Incorrect';
+    const youSaid = a.decision.charAt(0).toUpperCase() + a.decision.slice(1).replace('-',' ');
+    const better = a.correct.charAt(0).toUpperCase() + a.correct.slice(1).replace('-',' ');
+    debriefHTML += `
+      <div class="debrief-row">
+        <div>
+          <div class="debrief-alert">${a.desc}</div>
+          <div class="debrief-expl">${a.explanation}</div>
+        </div>
+        <div class="verdict">
+          <span class="verdict-badge ${vClass}">${vLabel}</span>
+          ${!a.isCorrect ? `<span class="verdict-your">You: ${youSaid} → Better: ${better}</span>` : ''}
+        </div>
+      </div>`;
+  });
+
+  let missedHTML = '';
+  if (missedThreats.length > 0) {
+    missedHTML = `<div class="missed-banner">⚠ ${missedThreats.length} real threat${missedThreats.length>1?'s':''} never fired — thresholds too high</div>`;
+    missedThreats.forEach(t => {
+      missedHTML += `
+        <div class="debrief-row">
+          <div>
+            <div class="debrief-alert" style="color:var(--red)">${t.desc}</div>
+            <div class="debrief-expl">${t.explanation}</div>
+          </div>
+          <div class="verdict">
+            <span class="verdict-badge verdict-wrong">Missed — never fired</span>
+          </div>
+        </div>`;
+    });
+  }
+
+  const qNote = total>15 ? 'overloaded — alert fatigue risk' : total<3 ? 'suspiciously quiet' : 'manageable';
+
+  document.getElementById('results-content').innerHTML = `
+    <div class="rating-hero">
+      <div class="rating-label">Shift performance</div>
+      <div class="rating-title" style="color:${ratingColor}">${rating}</div>
+      <div class="rating-pct" style="color:${ratingColor}">${score}%</div>
+      <div class="rating-sub">${ratingSub}</div>
+    </div>
+
+    <div class="score-grid">
+      <div class="score-tile">
+        <div class="score-tile-label">Threats caught</div>
+        <div class="score-tile-val" style="color:var(--green)">${tp}</div>
+        <div class="score-tile-sub">correctly investigated</div>
+      </div>
+      <div class="score-tile">
+        <div class="score-tile-label">Threats missed by rules</div>
+        <div class="score-tile-val" style="color:${fn>0?'var(--red)':'var(--green)'}">${fn}</div>
+        <div class="score-tile-sub">thresholds too high to fire</div>
+      </div>
+      <div class="score-tile">
+        <div class="score-tile-label">Noise handled</div>
+        <div class="score-tile-val">${noiseHandled}</div>
+        <div class="score-tile-sub">suppressed or flagged to tune</div>
+      </div>
+      <div class="score-tile">
+        <div class="score-tile-label">Queue size</div>
+        <div class="score-tile-val" style="color:${total>15?'var(--red)':total<3?'var(--yellow)':'var(--text-primary)'}">${total}</div>
+        <div class="score-tile-sub">${qNote}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Shift debrief</div>
+      <div class="card-sub">Review each alert, your decision, and why it matters.</div>
+      <div class="debrief-list">
+        ${debriefHTML}
+        ${missedHTML}
+      </div>
+    </div>
+  `;
+
+  goPhase(3);
+}
+
+/* ── Reset ───────────────────────────────────────── */
+function resetLab() {
+  RULES.forEach(r => { ruleValues[r.id] = r.min; });
+  triageDecisions = {};
+  activeAlerts = [];
+  goPhase(0);
+}
+
+/* ── Init ─────────────────────────────────────────── */
+RULES.forEach(r => { ruleValues[r.id] = r.min; });
+goPhase(0);
+</script>
+</body>
+</html>
