@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acronym Sprint — Security+ SY0-701 Warm-Up</title>
+<style>
+  :root{
+    --base:#10162b; --panel:#171f3a; --panel-2:#1f294a;
+    --ink:#e8ecf8; --muted:#8893b8; --amber:#f5b53d;
+    --teal:#27d3b4; --red:#ff5a6e; --line:#28335a; --glow:rgba(245,181,61,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #1a2b4a 0, transparent 60%),
+      radial-gradient(900px 500px at 100% 110%, #16264a 0, transparent 55%),
+      var(--base);
+    color:var(--ink);min-height:100%;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;overflow-x:hidden;
+  }
+  .stage{width:100%;max-width:760px}
+  .eyebrow{font-family:"SF Mono",ui-monospace,monospace;letter-spacing:.32em;text-transform:uppercase;font-size:.72rem;color:var(--amber)}
+  .card{background:linear-gradient(180deg,var(--panel),#141b33);border:1px solid var(--line);border-radius:18px;padding:34px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  button{font-family:inherit;cursor:pointer}
+
+  h1{font-size:clamp(2.2rem,6vw,3.4rem);line-height:1.02;font-weight:800;letter-spacing:-.02em;margin:10px 0 6px}
+  h1 .accent{color:var(--amber)}
+  .sub{color:var(--muted);font-size:1.02rem;margin-bottom:26px;max-width:52ch}
+  .field{margin-bottom:20px}
+  .field > label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:9px;letter-spacing:.04em;text-transform:uppercase}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:9px 15px;border-radius:999px;font-size:.92rem;font-weight:600;transition:.15s}
+  .chip:hover{border-color:var(--amber);color:var(--amber)}
+  .chip[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#1a1206;box-shadow:0 0 0 4px var(--glow)}
+  .chip .tag{display:block;font-size:.66rem;font-weight:500;opacity:.75;margin-top:1px}
+  .start-btn{width:100%;margin-top:8px;background:linear-gradient(180deg,#ffce62,var(--amber));color:#1a1206;border:none;border-radius:13px;padding:17px;font-size:1.12rem;font-weight:800;transition:transform .12s, box-shadow .2s;box-shadow:0 10px 30px var(--glow)}
+  .start-btn:hover{transform:translateY(-2px);box-shadow:0 14px 38px var(--glow)}
+  .hint{margin-top:16px;font-size:.82rem;color:var(--muted);text-align:center}
+  kbd{font-family:"SF Mono",monospace;background:var(--panel-2);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-size:.8rem;color:var(--ink)}
+
+  .hud{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+  .hud .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 14px;min-width:78px;text-align:center}
+  .hud .stat .num{font-size:1.4rem;font-weight:800;line-height:1}
+  .hud .stat .lbl{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:3px}
+  .combo .num{color:var(--amber);transition:transform .1s}
+  .timewrap{flex:1}
+  .timebar{height:12px;border-radius:999px;background:var(--panel-2);overflow:hidden;border:1px solid var(--line)}
+  .timefill{height:100%;width:100%;background:linear-gradient(90deg,var(--teal),var(--amber));transition:width .25s linear}
+  .timefill.low{background:linear-gradient(90deg,var(--amber),var(--red))}
+
+  .qcard{position:relative;padding:30px}
+  .qtag{font-size:.7rem;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px;text-align:center}
+
+  /* FUNCTION mode */
+  .clue{font-size:clamp(1.25rem,3.6vw,1.7rem);font-weight:600;line-height:1.32;text-align:center;min-height:96px;display:flex;align-items:center;justify-content:center;padding:0 6px}
+  .resolve{height:24px;margin-top:10px;text-align:center;font-size:1rem;color:var(--teal);font-weight:600;opacity:0;transition:opacity .2s}
+  .resolve.show{opacity:1}
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+  @media(max-width:560px){.choices{grid-template-columns:1fr}}
+  .choice{display:flex;align-items:center;gap:12px;text-align:left;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:13px;padding:15px 16px;font-weight:600;transition:.12s;min-height:60px}
+  .choice:hover:not(:disabled){border-color:var(--amber);background:#26315a}
+  .choice .key{flex:none;width:26px;height:26px;border-radius:7px;background:var(--base);border:1px solid var(--line);display:grid;place-items:center;font-family:"SF Mono",monospace;font-size:.82rem;color:var(--muted)}
+  .choice .acro{font-family:"SF Mono",ui-monospace,monospace;font-size:1.15rem;font-weight:700;color:var(--amber)}
+  .choice.correct{background:rgba(39,211,180,.16);border-color:var(--teal)}
+  .choice.correct .acro{color:var(--teal)}
+  .choice.correct .key{background:var(--teal);color:#06231d;border-color:var(--teal)}
+  .choice.wrong{background:rgba(255,90,110,.14);border-color:var(--red)}
+  .choice.wrong .acro{color:var(--red)}
+  .choice:disabled{cursor:default}
+
+  /* RECALL mode */
+  .acroBig{font-family:"SF Mono",ui-monospace,monospace;font-size:clamp(3rem,12vw,5rem);font-weight:700;letter-spacing:.04em;color:var(--amber);text-shadow:0 0 30px var(--glow);text-align:center;line-height:1.1}
+  .typewrap{margin-top:22px;display:flex;gap:10px}
+  .typewrap input{flex:1;background:var(--base);border:1px solid var(--line);border-radius:12px;color:var(--ink);font-size:1.05rem;padding:15px 16px;outline:none}
+  .typewrap input:focus{border-color:var(--amber);box-shadow:0 0 0 4px var(--glow)}
+  .typewrap button{flex:none;background:var(--amber);color:#1a1206;border:none;border-radius:12px;padding:0 22px;font-weight:800;font-size:1rem}
+  .typewrap button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .typewrap button.ghost:hover{color:var(--ink);border-color:var(--ink)}
+  .feedback{min-height:30px;margin-top:14px;text-align:center;font-size:1.02rem;font-weight:600}
+  .feedback .ok{color:var(--teal)} .feedback .no{color:var(--red)}
+  .feedback small{display:block;color:var(--muted);font-weight:500;font-size:.86rem;margin-top:3px}
+
+  .floater{position:absolute;top:18px;right:22px;font-weight:800;font-size:1.1rem;opacity:0;pointer-events:none}
+  .floater.pop{animation:pop 1s ease forwards}
+  @keyframes pop{0%{opacity:0;transform:translateY(8px)}20%{opacity:1}100%{opacity:0;transform:translateY(-26px)}}
+
+  .result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 8px}
+  .result-grid .stat{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:16px;text-align:center}
+  .result-grid .num{font-size:2rem;font-weight:800}
+  .result-grid .num.teal{color:var(--teal)} .result-grid .num.amber{color:var(--amber)}
+  .result-grid .lbl{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+  .review{margin-top:20px}
+  .review h3{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin-bottom:10px}
+  .review ul{list-style:none;display:flex;flex-direction:column;gap:7px;max-height:240px;overflow:auto}
+  .review li{display:flex;gap:12px;align-items:baseline;background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--red);border-radius:9px;padding:10px 13px;font-size:.92rem}
+  .review li b{font-family:"SF Mono",monospace;color:var(--amber);flex:none;min-width:70px}
+  .review .clean{border-left-color:var(--teal);color:var(--teal);justify-content:center;font-weight:600}
+  .btn-row{display:flex;gap:12px;margin-top:22px}
+  .btn-row button{flex:1;border-radius:12px;padding:15px;font-weight:800;font-size:1rem;border:1px solid var(--line)}
+  .btn-primary{background:linear-gradient(180deg,#ffce62,var(--amber));color:#1a1206;border:none}
+  .btn-primary:hover{transform:translateY(-1px)}
+  .btn-ghost{background:transparent;color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--amber);color:var(--amber)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ============ START ============ -->
+  <section id="start" class="card">
+    <div class="eyebrow">CompTIA Security+ · SY0-701 · Warm-Up</div>
+    <h1>Acronym <span class="accent">Sprint</span></h1>
+    <p class="sub">These modes test whether you know what an acronym <em>means</em> Build a streak to raise your multiplier; one miss resets it.</p>
+
+    <div class="field">
+      <label>Mode</label>
+      <div class="chips" id="modeChips">
+        <button class="chip" data-mode="function" aria-pressed="true">Function<span class="tag">Match the description</span></button>
+        <button class="chip" data-mode="recall" aria-pressed="false">Recall<span class="tag">Type it from memory</span></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Domain</label>
+      <div class="chips" id="domainChips">
+        <button class="chip" data-domain="all" aria-pressed="true">All</button>
+        <button class="chip" data-domain="1" aria-pressed="false">1 · Concepts</button>
+        <button class="chip" data-domain="2" aria-pressed="false">2 · Threats</button>
+        <button class="chip" data-domain="3" aria-pressed="false">3 · Architecture</button>
+        <button class="chip" data-domain="4" aria-pressed="false">4 · Operations</button>
+        <button class="chip" data-domain="5" aria-pressed="false">5 · Program Mgmt</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Time limit</label>
+      <div class="chips" id="timeChips">
+        <button class="chip" data-time="60" aria-pressed="true">60 seconds</button>
+        <button class="chip" data-time="90" aria-pressed="false">90 seconds</button>
+        <button class="chip" data-time="120" aria-pressed="false">2 minutes</button>
+      </div>
+    </div>
+
+    <button class="start-btn" id="startBtn">Start sprint</button>
+    <p class="hint" id="startHint">Function mode: use keys <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> to answer fast.</p>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="game" class="hidden">
+    <div class="hud">
+      <div class="stat"><div class="num" id="score">0</div><div class="lbl">Score</div></div>
+      <div class="stat combo"><div class="num" id="combo">×1</div><div class="lbl">Combo</div></div>
+      <div class="timewrap"><div class="timebar"><div class="timefill" id="timefill"></div></div></div>
+      <div class="stat"><div class="num" id="clock">60</div><div class="lbl">Seconds</div></div>
+    </div>
+
+    <div class="card qcard">
+      <div class="floater" id="floater"></div>
+      <div class="qtag" id="qtag">Domain 1 · Concepts</div>
+
+      <!-- function mode -->
+      <div id="fnBlock">
+        <div class="clue" id="clue">…</div>
+        <div class="resolve" id="resolve"></div>
+        <div class="choices" id="choices"></div>
+      </div>
+
+      <!-- recall mode -->
+      <div id="recallBlock" class="hidden">
+        <div class="acroBig" id="acroBig">CIA</div>
+        <div class="typewrap">
+          <input id="answerInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the full term…">
+          <button id="submitAns">Enter</button>
+          <button id="skipAns" class="ghost">Skip</button>
+        </div>
+        <div class="feedback" id="feedback"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section id="results" class="card hidden">
+    <div class="eyebrow">Sprint complete</div>
+    <h1 id="resultHead">Nice run.</h1>
+    <div class="result-grid">
+      <div class="stat"><div class="num amber" id="rScore">0</div><div class="lbl">Score</div></div>
+      <div class="stat"><div class="num teal" id="rAcc">0%</div><div class="lbl">Accuracy</div></div>
+      <div class="stat"><div class="num" id="rStreak">0</div><div class="lbl">Best streak</div></div>
+    </div>
+    <div class="review" id="review"></div>
+    <div class="btn-row">
+      <button class="btn-primary" id="againBtn">Run it back</button>
+      <button class="btn-ghost" id="settingsBtn">Change setup</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ---------- Tier 1 pool: acronym, expansion (x), function clue (c), domain (d) ---------- */
+const POOL = [
+  // Domain 1
+  {a:"CIA", x:"Confidentiality, Integrity, and Availability", d:1, c:"The three core goals of security: keep data secret, accurate, and accessible."},
+  {a:"AAA", x:"Authentication, Authorization, and Accounting", d:1, c:"Framework that verifies who you are, what you may do, and logs what you did."},
+  {a:"PKI", x:"Public Key Infrastructure", d:1, c:"The system of keys and certificates that makes trusted encryption and identity possible."},
+  {a:"TPM", x:"Trusted Platform Module", d:1, c:"A chip on the motherboard that stores keys and anchors full-disk encryption."},
+  {a:"HSM", x:"Hardware Security Module", d:1, c:"A dedicated physical device for generating and safeguarding cryptographic keys."},
+  {a:"CRL", x:"Certificate Revocation List", d:1, c:"A published list of certificates that should no longer be trusted."},
+  {a:"OCSP", x:"Online Certificate Status Protocol", d:1, c:"Checks in real time whether a single certificate is still valid."},
+  {a:"CSR", x:"Certificate Signing Request", d:1, c:"What you submit to a certificate authority to have a certificate issued."},
+  // Domain 2
+  {a:"SMS", x:"Short Message Service", d:2, c:"Standard phone texting — the channel exploited by 'smishing'."},
+  {a:"IM", x:"Instant Messaging", d:2, c:"Real-time chat platforms used as a social-engineering channel."},
+  {a:"MSP", x:"Managed Service Provider", d:2, c:"An outside firm that remotely runs a client's IT — a supply-chain risk."},
+  {a:"SQLi", x:"SQL Injection", d:2, c:"Slipping database commands into an app through unvalidated input."},
+  {a:"XSS", x:"Cross-site Scripting", d:2, c:"Planting malicious script that runs inside another user's browser."},
+  {a:"TOC", x:"Time-of-check", d:2, c:"The moment a resource is verified — the first half of a race condition."},
+  {a:"TOU", x:"Time-of-use", d:2, c:"The moment a resource is actually used — the second half of a race condition."},
+  {a:"VM", x:"Virtual Machine", d:2, c:"A software-emulated computer; 'escape' from it is a virtualization threat."},
+  {a:"OS", x:"Operating System", d:2, c:"The core software that manages hardware and runs your programs."},
+  {a:"RFID", x:"Radio Frequency Identification", d:2, c:"Wireless tag tech behind access badges — vulnerable to cloning."},
+  {a:"DDoS", x:"Distributed Denial of Service", d:2, c:"Overwhelming a target from many sources to knock it offline."},
+  {a:"DNS", x:"Domain Name System", d:2, c:"Translates human names into IP addresses — a frequent attack target."},
+  {a:"ACL", x:"Access Control List", d:2, c:"A ruleset that defines who or what is allowed to reach a resource."},
+  {a:"HIPS", x:"Host-based Intrusion Prevention System", d:2, c:"Software on a single device that detects and blocks malicious activity."},
+  // Domain 3
+  {a:"IaC", x:"Infrastructure as Code", d:3, c:"Provisioning servers and networks through version-controlled scripts."},
+  {a:"SDN", x:"Software-defined Networking", d:3, c:"Separating network control from the hardware, managed centrally by software."},
+  {a:"ICS", x:"Industrial Control Systems", d:3, c:"The systems that run physical processes in plants and utilities."},
+  {a:"SCADA", x:"Supervisory Control and Data Acquisition", d:3, c:"Software that monitors and controls large-scale industrial equipment."},
+  {a:"RTOS", x:"Real-time Operating System", d:3, c:"An OS built for time-critical tasks in embedded and industrial gear."},
+  {a:"IoT", x:"Internet of Things", d:3, c:"Everyday networked gadgets like cameras, sensors, and thermostats."},
+  {a:"IPS", x:"Intrusion Prevention System", d:3, c:"An inline device that detects threats and actively blocks them."},
+  {a:"IDS", x:"Intrusion Detection System", d:3, c:"A device that spots threats and alerts — but does not block them."},
+  {a:"EAP", x:"Extensible Authentication Protocol", d:3, c:"The authentication framework used in 802.1X port security and Wi-Fi."},
+  {a:"WAF", x:"Web Application Firewall", d:3, c:"Filters web traffic to shield apps from things like injection and scripting."},
+  {a:"UTM", x:"Unified Threat Management", d:3, c:"One appliance bundling firewall, IPS, antivirus, and filtering together."},
+  {a:"NGFW", x:"Next-generation Firewall", d:3, c:"A firewall that inspects all the way up to the application layer."},
+  {a:"VPN", x:"Virtual Private Network", d:3, c:"An encrypted tunnel for secure access across an untrusted network."},
+  {a:"TLS", x:"Transport Layer Security", d:3, c:"The protocol that encrypts data in transit — the 'S' in HTTPS."},
+  {a:"IPSec", x:"Internet Protocol Security", d:3, c:"A protocol suite that encrypts and authenticates IP traffic in tunnels."},
+  {a:"SD-WAN", x:"Software-defined Wide Area Network", d:3, c:"Software-managed routing of traffic efficiently across remote sites."},
+  {a:"SASE", x:"Secure Access Service Edge", d:3, c:"A cloud model that merges networking and security at the edge."},
+  {a:"UPS", x:"Uninterruptible Power Supply", d:3, c:"Battery backup that keeps systems running through a power loss."},
+  // Domain 4
+  {a:"MDM", x:"Mobile Device Management", d:4, c:"Software for centrally configuring and securing phones and tablets."},
+  {a:"BYOD", x:"Bring Your Own Device", d:4, c:"A model where staff use their personal devices for work."},
+  {a:"COPE", x:"Corporate-owned, Personally Enabled", d:4, c:"The company owns the device but lets staff use it personally too."},
+  {a:"CYOD", x:"Choose Your Own Device", d:4, c:"Staff pick their device from a company-approved list."},
+  {a:"WPA3", x:"Wi-Fi Protected Access 3", d:4, c:"The current standard for securing wireless networks."},
+  {a:"RADIUS", x:"Remote Authentication Dial-in User Service", d:4, c:"A centralized service for authenticating network and remote users."},
+  {a:"SCAP", x:"Security Content Automation Protocol", d:4, c:"A standard for automating vulnerability checks against benchmarks."},
+  {a:"SIEM", x:"Security Information and Event Management", d:4, c:"A platform that aggregates logs and correlates alerts in one place."},
+  {a:"DLP", x:"Data Loss Prevention", d:4, c:"A tool that detects and stops sensitive data from leaving the org."},
+  {a:"SNMP", x:"Simple Network Management Protocol", d:4, c:"A protocol for monitoring and managing network devices."},
+  {a:"OSINT", x:"Open-source Intelligence", d:4, c:"Threat intel gathered from publicly available sources."},
+  {a:"CVSS", x:"Common Vulnerability Scoring System", d:4, c:"The system that rates how severe a vulnerability is, 0–10."},
+  {a:"CVE", x:"Common Vulnerability Enumeration", d:4, c:"A unique public ID assigned to one specific known flaw."},
+  {a:"URL", x:"Universal Resource Locator", d:4, c:"A web address — the thing a web filter scans and categorizes."},
+  {a:"DMARC", x:"Domain-based Message Authentication Reporting and Conformance", d:4, c:"An email policy built on SPF and DKIM to stop domain spoofing."},
+  {a:"DKIM", x:"DomainKeys Identified Mail", d:4, c:"Signs outgoing email so the receiver can verify the sending domain."},
+  {a:"SPF", x:"Sender Policy Framework", d:4, c:"A DNS record listing which servers are allowed to send for a domain."},
+  {a:"NAC", x:"Network Access Control", d:4, c:"Decides which devices are permitted to connect to the network."},
+  {a:"EDR", x:"Endpoint Detection and Response", d:4, c:"Continuously watches endpoints to detect and respond to threats."},
+  {a:"XDR", x:"Extended Detection and Response", d:4, c:"Stretches detection and response across endpoints, network, and cloud."},
+  {a:"SELinux", x:"Security-enhanced Linux", d:4, c:"A Linux module that enforces mandatory access control policies."},
+  {a:"LDAP", x:"Lightweight Directory Access Protocol", d:4, c:"The protocol for querying and accessing a directory of users and resources."},
+  {a:"OAuth", x:"Open Authorization", d:4, c:"Lets an app get limited access to your account without your password."},
+  {a:"SAML", x:"Security Assertions Markup Language", d:4, c:"The XML standard that exchanges login data to enable single sign-on."},
+  {a:"SSO", x:"Single Sign-on", d:4, c:"Authenticate once, then reach many systems without logging in again."},
+  {a:"MFA", x:"Multifactor Authentication", d:4, c:"Requiring two or more different factor types to prove identity."},
+  {a:"API", x:"Application Programming Interface", d:4, c:"The defined way one piece of software talks to another."},
+  // Domain 5
+  {a:"AUP", x:"Acceptable Use Policy", d:5, c:"The policy that spells out how employees may use company systems."},
+  {a:"SDLC", x:"Software Development Lifecycle", d:5, c:"The structured process teams follow to build and ship software."},
+  {a:"SLE", x:"Single Loss Expectancy", d:5, c:"The dollar loss expected from one occurrence of a risk."},
+  {a:"ALE", x:"Annualized Loss Expectancy", d:5, c:"The expected yearly loss from a risk — SLE multiplied by ARO."},
+  {a:"ARO", x:"Annualized Rate of Occurrence", d:5, c:"How many times per year a given risk is expected to happen."},
+  {a:"RTO", x:"Recovery Time Objective", d:5, c:"The longest acceptable time to restore a system after an outage."},
+  {a:"RPO", x:"Recovery Point Objective", d:5, c:"The most data you can afford to lose, measured in time."},
+  {a:"MTTR", x:"Mean Time to Repair", d:5, c:"The average time it takes to fix a failed system."},
+  {a:"MTBF", x:"Mean Time Between Failures", d:5, c:"The average operating time between one failure and the next."},
+  {a:"SLA", x:"Service-level Agreement", d:5, c:"A contract defining the service levels a vendor must deliver."},
+  {a:"MOA", x:"Memorandum of Agreement", d:5, c:"A formal document setting out each party's responsibilities."},
+  {a:"MOU", x:"Memorandum of Understanding", d:5, c:"A non-binding statement of intent between two parties."},
+  {a:"MSA", x:"Master Service Agreement", d:5, c:"An overarching contract that sets terms for all future work."},
+  {a:"SOW", x:"Statement of Work", d:5, c:"The document detailing specific deliverables, scope, and timeline."},
+  {a:"NDA", x:"Non-disclosure Agreement", d:5, c:"A contract that legally protects shared confidential information."},
+  {a:"BPA", x:"Business Partners Agreement", d:5, c:"An agreement defining the terms of a business partnership."},
+];
+const DOMAIN_NAMES = {1:"Concepts",2:"Threats",3:"Architecture",4:"Operations",5:"Program Mgmt"};
+
+/* ---------- state ---------- */
+let cfg = {mode:"function", domain:"all", time:60};
+let deck=[], idx=0, score=0, combo=0, bestCombo=0;
+let correctCount=0, total=0, missed=[];
+let timeLeft=60, timer=null, locked=false;
+
+const $=s=>document.querySelector(s);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const multiplierFor=c=>c>=10?4:c>=6?3:c>=3?2:1;
+
+/* ---------- chips ---------- */
+function wireChips(id,key,cast){
+  $(id).addEventListener("click",e=>{
+    const b=e.target.closest(".chip"); if(!b)return;
+    $(id).querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    cfg[key]=cast?cast(b.dataset[key]):b.dataset[key];
+    if(key==="mode"){
+      $("#startHint").innerHTML = cfg.mode==="function"
+        ? 'Function mode: use keys <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> to answer fast.'
+        : 'Recall mode: type the full term and press <kbd>Enter</kbd>. Small typos are forgiven.';
+    }
+  });
+}
+wireChips("#modeChips","mode");
+wireChips("#domainChips","domain");
+wireChips("#timeChips","time",v=>+v);
+
+/* ---------- text normalization for recall ---------- */
+function norm(s){
+  return s.toLowerCase()
+    .replace(/&/g," and ")
+    .replace(/[^a-z0-9 ]/g," ")
+    .replace(/\b(the|a|an|of)\b/g," ")
+    .replace(/\s+/g," ").trim();
+}
+function lev(a,b){
+  const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
+  for(let j=0;j<=n;j++)dp[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)
+    dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return dp[m][n];
+}
+function isClose(input,target){
+  const a=norm(input),b=norm(target);
+  if(!a)return false;
+  if(a===b)return true;
+  const tol=Math.max(2,Math.floor(b.length*0.15));
+  return lev(a,b)<=tol;
+}
+
+/* ---------- flow ---------- */
+function startGame(){
+  const filtered = cfg.domain==="all"?POOL.slice():POOL.filter(p=>p.d==+cfg.domain);
+  deck=shuffle(filtered.slice());
+  idx=0;score=0;combo=0;bestCombo=0;correctCount=0;total=0;missed=[];
+  timeLeft=cfg.time;locked=false;
+  $("#score").textContent="0";$("#combo").textContent="×1";$("#clock").textContent=timeLeft;
+  $("#start").classList.add("hidden");$("#results").classList.add("hidden");
+  $("#game").classList.remove("hidden");
+  $("#fnBlock").classList.toggle("hidden",cfg.mode!=="function");
+  $("#recallBlock").classList.toggle("hidden",cfg.mode!=="recall");
+  renderQuestion();
+  clearInterval(timer);timer=setInterval(tick,1000);updateTimebar();
+}
+function tick(){timeLeft--;$("#clock").textContent=timeLeft;updateTimebar();if(timeLeft<=0)endGame();}
+function updateTimebar(){
+  const pct=Math.max(0,(timeLeft/cfg.time)*100);
+  const f=$("#timefill");f.style.width=pct+"%";
+  f.classList.toggle("low",timeLeft<=Math.ceil(cfg.time*0.25));
+}
+function current(){ if(idx>=deck.length){deck=shuffle(deck);idx=0;} return deck[idx]; }
+
+function renderQuestion(){
+  locked=false;
+  const item=current();
+  $("#qtag").textContent=`Domain ${item.d} · ${DOMAIN_NAMES[item.d]}`;
+  if(cfg.mode==="function") renderFunction(item);
+  else renderRecall(item);
+}
+
+/* FUNCTION: clue shown, choose the acronym */
+function renderFunction(item){
+  $("#clue").textContent=item.c;
+  $("#resolve").classList.remove("show");$("#resolve").textContent="";
+  let same=POOL.filter(p=>p.d===item.d&&p.a!==item.a);
+  let picks=shuffle(same).slice(0,3);
+  if(picks.length<3){
+    for(const o of shuffle(POOL.filter(p=>p.a!==item.a))){if(picks.length>=3)break;if(!picks.includes(o))picks.push(o);}
+  }
+  const options=shuffle([item,...picks]);
+  const box=$("#choices");box.innerHTML="";
+  options.forEach((opt,i)=>{
+    const btn=document.createElement("button");
+    btn.className="choice";
+    btn.innerHTML=`<span class="key">${i+1}</span><span class="acro">${opt.a}</span>`;
+    btn.onclick=()=>resolveFunction(opt,item,btn);
+    box.appendChild(btn);
+  });
+}
+function resolveFunction(opt,item,btn){
+  if(locked)return;locked=true;total++;
+  const correct=opt.a===item.a;
+  [...$("#choices").children].forEach(b=>{
+    b.disabled=true;
+    if(b.querySelector(".acro").textContent===item.a)b.classList.add("correct");
+  });
+  if(correct){award(item);}
+  else{btn.classList.add("wrong");breakStreak(item);}
+  $("#resolve").textContent=`${item.a} = ${item.x}`;
+  $("#resolve").classList.add("show");
+  setTimeout(()=>{idx++;if(timeLeft>0)renderQuestion();},correct?760:1050);
+}
+
+/* RECALL: acronym shown, type the expansion */
+function renderRecall(item){
+  $("#acroBig").textContent=item.a;
+  const inp=$("#answerInput");
+  inp.value="";inp.disabled=false;inp.focus();
+  $("#submitAns").disabled=false;$("#skipAns").disabled=false;
+  $("#feedback").innerHTML="";
+}
+function resolveRecall(skip){
+  if(locked)return;locked=true;total++;
+  const item=current();
+  const val=$("#answerInput").value;
+  const correct=!skip&&isClose(val,item.x);
+  $("#answerInput").disabled=true;$("#submitAns").disabled=true;$("#skipAns").disabled=true;
+  if(correct){
+    award(item);
+    $("#feedback").innerHTML=`<span class="ok">Correct — ${item.a} = ${item.x}</span>`;
+  }else{
+    breakStreak(item);
+    $("#feedback").innerHTML=`<span class="no">${skip?"Skipped":"Not quite"}</span><small>${item.a} = ${item.x}</small>`;
+  }
+  setTimeout(()=>{idx++;if(timeLeft>0)renderQuestion();},correct?780:1150);
+}
+
+/* scoring shared */
+function award(item){
+  combo++;bestCombo=Math.max(bestCombo,combo);correctCount++;
+  const mult=multiplierFor(combo),gain=10*mult;
+  score+=gain;$("#score").textContent=score;$("#combo").textContent="×"+mult;
+  const c=$("#combo");c.style.transform="scale(1.35)";setTimeout(()=>c.style.transform="scale(1)",120);
+  showFloater(`+${gain}`,"var(--teal)");
+}
+function breakStreak(item){
+  combo=0;$("#combo").textContent="×1";missed.push(item);
+  showFloater("Streak lost","var(--red)");
+}
+function showFloater(t,col){const f=$("#floater");f.textContent=t;f.style.color=col;f.classList.remove("pop");void f.offsetWidth;f.classList.add("pop");}
+
+function endGame(){
+  clearInterval(timer);
+  $("#game").classList.add("hidden");$("#results").classList.remove("hidden");
+  const acc=total?Math.round((correctCount/total)*100):0;
+  $("#rScore").textContent=score;$("#rAcc").textContent=acc+"%";$("#rStreak").textContent=bestCombo;
+  let head="Solid warm-up.";
+  if(score>=400&&acc>=90)head="Locked in. 🔒";
+  else if(acc>=90)head="Sharp recall.";
+  else if(acc<60)head="Good reps — review below.";
+  $("#resultHead").textContent=head;
+  const seen=new Set(),uniq=[];
+  for(const m of missed){if(!seen.has(m.a)){seen.add(m.a);uniq.push(m);}}
+  const rv=$("#review");
+  if(uniq.length===0){rv.innerHTML=`<h3>Review</h3><ul><li class="clean">Clean sweep — no misses. 🎯</li></ul>`;}
+  else{rv.innerHTML=`<h3>Worth a second look (${uniq.length})</h3><ul>`+uniq.map(m=>`<li><b>${m.a}</b><span>${m.x}</span></li>`).join("")+`</ul>`;}
+}
+
+/* ---------- buttons / keys ---------- */
+$("#startBtn").onclick=startGame;
+$("#againBtn").onclick=startGame;
+$("#settingsBtn").onclick=()=>{$("#results").classList.add("hidden");$("#start").classList.remove("hidden");};
+$("#submitAns").onclick=()=>resolveRecall(false);
+$("#skipAns").onclick=()=>resolveRecall(true);
+$("#answerInput").addEventListener("keydown",e=>{if(e.key==="Enter")resolveRecall(false);});
+document.addEventListener("keydown",e=>{
+  if($("#game").classList.contains("hidden"))return;
+  if(cfg.mode==="function"&&["1","2","3","4"].includes(e.key)){
+    const b=$("#choices").children[+e.key-1];if(b&&!b.disabled)b.click();
+  }
+});
+</script>
+</body>
+</html>
