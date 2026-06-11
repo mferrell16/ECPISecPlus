@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acronym Check — Security+ SY0-701 Timed Quiz</title>
+<style>
+  :root{
+    --base:#10162b; --panel:#171f3a; --panel-2:#1f294a;
+    --ink:#e8ecf8; --muted:#8893b8; --amber:#f5b53d;
+    --teal:#27d3b4; --red:#ff5a6e; --line:#28335a; --glow:rgba(245,181,61,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #1a2b4f 0, transparent 60%),
+      radial-gradient(900px 500px at 100% 110%, #16264a 0, transparent 55%),
+      var(--base);
+    color:var(--ink);min-height:100%;
+    display:flex;align-items:center;justify-content:center;padding:24px;overflow-x:hidden;
+  }
+  .stage{width:100%;max-width:760px}
+  .eyebrow{font-family:"SF Mono",ui-monospace,monospace;letter-spacing:.32em;
+    text-transform:uppercase;font-size:.72rem;color:var(--amber)}
+  .card{background:linear-gradient(180deg,var(--panel),#141b33);border:1px solid var(--line);
+    border-radius:18px;padding:34px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  button{font-family:inherit;cursor:pointer}
+
+  h1{font-size:clamp(2.2rem,6vw,3.4rem);line-height:1.02;font-weight:800;
+    letter-spacing:-.02em;margin:10px 0 6px}
+  h1 .accent{color:var(--amber)}
+  .sub{color:var(--muted);font-size:1.02rem;margin-bottom:24px;max-width:52ch}
+  .rules{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:26px}
+  .rules li{display:flex;gap:11px;align-items:flex-start;font-size:.92rem;color:var(--ink)}
+  .rules li span.ic{flex:none;width:22px;height:22px;border-radius:6px;background:var(--panel-2);
+    border:1px solid var(--line);display:grid;place-items:center;color:var(--amber);font-size:.75rem;margin-top:1px}
+  .field{margin-bottom:20px}
+  .field>label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:9px;
+    letter-spacing:.04em;text-transform:uppercase}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+    padding:9px 15px;border-radius:999px;font-size:.92rem;font-weight:600;transition:.15s}
+  .chip:hover{border-color:var(--amber);color:var(--amber)}
+  .chip[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#1a1206;box-shadow:0 0 0 4px var(--glow)}
+  .start-btn{width:100%;margin-top:8px;background:linear-gradient(180deg,#ffce62,var(--amber));
+    color:#1a1206;border:none;border-radius:13px;padding:17px;font-size:1.12rem;font-weight:800;
+    transition:transform .12s,box-shadow .2s;box-shadow:0 10px 30px var(--glow)}
+  .start-btn:hover{transform:translateY(-2px);box-shadow:0 14px 38px var(--glow)}
+
+  /* ---- quiz HUD ---- */
+  .hud{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .progress{flex:1}
+  .progress .meta{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-bottom:7px}
+  .pbar{height:8px;border-radius:999px;background:var(--panel-2);overflow:hidden;border:1px solid var(--line)}
+  .pfill{height:100%;background:var(--amber);transition:width .3s ease}
+  .countdown{flex:none;width:74px;height:74px;border-radius:50%;display:grid;place-items:center;
+    position:relative;background:conic-gradient(var(--teal) var(--deg,360deg), var(--panel-2) 0);transition:none}
+  .countdown::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--panel)}
+  .countdown b{position:relative;font-size:1.6rem;font-weight:800}
+  .countdown.warn{background:conic-gradient(var(--red) var(--deg,360deg), var(--panel-2) 0)}
+  .countdown.warn b{color:var(--red)}
+
+  .qcard{text-align:center;padding:32px 30px 34px;user-select:none}
+  .qtag{font-size:.7rem;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px}
+  .acro{font-family:"SF Mono",ui-monospace,monospace;font-size:clamp(3rem,13vw,5.6rem);
+    font-weight:700;letter-spacing:.04em;color:var(--amber);text-shadow:0 0 30px var(--glow);line-height:1}
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:26px}
+  @media(max-width:560px){.choices{grid-template-columns:1fr}}
+  .choice{display:flex;align-items:center;gap:12px;text-align:left;background:var(--panel-2);
+    border:1px solid var(--line);color:var(--ink);border-radius:13px;padding:15px 16px;
+    font-size:.98rem;font-weight:500;transition:.12s;min-height:62px}
+  .choice:hover:not(:disabled){border-color:var(--amber);background:#26315a}
+  .choice .key{flex:none;width:26px;height:26px;border-radius:7px;background:var(--base);
+    border:1px solid var(--line);display:grid;place-items:center;font-family:"SF Mono",monospace;
+    font-size:.82rem;color:var(--muted)}
+  .choice.picked{border-color:var(--amber);background:#2a3461}
+  .choice:disabled{cursor:default;opacity:.9}
+
+  .flag{margin-top:18px;height:20px;font-size:.85rem;color:var(--red);font-weight:600;opacity:0;transition:.2s}
+  .flag.show{opacity:1}
+
+  /* ---- results ---- */
+  .score-hero{text-align:center;margin:6px 0 18px}
+  .score-pct{font-size:clamp(3.4rem,15vw,5.4rem);font-weight:800;line-height:1}
+  .score-pct.pass{color:var(--teal)} .score-pct.fail{color:var(--amber)}
+  .score-line{color:var(--muted);font-size:1rem;margin-top:4px}
+  .verdict{display:inline-block;margin-top:14px;padding:7px 16px;border-radius:999px;font-weight:700;font-size:.9rem}
+  .verdict.pass{background:rgba(39,211,180,.16);color:var(--teal);border:1px solid var(--teal)}
+  .verdict.fail{background:rgba(245,181,61,.14);color:var(--amber);border:1px solid var(--amber)}
+  .breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0 6px}
+  .breakdown .stat{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:15px;text-align:center}
+  .breakdown .num{font-size:1.7rem;font-weight:800}
+  .breakdown .num.teal{color:var(--teal)} .breakdown .num.red{color:var(--red)}
+  .breakdown .lbl{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+
+  .review{margin-top:22px}
+  .review h3{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin-bottom:11px}
+  .review ul{list-style:none;display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto;padding-right:4px}
+  .review li{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 14px;font-size:.9rem}
+  .review li.ok{border-left:3px solid var(--teal)}
+  .review li.no{border-left:3px solid var(--red)}
+  .review .top{display:flex;align-items:center;gap:10px}
+  .review .ac{font-family:"SF Mono",monospace;color:var(--amber);font-weight:700;min-width:66px}
+  .review .mark{margin-left:auto;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .review .mark.ok{color:var(--teal)} .review .mark.no{color:var(--red)}
+  .review .ans{margin-top:7px;font-size:.86rem;color:var(--muted);padding-left:76px}
+  .review .ans b{color:var(--teal)}
+  .review .ans .gave{color:var(--red)}
+  @media(max-width:560px){.review .ans{padding-left:0}}
+
+  .btn-row{display:flex;gap:12px;margin-top:24px}
+  .btn-row button{flex:1;border-radius:12px;padding:15px;font-weight:800;font-size:1rem;border:1px solid var(--line)}
+  .btn-primary{background:linear-gradient(180deg,#ffce62,var(--amber));color:#1a1206;border:none}
+  .btn-primary:hover{transform:translateY(-1px)}
+  .btn-ghost{background:transparent;color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--amber);color:var(--amber)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ============ START ============ -->
+  <section id="start" class="card">
+    <div class="eyebrow">CompTIA Security+ · SY0-701 · Timed Check</div>
+    <h1>Acronym <span class="accent">Check</span></h1>
+    <p class="sub">A timed quiz on the Tier 1 acronyms. Each question has its own clock — answer before it runs out. No going back, no answer keys until the end.</p>
+
+    <ul class="rules">
+      <li><span class="ic">⏱</span><span>Each question is timed. When the clock hits zero, it's marked wrong and moves on.</span></li>
+      <li><span class="ic">⇥</span><span>Leaving this tab or window during a question forfeits that question — stay on the page.</span></li>
+      <li><span class="ic">✓</span><span>You'll get your score and a full answer review at the end.</span></li>
+    </ul>
+
+    <div class="field">
+      <label>Format</label>
+      <div class="chips">
+        <span class="chip" style="cursor:default">All Tier 1 domains</span>
+        <span class="chip" style="cursor:default">20 questions</span>
+        <span class="chip" style="cursor:default">8 seconds each</span>
+      </div>
+    </div>
+
+    <button class="start-btn" id="startBtn">Begin quiz</button>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section id="quiz" class="hidden">
+    <div class="hud">
+      <div class="progress">
+        <div class="meta"><span id="qpos">Question 1 of 10</span><span id="qdomain">Domain 1</span></div>
+        <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
+      </div>
+      <div class="countdown" id="countdown"><b id="cdNum">8</b></div>
+    </div>
+
+    <div class="card qcard">
+      <div class="qtag" id="qtag">Decode the acronym</div>
+      <div class="acro" id="acro">CIA</div>
+      <div class="choices" id="choices"></div>
+      <div class="flag" id="flag"></div>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section id="results" class="card hidden">
+    <div class="eyebrow">Results</div>
+    <div class="score-hero">
+      <div class="score-pct" id="scorePct">0%</div>
+      <div class="score-line" id="scoreLine">0 of 10 correct</div>
+      <div class="verdict" id="verdict">—</div>
+    </div>
+    <div class="breakdown">
+      <div class="stat"><div class="num teal" id="bCorrect">0</div><div class="lbl">Correct</div></div>
+      <div class="stat"><div class="num red" id="bWrong">0</div><div class="lbl">Missed</div></div>
+      <div class="stat"><div class="num" id="bTime">0</div><div class="lbl">Ran out / left</div></div>
+    </div>
+    <div class="review" id="review"></div>
+    <div class="btn-row">
+      <button class="btn-primary" id="againBtn">Retake</button>
+      <button class="btn-ghost" id="settingsBtn">Back to start</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ---------- Tier 1 acronym pool (SY0-701) ---------- */
+const POOL = [
+  {a:"CIA", x:"Confidentiality, Integrity, and Availability", d:1},
+  {a:"AAA", x:"Authentication, Authorization, and Accounting", d:1},
+  {a:"PKI", x:"Public Key Infrastructure", d:1},
+  {a:"TPM", x:"Trusted Platform Module", d:1},
+  {a:"HSM", x:"Hardware Security Module", d:1},
+  {a:"CRL", x:"Certificate Revocation List", d:1},
+  {a:"OCSP", x:"Online Certificate Status Protocol", d:1},
+  {a:"CSR", x:"Certificate Signing Request", d:1},
+  {a:"SMS", x:"Short Message Service", d:2},
+  {a:"IM", x:"Instant Messaging", d:2},
+  {a:"MSP", x:"Managed Service Provider", d:2},
+  {a:"SQLi", x:"SQL Injection", d:2},
+  {a:"XSS", x:"Cross-site Scripting", d:2},
+  {a:"TOC", x:"Time-of-check", d:2},
+  {a:"TOU", x:"Time-of-use", d:2},
+  {a:"VM", x:"Virtual Machine", d:2},
+  {a:"OS", x:"Operating System", d:2},
+  {a:"RFID", x:"Radio Frequency Identification", d:2},
+  {a:"DDoS", x:"Distributed Denial of Service", d:2},
+  {a:"DNS", x:"Domain Name System", d:2},
+  {a:"ACL", x:"Access Control List", d:2},
+  {a:"HIPS", x:"Host-based Intrusion Prevention System", d:2},
+  {a:"IaC", x:"Infrastructure as Code", d:3},
+  {a:"SDN", x:"Software-defined Networking", d:3},
+  {a:"ICS", x:"Industrial Control Systems", d:3},
+  {a:"SCADA", x:"Supervisory Control and Data Acquisition", d:3},
+  {a:"RTOS", x:"Real-time Operating System", d:3},
+  {a:"IoT", x:"Internet of Things", d:3},
+  {a:"IPS", x:"Intrusion Prevention System", d:3},
+  {a:"IDS", x:"Intrusion Detection System", d:3},
+  {a:"EAP", x:"Extensible Authentication Protocol", d:3},
+  {a:"WAF", x:"Web Application Firewall", d:3},
+  {a:"UTM", x:"Unified Threat Management", d:3},
+  {a:"NGFW", x:"Next-generation Firewall", d:3},
+  {a:"VPN", x:"Virtual Private Network", d:3},
+  {a:"TLS", x:"Transport Layer Security", d:3},
+  {a:"IPSec", x:"Internet Protocol Security", d:3},
+  {a:"SD-WAN", x:"Software-defined Wide Area Network", d:3},
+  {a:"SASE", x:"Secure Access Service Edge", d:3},
+  {a:"UPS", x:"Uninterruptible Power Supply", d:3},
+  {a:"MDM", x:"Mobile Device Management", d:4},
+  {a:"BYOD", x:"Bring Your Own Device", d:4},
+  {a:"COPE", x:"Corporate-owned, Personally Enabled", d:4},
+  {a:"CYOD", x:"Choose Your Own Device", d:4},
+  {a:"WPA3", x:"Wi-Fi Protected Access 3", d:4},
+  {a:"RADIUS", x:"Remote Authentication Dial-in User Service", d:4},
+  {a:"SCAP", x:"Security Content Automation Protocol", d:4},
+  {a:"SIEM", x:"Security Information and Event Management", d:4},
+  {a:"DLP", x:"Data Loss Prevention", d:4},
+  {a:"SNMP", x:"Simple Network Management Protocol", d:4},
+  {a:"OSINT", x:"Open-source Intelligence", d:4},
+  {a:"CVSS", x:"Common Vulnerability Scoring System", d:4},
+  {a:"CVE", x:"Common Vulnerability Enumeration", d:4},
+  {a:"URL", x:"Universal Resource Locator", d:4},
+  {a:"DMARC", x:"Domain-based Message Authentication Reporting and Conformance", d:4},
+  {a:"DKIM", x:"DomainKeys Identified Mail", d:4},
+  {a:"SPF", x:"Sender Policy Framework", d:4},
+  {a:"NAC", x:"Network Access Control", d:4},
+  {a:"EDR", x:"Endpoint Detection and Response", d:4},
+  {a:"XDR", x:"Extended Detection and Response", d:4},
+  {a:"SELinux", x:"Security-enhanced Linux", d:4},
+  {a:"LDAP", x:"Lightweight Directory Access Protocol", d:4},
+  {a:"OAuth", x:"Open Authorization", d:4},
+  {a:"SAML", x:"Security Assertions Markup Language", d:4},
+  {a:"SSO", x:"Single Sign-on", d:4},
+  {a:"MFA", x:"Multifactor Authentication", d:4},
+  {a:"API", x:"Application Programming Interface", d:4},
+  {a:"AUP", x:"Acceptable Use Policy", d:5},
+  {a:"SDLC", x:"Software Development Lifecycle", d:5},
+  {a:"SLE", x:"Single Loss Expectancy", d:5},
+  {a:"ALE", x:"Annualized Loss Expectancy", d:5},
+  {a:"ARO", x:"Annualized Rate of Occurrence", d:5},
+  {a:"RTO", x:"Recovery Time Objective", d:5},
+  {a:"RPO", x:"Recovery Point Objective", d:5},
+  {a:"MTTR", x:"Mean Time to Repair", d:5},
+  {a:"MTBF", x:"Mean Time Between Failures", d:5},
+  {a:"SLA", x:"Service-level Agreement", d:5},
+  {a:"MOA", x:"Memorandum of Agreement", d:5},
+  {a:"MOU", x:"Memorandum of Understanding", d:5},
+  {a:"MSA", x:"Master Service Agreement", d:5},
+  {a:"SOW", x:"Statement of Work", d:5},
+  {a:"NDA", x:"Non-disclosure Agreement", d:5},
+  {a:"BPA", x:"Business Partners Agreement", d:5},
+];
+const DOMAIN_NAMES = {1:"Concepts",2:"Threats",3:"Architecture",4:"Operations",5:"Program Mgmt"};
+const PASS_MARK = 70; // classroom passing line (%)
+
+/* ---------- state ---------- */
+let cfg = {domain:"all", count:20, qtime:8};
+let questions = [];   // [{item, options, gave, status}]
+let qIndex = 0;
+let perTimer = null, perRemaining = 0, locked = false;
+
+const $ = s => document.querySelector(s);
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]} return a; };
+
+/* ---------- chip pickers ---------- */
+/* Quiz format is fixed: all domains · 20 questions · 8 seconds each */
+
+/* ---------- build quiz ----------
+   Distractors mirror the REAL answer word-by-word: each swapped word keeps the
+   same first letter, so every option shares the acronym's initials and students
+   can't shortcut by matching first letters. Connectors (and/of/your/own...) and
+   numbers are preserved in place. */
+const SKIP = new Set(["and","of","the","to","for","as","a","in","on","with","or","over","your","own"]);
+const VOCAB = {
+  a:["Authentication","Authorization","Availability","Access","Assessment","Allocation","Analysis","Anomaly","Assurance","Auditing","Adaptive","Applied"],
+  b:["Bring","Business","Baseline","Boundary","Behavioral","Blocklist","Broker","Backup","Bastion","Bridged"],
+  c:["Configuration","Containment","Credential","Cryptographic","Compliance","Connection","Centralized","Continuous","Containerized","Clustering","Certificate","Controlled"],
+  d:["Distributed","Domain","Data","Device","Detection","Defined","Directory","Discretionary","Decentralized","Dynamic","Delegated","Diagnostic"],
+  e:["Extensible","Endpoint","Encryption","Enterprise","Enumeration","Event","Extended","Escalation","Edge","Encoded","Enforced","Embedded"],
+  f:["Framework","Firewall","Function","Federation","Filtering","Forwarding","Failover","Federated","Flagged"],
+  g:["Gateway","Governance","Granular","Group","Generated","Guarded"],
+  h:["Hardware","Host-based","Hashing","Hybrid","Hierarchical","Heuristic","Hardened","Hosted"],
+  i:["Integrity","Isolation","Infrastructure","Inspection","Identity","Intrusion","Internal","Incident","Integrated","Interface","Indexed","Inbound"],
+  j:["Jump","Journaling","Joined"],
+  k:["Key","Kernel","Keyed","Keychain"],
+  l:["Layer","Lightweight","Logical","Lifecycle","Listener","Locator","Logging","Labeled","Linked"],
+  m:["Module","Management","Monitoring","Mitigation","Mechanism","Messaging","Modeling","Mapping","Managed","Masked"],
+  n:["Network","Next-generation","Node","Notification","Namespace","Negotiated","Native","Normalized"],
+  o:["Online","Operating","Open","Operational","Orchestration","Outbound","Origin","Optimized","Offsite"],
+  p:["Protocol","Platform","Privilege","Perimeter","Provisioning","Protection","Policy","Partition","Penetration","Persistent","Proxied","Patched"],
+  q:["Quarantine","Query","Queued","Qualified"],
+  r:["Revocation","Request","Remote","Recovery","Routing","Resilience","Registration","Reporting","Response","Replication","Regulated","Resolved"],
+  s:["Security","Service","System","Software","Session","Storage","Signing","Subnet","Standard","Scanning","Segmentation","Subject"],
+  t:["Trusted","Transport","Threat","Token","Tunneling","Telemetry","Topology","Transfer","Tracked","Tiered"],
+  u:["Unified","Universal","Uninterruptible","User","Unauthorized","Utility","Updated","Uplinked"],
+  v:["Virtual","Vulnerability","Validation","Verification","Visibility","Vector","Verified","Versioned"],
+  w:["Web","Wide","Wireless","Workstation","Workload","Watchlist","Wrapped","Whitelisted"],
+  x:["Cross-site","Extended"],
+  y:["Yielded","Yearly"],
+  z:["Zoned","Zero-trust"]
+};
+
+function makeDistractor(expansion){
+  return expansion.split(" ").map(tok=>{
+    const m=tok.match(/^([^A-Za-z]*)([A-Za-z][A-Za-z\-]*)([^A-Za-z]*)$/);
+    if(!m) return tok;                         // numbers / symbols stay (e.g. "3")
+    const [,pre,core,post]=m;
+    if(SKIP.has(core.toLowerCase())) return tok; // keep connectors/possessives
+    const bank=VOCAB[core[0].toLowerCase()];
+    if(!bank||!bank.length) return tok;
+    const pool=bank.filter(w=>w.toLowerCase()!==core.toLowerCase());
+    const pick=(pool.length?pool:bank)[(Math.random()*(pool.length?pool.length:bank.length))|0];
+    const cased=/^[A-Z]/.test(core) ? pick.charAt(0).toUpperCase()+pick.slice(1) : pick.toLowerCase();
+    return pre+cased+post;
+  }).join(" ");
+}
+
+function distractorsFor(item){
+  const out=[]; let guard=0;
+  while(out.length<3 && guard<80){
+    guard++;
+    const d=makeDistractor(item.x);
+    if(d===item.x || out.includes(d)) continue;
+    if(POOL.some(p=>p.x===d)) continue;        // don't accidentally produce a real expansion
+    out.push(d);
+  }
+  // safety net: pad with same-domain real expansions if generation came up short
+  if(out.length<3){
+    for(const p of shuffle(POOL.filter(p=>p.d===item.d && p.x!==item.x))){
+      if(out.length>=3) break;
+      if(!out.includes(p.x)) out.push(p.x);
+    }
+  }
+  return out.slice(0,3).map(x=>({x}));
+}
+
+function buildDeck(){
+  const filtered = cfg.domain==="all" ? POOL.slice() : POOL.filter(p=>p.d==+cfg.domain);
+  shuffle(filtered);
+  const n = cfg.count==="all" ? filtered.length : Math.min(+cfg.count, filtered.length);
+  const chosen = filtered.slice(0,n);
+  return chosen.map(item=>({
+    item,
+    options: shuffle([item, ...distractorsFor(item)]),
+    gave:null, status:"unanswered"
+  }));
+}
+
+/* ---------- flow ---------- */
+function startQuiz(){
+  questions = buildDeck();
+  qIndex = 0;
+  $("#start").classList.add("hidden");
+  $("#results").classList.add("hidden");
+  $("#quiz").classList.remove("hidden");
+  document.addEventListener("visibilitychange", onLeave);
+  window.addEventListener("blur", onLeave);
+  renderQuestion();
+}
+
+function renderQuestion(){
+  locked=false;
+  const q=questions[qIndex];
+  $("#qpos").textContent=`Question ${qIndex+1} of ${questions.length}`;
+  $("#qdomain").textContent=`Domain ${q.item.d} · ${DOMAIN_NAMES[q.item.d]}`;
+  $("#pfill").style.width=((qIndex)/questions.length*100)+"%";
+  $("#acro").textContent=q.item.a;
+  $("#flag").classList.remove("show"); $("#flag").textContent="";
+
+  const box=$("#choices"); box.innerHTML="";
+  q.options.forEach((opt,i)=>{
+    const btn=document.createElement("button");
+    btn.className="choice";
+    btn.innerHTML=`<span class="key">${i+1}</span><span>${opt.x}</span>`;
+    btn.onclick=()=>choose(opt,btn);
+    box.appendChild(btn);
+  });
+  startPerTimer();
+}
+
+function startPerTimer(){
+  perRemaining=cfg.qtime;
+  updateCountdown();
+  clearInterval(perTimer);
+  const start=Date.now();
+  perTimer=setInterval(()=>{
+    const elapsed=(Date.now()-start)/1000;
+    perRemaining=Math.max(0, cfg.qtime-elapsed);
+    updateCountdown();
+    if(perRemaining<=0){ clearInterval(perTimer); timeOut(); }
+  },80);
+}
+function updateCountdown(){
+  const cd=$("#countdown");
+  const frac=perRemaining/cfg.qtime;
+  cd.style.setProperty("--deg", (frac*360)+"deg");
+  $("#cdNum").textContent=Math.ceil(perRemaining);
+  cd.classList.toggle("warn", perRemaining<=3);
+}
+
+function choose(opt,btn){
+  if(locked) return; lock();
+  const q=questions[qIndex];
+  q.gave=opt.x;
+  q.status = (opt.x===q.item.x) ? "correct" : "wrong";
+  [...$("#choices").children].forEach(b=>b.disabled=true);
+  btn.classList.add("picked");
+  setTimeout(next, 230); // brief lock, NO reveal (test mode)
+}
+function timeOut(){
+  if(locked) return; lock();
+  const q=questions[qIndex];
+  q.gave=null; q.status="timeout";
+  [...$("#choices").children].forEach(b=>b.disabled=true);
+  $("#flag").textContent="Time's up — moving on.";
+  $("#flag").classList.add("show");
+  setTimeout(next, 700);
+}
+function onLeave(){
+  // fires on tab hide or window blur; only act on a live, unanswered question
+  if(locked || $("#quiz").classList.contains("hidden")) return;
+  if(document.visibilityState==="visible" && document.hasFocus()) return;
+  lock();
+  const q=questions[qIndex];
+  q.gave=null; q.status="forfeit";
+  [...$("#choices").children].forEach(b=>b.disabled=true);
+  $("#flag").textContent="You left the page — this question was forfeited.";
+  $("#flag").classList.add("show");
+  setTimeout(next, 700);
+}
+function lock(){ locked=true; clearInterval(perTimer); }
+
+function next(){
+  qIndex++;
+  if(qIndex>=questions.length) finish();
+  else renderQuestion();
+}
+
+/* ---------- results ---------- */
+function finish(){
+  clearInterval(perTimer);
+  document.removeEventListener("visibilitychange", onLeave);
+  window.removeEventListener("blur", onLeave);
+  $("#quiz").classList.add("hidden");
+  $("#results").classList.remove("hidden");
+
+  const total=questions.length;
+  const correct=questions.filter(q=>q.status==="correct").length;
+  const wrong=questions.filter(q=>q.status==="wrong").length;
+  const lost=questions.filter(q=>q.status==="timeout"||q.status==="forfeit").length;
+  const pct=Math.round((correct/total)*100);
+  const passed=pct>=PASS_MARK;
+
+  const pctEl=$("#scorePct");
+  pctEl.textContent=pct+"%";
+  pctEl.className="score-pct "+(passed?"pass":"fail");
+  $("#scoreLine").textContent=`${correct} of ${total} correct`;
+  const v=$("#verdict");
+  v.textContent = passed ? "Passed · ≥70%" : "Below 70% — keep practicing";
+  v.className="verdict "+(passed?"pass":"fail");
+
+  $("#bCorrect").textContent=correct;
+  $("#bWrong").textContent=wrong;
+  $("#bTime").textContent=lost;
+
+  const rv=$("#review");
+  rv.innerHTML=`<h3>Answer review</h3><ul>`+ questions.map(q=>{
+    const ok=q.status==="correct";
+    const markTxt = q.status==="correct"?"Correct"
+      : q.status==="wrong"?"Wrong"
+      : q.status==="timeout"?"Timed out":"Left page";
+    let ans = `<div class="ans">Answer: <b>${q.item.x}</b>`;
+    if(q.status==="wrong") ans += ` &nbsp;·&nbsp; you chose <span class="gave">${q.gave}</span>`;
+    ans += `</div>`;
+    return `<li class="${ok?'ok':'no'}">
+      <div class="top"><span class="ac">${q.item.a}</span>
+        <span class="mark ${ok?'ok':'no'}">${markTxt}</span></div>
+      ${ans}
+    </li>`;
+  }).join("")+`</ul>`;
+}
+
+/* ---------- buttons ---------- */
+$("#startBtn").onclick=startQuiz;
+$("#againBtn").onclick=startQuiz;
+$("#settingsBtn").onclick=()=>{ $("#results").classList.add("hidden"); $("#start").classList.remove("hidden"); };
+
+/* ---------- keyboard ---------- */
+document.addEventListener("keydown", e=>{
+  if($("#quiz").classList.contains("hidden")) return;
+  if(["1","2","3","4"].includes(e.key)){
+    const btn=$("#choices").children[+e.key-1];
+    if(btn && !btn.disabled) btn.click();
+  }
+});
+</script>
+</body>
+</html>
