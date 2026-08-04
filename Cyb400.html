@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Handover — CYB400L Lab 03 Warm-Up</title>
+<style>
+  :root{
+    --ink:#16212B; --paper:#fff; --wash:#EDF1F3; --rule:#D5DEE3;
+    --muted:#5C6B7A; --green:#0E8C57; --green-t:#E4F3EB; --green-l:#B9DECB;
+    --amber:#B4530A; --amber-t:#FBEFE4; --amber-l:#EACFB3;
+    --red:#A3241C; --red-t:#FAEAE8; --red-l:#EDC7C3;
+    --term:#16212B; --term-g:#6EE7A8;
+    --sans:ui-sans-serif,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--wash);color:var(--ink);font-family:var(--sans);line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 64px}
+
+  /* mono is the utility voice throughout — labels, counters, metadata */
+  .lab{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  header.top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;
+    padding-bottom:14px;border-bottom:2px solid var(--ink);margin-bottom:24px;flex-wrap:wrap}
+  header.top h1{font-size:19px;margin:0;letter-spacing:-.01em}
+  .prog{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .bar{height:3px;background:var(--rule);margin-top:6px;width:180px}
+  .bar i{display:block;height:100%;background:var(--green);width:0;transition:width .4s ease}
+
+  .cols{display:grid;grid-template-columns:1fr 340px;gap:26px;align-items:start}
+  @media(max-width:900px){.cols{grid-template-columns:1fr}}
+
+  .card{background:var(--paper);border:1px solid var(--rule);padding:26px 28px}
+  h2{font-size:26px;margin:.2em 0 .1em;letter-spacing:-.02em}
+  h3{font-size:17px;margin:1.6em 0 .5em}
+  p{margin:.6em 0}
+  .sub{color:var(--muted);margin-top:0}
+
+  pre.term{background:var(--term);color:#fff;font-family:var(--mono);font-size:13px;
+    padding:16px 18px;overflow-x:auto;margin:16px 0;line-height:1.5;white-space:pre}
+  pre.term .g{color:var(--term-g)}
+  pre.term .d{color:#8FA3B4}
+
+  .opts{display:flex;flex-direction:column;gap:9px;margin:18px 0 0}
+  button.opt{font:inherit;text-align:left;background:var(--paper);border:1px solid var(--rule);
+    padding:13px 15px;cursor:pointer;display:flex;gap:12px;align-items:flex-start;transition:border-color .15s,background .15s}
+  button.opt:hover:not(:disabled){border-color:var(--ink);background:#FAFCFD}
+  button.opt:disabled{cursor:default}
+  button.opt .k{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:2px;min-width:16px}
+  button.opt.right{background:var(--green-t);border-color:var(--green-l)}
+  button.opt.right .k{color:var(--green)}
+  button.opt.wrong{background:var(--red-t);border-color:var(--red-l)}
+  button.opt.wrong .k{color:var(--red)}
+  button.opt.pick{border-color:var(--ink);background:var(--wash)}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+  .fb{margin-top:16px;padding:15px 17px;border-left:3px solid var(--rule);background:var(--wash);font-size:14px}
+  .fb.ok{border-color:var(--green);background:var(--green-t)}
+  .fb.no{border-color:var(--amber);background:var(--amber-t)}
+  .fb b{display:block;margin-bottom:4px}
+
+  .row{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+  button.go{font:inherit;font-weight:600;background:var(--ink);color:#fff;border:0;padding:12px 22px;cursor:pointer}
+  button.go:hover{background:#0d1720}
+  button.ghost{font:inherit;background:transparent;border:1px solid var(--rule);padding:12px 18px;cursor:pointer}
+  button.ghost:hover{border-color:var(--ink)}
+
+  input[type=text],textarea{font:inherit;width:100%;padding:11px 13px;border:1px solid var(--rule);background:var(--paper)}
+  textarea{min-height:74px;resize:vertical}
+  label.f{display:block;margin:14px 0 5px}
+
+  /* signature element: the dossier that fills in as they work */
+  .dos{background:var(--paper);border:1px solid var(--rule);position:sticky;top:24px}
+  .dos .hd{padding:14px 18px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center}
+  .dos ul{list-style:none;margin:0;padding:8px 0}
+  .dos li{padding:10px 18px;font-size:13px;border-bottom:1px dashed var(--rule);display:flex;gap:10px}
+  .dos li:last-child{border-bottom:0}
+  .dos li .t{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);min-width:84px;padding-top:2px}
+  .dos li .v{font-family:var(--mono);font-size:12.5px;word-break:break-word}
+  .dos .empty{padding:22px 18px;color:var(--muted);font-size:13px}
+  .dos li.new{animation:in .45s ease}
+  @keyframes in{from{background:var(--green-t);opacity:.3}to{background:transparent;opacity:1}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .sum{background:var(--paper);border:1px solid var(--rule);padding:26px 28px;font-family:var(--mono);font-size:13px;white-space:pre-wrap}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    padding:4px 10px;border:1px solid var(--green-l);background:var(--green-t);color:var(--green)}
+  .hide{display:none}
+  @media print{.norm,header.top,.dos{display:none}.wrap{padding:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="lab">CYB400L &middot; Lab 03 warm-up</div>
+      <h1>The Handover</h1>
+    </div>
+    <div>
+      <div class="prog" id="prog">Not started</div>
+      <div class="bar"><i id="barfill"></i></div>
+    </div>
+  </header>
+
+  <!-- ---------- brief ---------- -->
+  <section id="brief">
+    <div class="card">
+      <div class="lab">Engagement brief</div>
+      <h2>A colleague started this job and got pulled onto something else.</h2>
+      <p class="sub">Their evidence folder is a mess. Nothing is labelled. The report is due today, and you are picking it up.</p>
+
+      <pre class="term"><span class="g">&gt; client</span>
+Northgate Logistics
+
+<span class="g">&gt; in scope</span>
+northgate-logistics.com   and anything it resolves to
+
+<span class="g">&gt; your job</span>
+work out what they did, decide what matters,
+and find something you can actually report</pre>
+
+      <p>You will not need a terminal. Everything you need is on the screen — the only thing being tested is whether you can follow the workflow and read what is in front of you.</p>
+      <p><strong>Wrong answers cost you nothing but a second attempt.</strong> Read the explanation each time; that is the actual point.</p>
+
+      <label class="f" for="who">Your name, for the sheet you hand in</label>
+      <input type="text" id="who" placeholder="e.g. Jordan Ellis" autocomplete="name">
+      <div class="row"><button class="go" id="start">Pick up the engagement</button></div>
+    </div>
+  </section>
+
+  <!-- ---------- stages ---------- -->
+  <section id="game" class="hide">
+    <div class="cols">
+      <div>
+        <div class="card" id="stage"></div>
+      </div>
+      <aside class="dos" aria-live="polite">
+        <div class="hd"><span class="lab">Engagement notes</span><span class="lab" id="dcount">0</span></div>
+        <div id="dosbody"><div class="empty">Nothing established yet. Facts you confirm will appear here.</div></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ---------- summary ---------- -->
+  <section id="done" class="hide">
+    <div class="card norm">
+      <span class="pill">Engagement complete</span>
+      <h2 style="margin-top:14px">Hand this in</h2>
+      <p class="sub">Copy it, screenshot it, or print this page.</p>
+      <div class="row">
+        <button class="go" id="copy">Copy to clipboard</button>
+        <button class="ghost" id="printit">Print</button>
+        <button class="ghost" id="again">Start over</button>
+      </div>
+    </div>
+    <div class="sum" id="sumtext" style="margin-top:16px"></div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var T = function(s){return s;};
+
+/* ---------------- content ---------------- */
+var STAGES = [
+
+/* ---- 1. which command produced this ---- */
+{ part:"Step 1 of 6", head:"Label the evidence",
+  intro:"Four files from the folder. None of them say which command produced them. Work it out from the output.",
+  qs:[
+    { pre:"PORT     STATE  SERVICE\n21/tcp   open   ftp\n22/tcp   open   ssh\n80/tcp   open   http\n3306/tcp open   mysql",
+      q:"Which command produced this?",
+      opts:["nmap 10.10.14.22","nmap -sV 10.10.14.22","nmap -sn 10.10.14.0/24","nc 10.10.14.22 21"],
+      a:0,
+      why:"No VERSION column, so nothing was interrogated. Those service names are guesses from a lookup table — port 3306 is <em>usually</em> MySQL, so it says MySQL. Nothing confirmed it." },
+
+    { pre:"Nmap scan report for 10.10.14.1\nNmap scan report for 10.10.14.22\nNmap scan report for 10.10.14.35\nNmap done: 256 IP addresses (3 hosts up) scanned",
+      q:"And this one?",
+      opts:["nmap -sV 10.10.14.22","nmap -sn 10.10.14.0/24","nmap -A 10.10.14.22","ping -c 4 10.10.14.22"],
+      a:1,
+      why:"256 addresses means a whole /24 was swept, and there are no ports anywhere in the output. That is host discovery only — <code>-sn</code>.",
+      fact:["Live hosts","3 on 10.10.14.0/24"] },
+
+    { pre:"PORT     STATE  SERVICE  VERSION\n21/tcp   open   ftp      ProFTPD 1.3.5\n22/tcp   open   ssh      OpenSSH 8.9p1 Ubuntu\n80/tcp   open   http     nginx 1.24.0\n3306/tcp open   mysql    MySQL 8.0.35",
+      q:"This is the same host as the first file. What changed?",
+      opts:["They ran it again and got luckier","They added -sV","They added -Pn","They used a different tool"],
+      a:1,
+      why:"The VERSION column appeared. <code>-sV</code> connects to each open port and asks the service what it is, instead of guessing from the port number.",
+      fact:["Target","10.10.14.22 — 4 open ports"] },
+
+    { pre:"220 ProFTPD 1.3.5 Server (Northgate FTP) [10.10.14.22]",
+      q:"One line, no scan formatting. Where did this come from?",
+      opts:["nmap -sC 10.10.14.22","searchsploit proftpd","nc 10.10.14.22 21","ping 10.10.14.22"],
+      a:2,
+      why:"That is a service introducing itself the moment a connection opens. Your colleague connected to port 21 by hand — same thing you did with SSH in week 2.",
+      fact:["FTP banner","ProFTPD 1.3.5"] }
+  ]},
+
+/* ---- 2. next move ---- */
+{ part:"Step 2 of 6", head:"What comes next",
+  intro:"Their notes stop halfway. For each situation, pick the next thing you would actually do.",
+  qs:[
+    { q:"All you have been given is the name northgate-logistics.com. Nothing else.",
+      opts:["Run nmap -sV against the name","Find out what address the name resolves to","Start searching for exploits","Run searchsploit northgate"],
+      a:1,
+      why:"You cannot scan a name until you know what is behind it — and it may resolve to more than one address. That is the very first arrow on the chain: name to address." },
+
+    { q:"Your sweep says the host seems down. The client insists the machine is switched on.",
+      opts:["Report it as offline","Try again later","Rescan with -Pn","Ask for a different address"],
+      a:2,
+      why:"A sweep gives you a floor, not a total. Plenty of machines simply refuse to answer discovery. <code>-Pn</code> says skip the question and scan anyway." },
+
+    { q:"You have four open ports and the service column says ftp, ssh, http, mysql. No versions.",
+      opts:["Search for exploits for FTP","Add -sV and scan again","Try logging in to each one","Report the four services"],
+      a:1,
+      why:"Those names are guesses. You cannot research \"ftp\" — there is no such product. You need the software and the version before any of this is searchable." },
+
+    { q:"You now have ProFTPD 1.3.5 on port 21.",
+      opts:["Run the ProFTPD backdoor you used last week","Search that exact version string","Try anonymous login and stop there","Move straight to Metasploit"],
+      a:1,
+      why:"A version string is the one thing from a scan you can take away and research. And notice what the first option assumes — hold that thought for step 4." }
+  ]},
+
+/* ---- 3. read the scan ---- */
+{ part:"Step 3 of 6", head:"Decide what matters",
+  intro:"Four services, and not enough time to chase all of them properly.",
+  qs:[
+    { pre:"21/tcp   open   ftp      ProFTPD 1.3.5\n22/tcp   open   ssh      OpenSSH 8.9p1 Ubuntu\n80/tcp   open   http     nginx 1.24.0\n3306/tcp open   mysql    MySQL 8.0.35",
+      q:"Question 3 of the five is \"what works with no login?\" Which service has an obvious version of that question you can check in seconds?",
+      opts:["SSH — try the default password","FTP — try logging in as anonymous","MySQL — connect as root","HTTP — read the page source"],
+      a:1,
+      why:"Anonymous FTP is a real feature that exists for public file distribution, and it gets left switched on constantly. It is one connection to check. The others need credentials you do not have, or are next week's material." },
+
+    { q:"You searched all four version strings. Only one came back with a published issue that matches the exact version in front of you. Which would you bet on?",
+      opts:["OpenSSH 8.9p1","nginx 1.24.0","ProFTPD 1.3.5","MySQL 8.0.35"],
+      a:2,
+      why:"ProFTPD 1.3.5 is years older than the other three, which are all recent releases. Age is the strongest signal you have before you search — old software has had longer for someone to find and publish something.",
+      fact:["Lead","ProFTPD 1.3.5 on port 21"] }
+  ]},
+
+/* ---- 4. the searchsploit trap ---- */
+{ part:"Step 4 of 6", head:"Read the results properly",
+  intro:"This is the step people rush. Slow down.",
+  qs:[
+    { pre:"$ searchsploit proftpd\n\n<span class=\"d\">Exploit Title</span>\n---------------------------------------------------\nProFTPD 1.3.2 - Remote Command Execution\nProFTPD 1.3.3c - Compromised Source Backdoor RCE\nProFTPD 1.3.3c - Backdoor Command Execution (MSF)\nProFTPD 1.3.5 - 'mod_copy' Command Execution\nProFTPD 1.3.5 - 'mod_copy' Command Execution (MSF)",
+      q:"Your target runs ProFTPD 1.3.5. Which of these applies?",
+      opts:["The 1.3.3c backdoor — you already know how that one works","The 1.3.2 remote command execution","The 1.3.5 mod_copy entries","All of them, they are all ProFTPD"],
+      a:2,
+      why:"Only the entries whose version matches. The 1.3.3c backdoor is the one you used last week, which is exactly why it is tempting — but 1.3.3c and 1.3.5 are different software as far as this target is concerned.",
+      fact:["Candidate","ProFTPD 1.3.5 mod_copy"] },
+
+    { q:"Why does the 1.3.3c backdoor not apply here?",
+      opts:["It was patched everywhere years ago","The backdoor only existed in the 1.3.3c release — this is 1.3.5","It only works on Windows","It needs credentials"],
+      a:1,
+      why:"That backdoor was inserted into one specific tarball during a five-day window in 2010. It is not a bug in ProFTPD — it is malicious code that only ever existed in that one release. A different version simply does not contain it." }
+  ]},
+
+/* ---- 5. verify ---- */
+{ part:"Step 5 of 6", head:"Before you run anything",
+  intro:"You have found something that looks like it fits. Multi-select — pick every check that has to happen first.",
+  qs:[
+    { q:"Which of these must you check before running the exploit? Choose all that apply.",
+      multi:true,
+      opts:["Does the version match exactly?","Does it need a specific configuration or module enabled?","What does the code actually do when it runs?","Has the exploit been downloaded a lot?","Does the target's hostname sound important?"],
+      a:[0,1,2],
+      why:"The first three are the difference between a finding and an incident. Popularity tells you nothing about whether it applies to this host, and the hostname tells you nothing at all. A vulnerable version is not the same thing as a vulnerable system." }
+  ]},
+
+/* ---- 6. write it up ---- */
+{ part:"Step 6 of 6", head:"Write the finding", write:true,
+  intro:"Everything you established is in your notes on the right. Turn it into something a client could read.",
+  fields:[
+    {k:"svc", l:"Service and port", ph:"e.g. FTP on port 21"},
+    {k:"ver", l:"Exact version string", ph:"copy it, do not paraphrase"},
+    {k:"vuln",l:"The vulnerability", ph:"a name, not \"it's old\""},
+    {k:"how", l:"How you found it — the commands, in order", ph:"what you would put in the evidence section", big:true},
+    {k:"why", l:"Why it matters — what could someone actually do?", ph:"one or two sentences", big:true},
+    {k:"fix", l:"What you would tell the client to do about it", ph:"one sentence is enough", big:true}
+  ]}
+];
+
+/* ---------------- state ---------------- */
+var S = {name:"", stage:0, q:0, tries:0, first:0, asked:0, facts:[], answers:{}, picked:[]};
+
+var $ = function(id){return document.getElementById(id);};
+var esc = function(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");};
+
+function totalQs(){
+  var n=0; STAGES.forEach(function(s){ n += s.qs ? s.qs.length : 0; }); return n;
+}
+
+function setProg(){
+  var t = totalQs();
+  $("prog").textContent = S.asked + " of " + t + " answered";
+  $("barfill").style.width = (t ? Math.round(S.asked/t*100) : 0) + "%";
+}
+
+function addFact(t,v){
+  S.facts.push([t,v]);
+  var b = $("dosbody");
+  if(S.facts.length===1) b.innerHTML = "<ul></ul>";
+  var li = document.createElement("li");
+  li.className = "new";
+  li.innerHTML = '<span class="t">'+esc(t)+'</span><span class="v">'+esc(v)+'</span>';
+  b.querySelector("ul").appendChild(li);
+  $("dcount").textContent = S.facts.length;
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  var st = STAGES[S.stage];
+  if(!st){ return finish(); }
+  if(st.write){ return renderWrite(st); }
+
+  var item = st.qs[S.q];
+  var h = '<div class="lab">'+st.part+'</div><h2>'+esc(st.head)+'</h2>';
+  if(S.q===0 && st.intro) h += '<p class="sub">'+esc(st.intro)+'</p>';
+  if(item.pre) h += '<pre class="term">'+item.pre+'</pre>';
+  h += '<h3>'+esc(item.q)+'</h3>';
+  if(item.multi) h += '<p class="lab">Select all that apply, then confirm</p>';
+  h += '<div class="opts" id="opts"></div><div id="fb"></div><div class="row" id="row"></div>';
+  $("stage").innerHTML = h;
+
+  var box = $("opts");
+  item.opts.forEach(function(txt,i){
+    var b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.innerHTML = '<span class="k">'+String.fromCharCode(65+i)+'</span><span>'+esc(txt)+'</span>';
+    b.onclick = function(){ item.multi ? toggle(i,b) : judge(i); };
+    box.appendChild(b);
+  });
+
+  if(item.multi){
+    S.picked = [];
+    var c = document.createElement("button");
+    c.className = "go"; c.textContent = "Confirm selection";
+    c.onclick = function(){ judgeMulti(); };
+    $("row").appendChild(c);
+  }
+  S.tries = 0;
+}
+
+function toggle(i,b){
+  var p = S.picked.indexOf(i);
+  if(p>-1){ S.picked.splice(p,1); b.classList.remove("pick"); }
+  else { S.picked.push(i); b.classList.add("pick"); }
+}
+
+function feedback(ok, why){
+  $("fb").innerHTML = '<div class="fb '+(ok?"ok":"no")+'"><b>'+(ok?"Correct":"Not quite — try again")+'</b>'+(ok?why:"")+'</div>';
+}
+
+function judge(i){
+  var item = STAGES[S.stage].qs[S.q];
+  var btns = $("opts").querySelectorAll("button");
+  S.tries++;
+  if(i === item.a){
+    btns[i].classList.add("right");
+    btns.forEach(function(b){ b.disabled = true; });
+    if(S.tries===1) S.first++;
+    S.asked++; setProg();
+    feedback(true, item.why);
+    if(item.fact) addFact(item.fact[0], item.fact[1]);
+    next();
+  } else {
+    btns[i].classList.add("wrong"); btns[i].disabled = true;
+    feedback(false,"");
+  }
+}
+
+function judgeMulti(){
+  var item = STAGES[S.stage].qs[S.q];
+  var btns = $("opts").querySelectorAll("button");
+  S.tries++;
+  var want = item.a.slice().sort().join(",");
+  var got  = S.picked.slice().sort().join(",");
+  if(want === got){
+    btns.forEach(function(b,i){ b.disabled = true; if(item.a.indexOf(i)>-1) b.classList.add("right"); });
+    if(S.tries===1) S.first++;
+    S.asked++; setProg();
+    feedback(true, item.why);
+    $("row").innerHTML = ""; next();
+  } else {
+    feedback(false,"");
+  }
+}
+
+function next(){
+  var b = document.createElement("button");
+  b.className = "go";
+  var st = STAGES[S.stage];
+  var last = (S.q >= st.qs.length-1);
+  b.textContent = last ? "Next step" : "Next";
+  b.onclick = function(){
+    if(last){ S.stage++; S.q = 0; } else { S.q++; }
+    render(); window.scrollTo({top:0,behavior:"smooth"});
+  };
+  $("row").appendChild(b);
+  b.focus();
+}
+
+function renderWrite(st){
+  var h = '<div class="lab">'+st.part+'</div><h2>'+esc(st.head)+'</h2><p class="sub">'+esc(st.intro)+'</p>';
+  st.fields.forEach(function(f){
+    h += '<label class="f" for="'+f.k+'">'+esc(f.l)+'</label>';
+    h += f.big ? '<textarea id="'+f.k+'" placeholder="'+esc(f.ph)+'"></textarea>'
+               : '<input type="text" id="'+f.k+'" placeholder="'+esc(f.ph)+'">';
+  });
+  h += '<div class="row"><button class="go" id="fin">Finish and generate my sheet</button></div>';
+  $("stage").innerHTML = h;
+  $("fin").onclick = function(){
+    st.fields.forEach(function(f){ S.answers[f.k] = ($(f.k).value||"").trim(); });
+    finish();
+  };
+}
+
+function finish(){
+  $("game").classList.add("hide");
+  $("done").classList.remove("hide");
+  var t = totalQs();
+  var lines = [];
+  lines.push("CYB400L LAB 03 WARM-UP — THE HANDOVER");
+  lines.push("Name: " + (S.name||"(not given)"));
+  lines.push("First-attempt answers: " + S.first + " of " + t);
+  lines.push("");
+  lines.push("ESTABLISHED DURING THE ENGAGEMENT");
+  S.facts.forEach(function(f){ lines.push("  " + f[0] + ": " + f[1]); });
+  lines.push("");
+  lines.push("THE FINDING");
+  lines.push("  Service and port : " + (S.answers.svc||"—"));
+  lines.push("  Version          : " + (S.answers.ver||"—"));
+  lines.push("  Vulnerability    : " + (S.answers.vuln||"—"));
+  lines.push("");
+  lines.push("  How I found it:");
+  lines.push("  " + (S.answers.how||"—"));
+  lines.push("");
+  lines.push("  Why it matters:");
+  lines.push("  " + (S.answers.why||"—"));
+  lines.push("");
+  lines.push("  Remediation:");
+  lines.push("  " + (S.answers.fix||"—"));
+  $("sumtext").textContent = lines.join("\n");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* ---------------- wiring ---------------- */
+$("start").onclick = function(){
+  S.name = ($("who").value||"").trim();
+  $("brief").classList.add("hide");
+  $("game").classList.remove("hide");
+  setProg(); render();
+};
+$("who").addEventListener("keydown",function(e){ if(e.key==="Enter") $("start").click(); });
+
+$("copy").onclick = function(){
+  var txt = $("sumtext").textContent, btn = this;
+  var done = function(){ btn.textContent = "Copied"; setTimeout(function(){ btn.textContent="Copy to clipboard"; },1600); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done,fallback);
+  } else fallback();
+  function fallback(){
+    var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta);
+    ta.select(); try{document.execCommand("copy");done();}catch(e){btn.textContent="Select the text and copy it";}
+    document.body.removeChild(ta);
+  }
+};
+$("printit").onclick = function(){ window.print(); };
+$("again").onclick = function(){ location.reload(); };
+
+setProg();
+})();
+</script>
+</body>
+</html>
