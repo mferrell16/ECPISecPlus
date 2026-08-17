@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>review-session — jenkins / metasploit</title>
+<style>
+  :root{
+    --bg: #0D1117;
+    --panel: #131A22;
+    --panel-alt: #1B2430;
+    --border: #26313D;
+    --border-soft: #1E2731;
+    --text: #E6EDF3;
+    --muted: #7D8B99;
+    --green: #22C55E;
+    --green-dim: #16A34A;
+    --green-glow: rgba(34,197,94,0.15);
+    --amber: #F59E0B;
+    --red: #F85149;
+    --red-glow: rgba(248,81,73,0.12);
+    --mono: 'SF Mono', 'Cascadia Code', 'Consolas', 'JetBrains Mono', ui-monospace, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px 90px;
+  }
+
+  a { color: var(--green); }
+
+  .window {
+    width: 100%;
+    max-width: 920px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.red { background: #EF4444; }
+  .dot.amber { background: #F59E0B; }
+  .dot.green { background: #22C55E; }
+  .titlebar .path {
+    margin-left: 10px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .intro {
+    padding: 26px 28px 20px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .intro .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--green);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .intro h1 {
+    font-family: var(--mono);
+    font-size: 24px;
+    margin: 0 0 8px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .intro p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14.5px;
+    line-height: 1.55;
+    max-width: 62ch;
+  }
+
+  nav.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 10px 16px 0;
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--panel);
+  }
+  .tab-btn {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 14px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.15s ease;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+  .tab-btn .prompt { color: var(--muted); }
+  .tab-btn.active .prompt { color: var(--green); }
+  .tab-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .tab-dot.done { background: var(--green); }
+
+  main { padding: 26px 28px 10px; min-height: 420px; }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  h2.section-title {
+    font-family: var(--mono);
+    font-size: 17px;
+    margin: 0 0 6px;
+    color: var(--text);
+  }
+  p.section-desc {
+    margin: 0 0 22px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 68ch;
+  }
+
+  .challenge {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .challenge h3 {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--amber);
+    margin: 0 0 4px;
+    letter-spacing: 0.02em;
+  }
+  .challenge .sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+
+  .pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+    min-height: 42px;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 13px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .chip:hover { border-color: var(--green); color: var(--green); }
+  .chip:disabled {
+    opacity: 0.3;
+    cursor: default;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+
+  .order-list {
+    list-style: none;
+    margin: 0 0 14px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 40px;
+  }
+  .order-list li {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    padding: 9px 12px;
+    border-radius: 6px;
+    display: flex;
+    gap: 10px;
+  }
+  .order-list li .idx { color: var(--muted); }
+  .order-list li.correct { border-left-color: var(--green); background: var(--green-glow); }
+  .order-list li.incorrect { border-left-color: var(--red); background: var(--red-glow); }
+  .order-list .placeholder {
+    color: var(--muted);
+    font-style: italic;
+    border-style: dashed;
+    border-left-style: dashed;
+  }
+
+  .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button.action {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--green);
+    color: #0B140E;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+  button.action:hover { transform: translateY(-1px); }
+  button.action.secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-weight: 500;
+  }
+  button.action.secondary:hover { color: var(--text); border-color: var(--muted); }
+  .feedback {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    margin-left: 4px;
+    color: var(--muted);
+  }
+  .feedback.good { color: var(--green); }
+  .feedback.bad { color: var(--red); }
+
+  /* Sort game */
+  .sort-wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; align-items: start; }
+  .sort-pool { grid-column: 1 / -1; }
+  .bucket {
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    min-height: 140px;
+  }
+  .bucket h4 {
+    font-family: var(--mono);
+    font-size: 13px;
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bucket .letter {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--green); color: #0B140E;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 12px;
+  }
+  .bucket.remote { border-color: #3a4552; }
+  .bucket.local { border-color: #3a4552; background: rgba(34,197,94,0.03); }
+  .bucket-items { display: flex; flex-wrap: wrap; gap: 8px; min-height: 30px; }
+  .bucket-items .chip.locked {
+    cursor: default;
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-glow);
+  }
+  @media (max-width: 640px) {
+    .sort-wrap { grid-template-columns: 1fr; }
+  }
+
+  /* Matching game */
+  .match-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+  .match-col h4 {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+  .match-item {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 7px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .match-item:hover { border-color: var(--green); }
+  .match-item.selected { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+  .match-item.locked {
+    border-color: var(--green);
+    background: var(--green-glow);
+    cursor: default;
+    color: var(--green);
+  }
+  .match-item.wrong-flash {
+    border-color: var(--red);
+    background: var(--red-glow);
+  }
+  @media (max-width: 640px) {
+    .match-wrap { grid-template-columns: 1fr; }
+  }
+
+  /* Summary */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .summary-card {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .summary-card .label {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .summary-card .score {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .summary-total {
+    background: var(--panel-alt);
+    border: 1px solid var(--green);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+  .summary-total .score { font-size: 40px; font-family: var(--mono); font-weight: 800; color: var(--green); }
+  .summary-total .msg { color: var(--muted); font-size: 14px; margin-top: 8px; }
+
+  /* Footer status bar */
+  .statusbar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--panel-alt);
+    border-top: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .statusbar .score-live { color: var(--green); font-weight: 700; }
+  .statusbar .dots { display: flex; gap: 6px; }
+  .statusbar .sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+  .statusbar .sdot.done { background: var(--green); }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span>
+    <span class="path">review-session — jenkins / metasploit</span>
+  </div>
+
+  <div class="intro">
+    <div class="eyebrow">Self-paced review</div>
+    <h1>Jenkins &amp; Metasploit: Review Session</h1>
+    <p>Work through these at your own pace. ~15-20 minutes total. Nothing here is timed or graded &mdash; retry anything as many times as you want. Your running score is at the bottom of the screen.</p>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="sequence"><span class="prompt">$</span> sequence <span class="tab-dot" id="dot-sequence"></span></button>
+    <button class="tab-btn" data-tab="sort"><span class="prompt">$</span> sort-rl <span class="tab-dot" id="dot-sort"></span></button>
+    <button class="tab-btn" data-tab="match"><span class="prompt">$</span> match-os <span class="tab-dot" id="dot-match"></span></button>
+    <button class="tab-btn" data-tab="summary"><span class="prompt">$</span> summary</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ SEQUENCE TAB ============ -->
+    <section class="panel active" id="panel-sequence">
+      <h2 class="section-title">Order the Steps</h2>
+      <p class="section-desc">Click each item in the order you think it belongs. Then hit Check &mdash; correct positions turn green, wrong ones turn red so you can see exactly where the order breaks down.</p>
+
+      <div class="challenge" data-challenge="recon">
+        <h3>1. The Recon Chain</h3>
+        <p class="sub">The workflow you used to find Jenkins on Build in the first place.</p>
+        <div class="pool" data-pool="recon"></div>
+        <ol class="order-list" data-order="recon"></ol>
+        <div class="btn-row">
+          <button class="action" data-check="recon">Check</button>
+          <button class="action secondary" data-reset="recon">Reset</button>
+          <span class="feedback" data-feedback="recon"></span>
+        </div>
+      </div>
+
+      <div class="challenge" data-challenge="shell">
+        <h3>2. Getting a Reverse Shell</h3>
+        <p class="sub">The three-step pattern underneath every reverse shell.</p>
+        <div class="pool" data-pool="shell"></div>
+        <ol class="order-list" data-order="shell"></ol>
+        <div class="btn-row">
+          <button class="action" data-check="shell">Check</button>
+          <button class="action secondary" data-reset="shell">Reset</button>
+          <span class="feedback" data-feedback="shell"></span>
+        </div>
+      </div>
+
+      <div class="challenge" data-challenge="msf">
+        <h3>3. The Metasploit Workflow</h3>
+        <p class="sub">The five-step pattern you'll repeat for almost every module.</p>
+        <div class="pool" data-pool="msf"></div>
+        <ol class="order-list" data-order="msf"></ol>
+        <div class="btn-row">
+          <button class="action" data-check="msf">Check</button>
+          <button class="action secondary" data-reset="msf">Reset</button>
+          <span class="feedback" data-feedback="msf"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SORT TAB ============ -->
+    <section class="panel" id="panel-sort">
+      <h2 class="section-title">R = Remote, L = Local</h2>
+      <p class="section-desc">Click a term below, then click the bucket it belongs in. R is never you. L is never the target.</p>
+
+      <div class="challenge">
+        <div class="sort-wrap">
+          <div class="bucket-pool sort-pool">
+            <div class="pool" id="sort-pool"></div>
+          </div>
+          <div class="bucket remote" data-bucket="remote">
+            <h4><span class="letter">R</span> Remote &mdash; the target</h4>
+            <div class="bucket-items" id="bucket-remote"></div>
+          </div>
+          <div class="bucket local" data-bucket="local">
+            <h4><span class="letter">L</span> Local &mdash; you</h4>
+            <div class="bucket-items" id="bucket-local"></div>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:16px;">
+          <button class="action secondary" data-reset="sort">Reset</button>
+          <span class="feedback" id="sort-feedback"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MATCH TAB ============ -->
+    <section class="panel" id="panel-match">
+      <h2 class="section-title">Windows vs. Linux Commands</h2>
+      <p class="section-desc">Click a Linux command, then click its Windows equivalent. Correct pairs lock in green.</p>
+
+      <div class="challenge">
+        <div class="match-wrap">
+          <div class="match-col">
+            <h4>Linux</h4>
+            <div id="match-left"></div>
+          </div>
+          <div class="match-col">
+            <h4>Windows (cmd)</h4>
+            <div id="match-right"></div>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:14px;">
+          <button class="action secondary" data-reset="match">Reset</button>
+          <span class="feedback" id="match-feedback"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SUMMARY TAB ============ -->
+    <section class="panel" id="panel-summary">
+      <h2 class="section-title">Your Results</h2>
+      <p class="section-desc">Scores update live as you work &mdash; come back here any time.</p>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="label">Sequencing</div>
+          <div class="score" id="sum-sequence">0 / 14</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">R / L Sort</div>
+          <div class="score" id="sum-sort">0 / 4</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">OS Matching</div>
+          <div class="score" id="sum-match">0 / 12</div>
+        </div>
+      </div>
+
+      <div class="summary-total">
+        <div class="score" id="sum-total">0 / 30</div>
+        <div class="msg" id="sum-msg">Get started above &mdash; your total updates as you go.</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="statusbar">
+  <span>score: <span class="score-live" id="live-score">0</span>/30</span>
+  <span class="dots">
+    <span class="sdot" id="live-dot-sequence"></span>
+    <span class="sdot" id="live-dot-sort"></span>
+    <span class="sdot" id="live-dot-match"></span>
+  </span>
+  <span>~15-20 min</span>
+</div>
+
+<script>
+(function(){
+
+  // ---------------- Tab switching ----------------
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.panel');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'summary') renderSummary();
+    });
+  });
+
+  // ---------------- Score state ----------------
+  const scores = { sequence: 0, sort: 0, match: 0 };
+  const totals = { sequence: 14, sort: 4, match: 12 };
+  const attempted = { sequence: false, sort: false, match: false };
+
+  function updateLiveScore() {
+    const total = scores.sequence + scores.sort + scores.match;
+    document.getElementById('live-score').textContent = total;
+    Object.keys(attempted).forEach(k => {
+      const on = attempted[k];
+      document.getElementById('live-dot-' + k).classList.toggle('done', on);
+      document.getElementById('dot-' + k).classList.toggle('done', on);
+    });
+  }
+
+  function renderSummary() {
+    document.getElementById('sum-sequence').textContent = scores.sequence + ' / ' + totals.sequence;
+    document.getElementById('sum-sort').textContent = scores.sort + ' / ' + totals.sort;
+    document.getElementById('sum-match').textContent = scores.match + ' / ' + totals.match;
+    const total = scores.sequence + scores.sort + scores.match;
+    const grand = totals.sequence + totals.sort + totals.match;
+    document.getElementById('sum-total').textContent = total + ' / ' + grand;
+    const pct = total / grand;
+    let msg;
+    if (total === 0) msg = "Get started above — your total updates as you go.";
+    else if (pct >= 0.9) msg = "Solid. This material is locked in.";
+    else if (pct >= 0.7) msg = "Good work — worth another pass through whatever you missed.";
+    else msg = "Head back through the slides on the sections you're missing, then try again.";
+    document.getElementById('sum-msg').textContent = msg;
+  }
+
+  // ================= SEQUENCE ACTIVITY =================
+  const sequenceData = {
+    recon: {
+      correct: ["address", "open port", "service", "version", "known weakness", "a way in"]
+    },
+    shell: {
+      correct: ["Find command execution", "Start a listener", "Call back to yourself"]
+    },
+    msf: {
+      correct: ["search", "use", "show options", "set", "run"]
+    }
+  };
+
+  const sequenceState = {}; // key -> { order: [], pool: [] }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function initSequence(key) {
+    const correct = sequenceData[key].correct;
+    sequenceState[key] = { order: [], pool: shuffle(correct) };
+    renderSequence(key);
+  }
+
+  function renderSequence(key) {
+    const state = sequenceState[key];
+    const poolEl = document.querySelector('.pool[data-pool="' + key + '"]');
+    const orderEl = document.querySelector('.order-list[data-order="' + key + '"]');
+    poolEl.innerHTML = '';
+    state.pool.forEach(item => {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.type = 'button';
+      chip.textContent = item;
+      chip.addEventListener('click', () => {
+        state.order.push(item);
+        state.pool = state.pool.filter(i => i !== item);
+        renderSequence(key);
+      });
+      poolEl.appendChild(chip);
+    });
+
+    orderEl.innerHTML = '';
+    const correctLen = sequenceData[key].correct.length;
+    for (let i = 0; i < correctLen; i++) {
+      const li = document.createElement('li');
+      if (state.order[i]) {
+        li.innerHTML = '<span class="idx">' + (i + 1) + '.</span> ' + state.order[i];
+      } else {
+        li.className = 'placeholder';
+        li.innerHTML = '<span class="idx">' + (i + 1) + '.</span> click an item above';
+      }
+      orderEl.appendChild(li);
+    }
+    document.querySelector('[data-feedback="' + key + '"]').textContent = '';
+  }
+
+  function checkSequence(key) {
+    const state = sequenceState[key];
+    const correct = sequenceData[key].correct;
+    const orderEl = document.querySelector('.order-list[data-order="' + key + '"]');
+    const items = orderEl.querySelectorAll('li');
+    let correctCount = 0;
+    items.forEach((li, i) => {
+      li.classList.remove('correct', 'incorrect');
+      if (state.order[i] === undefined) return;
+      if (state.order[i] === correct[i]) {
+        li.classList.add('correct');
+        correctCount++;
+      } else {
+        li.classList.add('incorrect');
+      }
+    });
+    scores.sequence = recomputeSequenceScore();
+    attempted.sequence = true;
+    updateLiveScore();
+    const fb = document.querySelector('[data-feedback="' + key + '"]');
+    fb.textContent = correctCount + ' / ' + correct.length + ' correct';
+    fb.className = 'feedback ' + (correctCount === correct.length ? 'good' : (correctCount === 0 ? 'bad' : ''));
+  }
+
+  function recomputeSequenceScore() {
+    // best-known score per challenge, summed
+    let total = 0;
+    Object.keys(sequenceData).forEach(key => {
+      const state = sequenceState[key];
+      const correct = sequenceData[key].correct;
+      let c = 0;
+      state.order.forEach((val, i) => { if (val === correct[i]) c++; });
+      sequenceBest[key] = Math.max(sequenceBest[key] || 0, c);
+      total += sequenceBest[key];
+    });
+    return total;
+  }
+  const sequenceBest = {};
+
+  document.querySelectorAll('[data-check]').forEach(btn => {
+    if (btn.hasAttribute('data-check')) {
+      btn.addEventListener('click', () => checkSequence(btn.dataset.check));
+    }
+  });
+  document.querySelectorAll('[data-reset]').forEach(btn => {
+    const key = btn.dataset.reset;
+    if (['recon','shell','msf'].includes(key)) {
+      btn.addEventListener('click', () => { sequenceBest[key] = 0; initSequence(key); scores.sequence = recomputeSequenceScore(); updateLiveScore(); });
+    }
+  });
+
+  Object.keys(sequenceData).forEach(initSequence);
+
+  // ================= SORT ACTIVITY (R/L) =================
+  const sortItems = [
+    { term: 'RHOSTS', bucket: 'remote' },
+    { term: 'RPORT', bucket: 'remote' },
+    { term: 'LHOST', bucket: 'local' },
+    { term: 'LPORT', bucket: 'local' },
+  ];
+  let sortPlaced = {};
+  let selectedSortItem = null;
+
+  function initSort() {
+    sortPlaced = {};
+    selectedSortItem = null;
+    document.getElementById('bucket-remote').innerHTML = '';
+    document.getElementById('bucket-local').innerHTML = '';
+    renderSortPool();
+    scores.sort = 0;
+    updateLiveScore();
+    document.getElementById('sort-feedback').textContent = '';
+  }
+
+  function renderSortPool() {
+    const poolEl = document.getElementById('sort-pool');
+    poolEl.innerHTML = '';
+    sortItems.forEach(item => {
+      if (sortPlaced[item.term]) return;
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.type = 'button';
+      chip.textContent = item.term;
+      if (selectedSortItem === item.term) chip.style.borderColor = 'var(--amber)';
+      chip.addEventListener('click', () => {
+        selectedSortItem = (selectedSortItem === item.term) ? null : item.term;
+        renderSortPool();
+      });
+      poolEl.appendChild(chip);
+    });
+  }
+
+  document.querySelectorAll('.bucket').forEach(bucketEl => {
+    bucketEl.addEventListener('click', (e) => {
+      if (!selectedSortItem) return;
+      const bucketName = bucketEl.dataset.bucket;
+      const item = sortItems.find(i => i.term === selectedSortItem);
+      if (item.bucket === bucketName) {
+        sortPlaced[item.term] = bucketName;
+        const target = document.getElementById('bucket-' + bucketName);
+        const chip = document.createElement('span');
+        chip.className = 'chip locked';
+        chip.textContent = item.term;
+        target.appendChild(chip);
+        scores.sort = Object.keys(sortPlaced).length;
+        attempted.sort = true;
+        updateLiveScore();
+        document.getElementById('sort-feedback').textContent =
+          scores.sort === sortItems.length ? 'All correct!' : (scores.sort + ' / ' + sortItems.length + ' placed');
+        document.getElementById('sort-feedback').className = 'feedback ' + (scores.sort === sortItems.length ? 'good' : '');
+      } else {
+        document.getElementById('sort-feedback').textContent = 'Not quite — try the other bucket.';
+        document.getElementById('sort-feedback').className = 'feedback bad';
+      }
+      selectedSortItem = null;
+      renderSortPool();
+    });
+  });
+
+  document.querySelectorAll('[data-reset="sort"]').forEach(btn => btn.addEventListener('click', initSort));
+  initSort();
+
+  // ================= MATCH ACTIVITY (Windows vs Linux) =================
+  const matchPairs = [
+    ['ls', 'dir'],
+    ['pwd', 'cd'],
+    ['cat file', 'type file'],
+    ['cp', 'copy'],
+    ['mv', 'move / ren'],
+    ['rm', 'del'],
+    ['clear', 'cls'],
+    ['whoami', 'whoami'],
+    ['find / -name x', 'dir /s /b x'],
+    ['ps', 'tasklist'],
+    ['ifconfig', 'ipconfig'],
+    ['man cmd', 'cmd /?'],
+  ];
+  let matchLocked = {};
+  let selectedLeft = null;
+
+  function initMatch() {
+    matchLocked = {};
+    selectedLeft = null;
+    scores.match = 0;
+    updateLiveScore();
+    document.getElementById('match-feedback').textContent = '';
+    renderMatch();
+  }
+
+  function renderMatch() {
+    const leftEl = document.getElementById('match-left');
+    const rightEl = document.getElementById('match-right');
+    leftEl.innerHTML = '';
+    rightEl.innerHTML = '';
+
+    matchPairs.forEach(([lin, win]) => {
+      const li = document.createElement('div');
+      li.className = 'match-item';
+      li.textContent = lin;
+      if (matchLocked[lin]) li.classList.add('locked');
+      if (selectedLeft === lin) li.classList.add('selected');
+      li.addEventListener('click', () => {
+        if (matchLocked[lin]) return;
+        selectedLeft = (selectedLeft === lin) ? null : lin;
+        renderMatch();
+      });
+      leftEl.appendChild(li);
+    });
+
+    const shuffledRight = shuffle(matchPairs.map(p => p[1]));
+    shuffledRight.forEach(win => {
+      const isLocked = Object.values(matchLocked).includes(win);
+      const ri = document.createElement('div');
+      ri.className = 'match-item';
+      ri.textContent = win;
+      if (isLocked) ri.classList.add('locked');
+      ri.addEventListener('click', () => {
+        if (isLocked) return;
+        if (!selectedLeft) return;
+        const correctPair = matchPairs.find(p => p[0] === selectedLeft);
+        if (correctPair[1] === win) {
+          matchLocked[selectedLeft] = win;
+          scores.match = Object.keys(matchLocked).length;
+          attempted.match = true;
+          updateLiveScore();
+          document.getElementById('match-feedback').textContent = scores.match + ' / ' + matchPairs.length + ' matched';
+          document.getElementById('match-feedback').className = 'feedback ' + (scores.match === matchPairs.length ? 'good' : '');
+          selectedLeft = null;
+          renderMatch();
+        } else {
+          ri.classList.add('wrong-flash');
+          document.getElementById('match-feedback').textContent = 'Not a match — try again.';
+          document.getElementById('match-feedback').className = 'feedback bad';
+          setTimeout(() => { selectedLeft = null; renderMatch(); }, 450);
+        }
+      });
+      rightEl.appendChild(ri);
+    });
+  }
+
+  document.querySelectorAll('[data-reset="match"]').forEach(btn => btn.addEventListener('click', initMatch));
+  initMatch();
+
+  updateLiveScore();
+})();
+</script>
+
+</body>
+</html>
