@@ -3,193 +3,184 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Injection::LAB — SQL Injection &amp; XSS Simulator</title>
+<title>Vuln::LAB — Hands-on Vulnerability Simulator</title>
 <style>
   :root{
-    --bg-deep:#0B0F17;
-    --panel:#121826;
-    --panel-raised:#1A2233;
-    --line:#232C40;
-    --ink:#E8ECF4;
-    --ink-muted:#8993A8;
-    --ink-faint:#5B6478;
-    --teal:#4FD1C5;
-    --teal-dim:#1E4A46;
-    --amber:#F5A623;
-    --amber-dim:#4A3616;
-    --red:#FB5B6E;
-    --red-dim:#4A1C22;
-    --green:#34D399;
-    --green-dim:#1B4437;
+    --bg:#F3F5F9;
+    --panel:#FFFFFF;
+    --panel-raised:#F6F8FB;
+    --line:#CFD7E3;
+    --ink:#141B2B;
+    --ink-muted:#3A4558;
+    --ink-faint:#5A6476;
+    --teal:#0F766E;
+    --teal-soft:#DDF2EF;
+    --amber:#8A4B00;
+    --amber-soft:#FFEDC7;
+    --red:#B42318;
+    --red-soft:#FDE7E5;
+    --green:#166534;
+    --green-soft:#E3F5E9;
     --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Menlo", monospace;
     --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:var(--bg-deep);
+    background:var(--bg);
     color:var(--ink);
     font-family:var(--sans);
-    padding:28px 18px 60px;
+    font-size:16px;
+    line-height:1.5;
+    padding:28px 16px 60px;
   }
-  .wrap{max-width:1080px;margin:0 auto;}
+  .wrap{max-width:1100px;margin:0 auto;}
 
   header{
-    display:flex;
-    align-items:baseline;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    gap:10px;
-    margin-bottom:22px;
-    border-bottom:1px solid var(--line);
-    padding-bottom:18px;
+    margin-bottom:20px;
+    border-bottom:2px solid var(--line);
+    padding-bottom:16px;
   }
-  .brand{
-    font-family:var(--mono);
-    font-size:20px;
-    letter-spacing:0.5px;
-    color:var(--ink);
-  }
+  .brand{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--ink);}
   .brand span{color:var(--teal);}
-  .subtitle{color:var(--ink-muted);font-size:13.5px;max-width:520px;}
+  .subtitle{color:var(--ink-muted);font-size:16px;margin-top:4px;}
 
   .tabs{
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
+    display:flex;flex-wrap:wrap;gap:6px;
     background:var(--panel);
     border:1px solid var(--line);
     border-radius:10px;
-    padding:4px;
+    padding:5px;
     margin-bottom:22px;
-    width:fit-content;
   }
   .tab-btn{
-    font-family:var(--mono);
-    font-size:12.5px;
-    letter-spacing:0.4px;
-    text-transform:uppercase;
+    font-family:var(--sans);
+    font-size:15px;
+    font-weight:600;
     color:var(--ink-muted);
     background:transparent;
     border:none;
     border-radius:7px;
-    padding:9px 16px;
+    padding:10px 14px;
     cursor:pointer;
-    transition:background .15s, color .15s;
   }
-  .tab-btn.active{background:var(--panel-raised);color:var(--teal);}
-  .tab-btn:hover:not(.active){color:var(--ink);}
+  .tab-btn.active{background:var(--teal);color:#fff;}
+  .tab-btn:hover:not(.active){background:var(--panel-raised);color:var(--ink);}
 
   .scenario{display:none;}
   .scenario.active{display:block;}
-
   .scenario-intro{
-    font-size:13.5px;
-    color:var(--ink-muted);
+    font-size:17px;
+    color:var(--ink);
     margin-bottom:16px;
-    border-left:2px solid var(--teal-dim);
-    padding-left:12px;
+    border-left:4px solid var(--teal);
+    padding:4px 0 4px 12px;
   }
+  .scenario-intro b{color:var(--teal);}
 
   .grid{
     display:grid;
-    grid-template-columns:minmax(0,340px) minmax(0,1fr);
+    grid-template-columns:minmax(0,360px) minmax(0,1fr);
     gap:18px;
     align-items:start;
   }
-  @media(max-width:820px){
-    .grid{grid-template-columns:1fr;}
-  }
+  @media(max-width:840px){ .grid{grid-template-columns:1fr;} }
 
   .card{
     background:var(--panel);
     border:1px solid var(--line);
     border-radius:12px;
     padding:18px 18px 20px;
+    box-shadow:0 1px 3px rgba(20,27,43,.06);
   }
   .card h3{
     margin:0 0 14px;
-    font-size:11.5px;
+    font-size:14px;
     text-transform:uppercase;
-    letter-spacing:1px;
+    letter-spacing:.8px;
     color:var(--ink-faint);
-    font-weight:600;
+    font-weight:700;
   }
 
-  label{display:block;font-size:12px;color:var(--ink-muted);margin:0 0 5px;}
-  input[type=text],input[type=password]{
+  label{display:block;font-size:15px;font-weight:600;color:var(--ink-muted);margin:0 0 5px;}
+  input[type=text]{
     width:100%;
-    background:var(--panel-raised);
-    border:1px solid var(--line);
+    background:#fff;
+    border:2px solid var(--line);
     color:var(--ink);
     font-family:var(--mono);
-    font-size:13.5px;
-    padding:9px 10px;
+    font-size:16px;
+    padding:10px 11px;
     border-radius:7px;
     margin-bottom:12px;
     outline:none;
   }
-  input:focus{border-color:var(--teal);}
+  input[type=text]:focus{border-color:var(--teal);}
 
   .run-btn{
     width:100%;
     background:var(--teal);
-    color:#08201D;
+    color:#fff;
     border:none;
     font-family:var(--sans);
     font-weight:700;
-    font-size:13.5px;
-    padding:10px;
+    font-size:16px;
+    padding:12px;
     border-radius:7px;
     cursor:pointer;
     margin-top:2px;
   }
-  .run-btn:hover{filter:brightness(1.08);}
+  .run-btn:hover{filter:brightness(1.1);}
+  .run-btn.alt{background:#fff;color:var(--teal);border:2px solid var(--teal);margin-top:8px;}
+  .run-btn:disabled{opacity:.5;cursor:default;}
   .reset-link{
-    display:block;
-    text-align:center;
-    font-size:11.5px;
-    color:var(--ink-faint);
-    margin-top:10px;
-    cursor:pointer;
-    background:none;
-    border:none;
-    width:100%;
+    display:block;text-align:center;
+    font-size:14px;color:var(--ink-faint);
+    margin-top:10px;cursor:pointer;
+    background:none;border:none;width:100%;
+    text-decoration:underline;
   }
-  .reset-link:hover{color:var(--ink-muted);}
+  .reset-link:hover{color:var(--ink);}
 
-  .payload-label{font-size:11.5px;color:var(--ink-faint);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.6px;}
-  .chips{display:flex;flex-direction:column;gap:6px;}
+  .fix-toggle{
+    display:flex;align-items:center;gap:10px;
+    background:var(--green-soft);
+    border:1px solid #A7D8B8;
+    color:var(--green);
+    border-radius:8px;
+    padding:10px 12px;
+    margin:14px 0 4px;
+    font-size:15px;font-weight:700;
+    cursor:pointer;
+  }
+  .fix-toggle input{width:20px;height:20px;accent-color:var(--green);margin:0;}
+
+  .payload-label{font-size:14px;font-weight:700;color:var(--ink-faint);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.6px;}
+  .chips{display:flex;flex-direction:column;gap:7px;}
   .chip{
     text-align:left;
     background:var(--panel-raised);
     border:1px solid var(--line);
-    color:var(--ink-muted);
+    color:var(--ink);
     font-family:var(--mono);
-    font-size:11.5px;
-    padding:8px 10px;
+    font-size:14px;
+    padding:9px 11px;
     border-radius:7px;
     cursor:pointer;
+    word-break:break-all;
   }
-  .chip:hover{border-color:var(--teal);color:var(--ink);}
-  .chip b{color:var(--amber);font-weight:600;}
-  .chip .desc{display:block;color:var(--ink-faint);font-size:10.5px;margin-top:2px;font-family:var(--sans);}
+  .chip:hover{border-color:var(--teal);background:var(--teal-soft);}
+  .chip b{color:var(--amber);font-weight:700;}
+  .chip .desc{display:block;color:var(--ink-muted);font-size:14px;margin-top:3px;font-family:var(--sans);word-break:normal;}
 
-  .legend{
-    display:flex;
-    gap:16px;
-    flex-wrap:wrap;
-    font-size:11px;
-    color:var(--ink-faint);
-    margin-bottom:12px;
-  }
-  .legend span{display:inline-flex;align-items:center;gap:5px;}
-  .dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--ink-muted);margin-bottom:10px;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block;}
 
   .query-box{
     font-family:var(--mono);
-    font-size:13.5px;
-    line-height:1.7;
+    font-size:15.5px;
+    line-height:1.8;
     background:var(--panel-raised);
     border:1px solid var(--line);
     border-radius:9px;
@@ -199,185 +190,172 @@
     position:relative;
     overflow:hidden;
   }
-  .query-box .hl-static{color:var(--ink-muted);}
-  .query-box .hl-input{
-    color:var(--amber);
-    background:var(--amber-dim);
-    border-radius:3px;
-    padding:1px 1px;
-  }
-  .query-box .comment{
-    color:var(--ink-faint);
+  .query-box .hl-static{color:var(--ink);}
+  .query-box .hl-input{color:var(--amber);background:var(--amber-soft);border-radius:3px;font-weight:700;}
+  .query-box .ignored{
+    color:var(--red);
+    background:var(--red-soft);
     text-decoration:line-through;
-    opacity:.55;
+    text-decoration-thickness:2px;
+    border-radius:3px;
   }
-  .scan-line{
-    position:absolute;
-    left:0;top:0;
-    width:3px;height:100%;
-    background:var(--teal);
-    opacity:0;
+  .query-box .hl-code{color:var(--ink-faint);}
+  .scan-line{position:absolute;left:0;top:0;width:3px;height:100%;background:var(--teal);opacity:0;}
+  .scanning .scan-line{animation:sweep .5s ease-out;}
+  @keyframes sweep{0%{left:0;opacity:.9;}100%{left:100%;opacity:0;}}
+
+  .split{margin-top:10px;}
+  .split-row{
+    display:flex;gap:10px;align-items:flex-start;
+    margin-top:8px;
+    font-family:var(--mono);font-size:15px;
+    padding:8px 10px;border-radius:7px;
+    word-break:break-word;
   }
-  .scanning .scan-line{
-    animation:sweep .5s ease-out;
+  .split-row.runs{background:var(--green-soft);color:var(--green);}
+  .split-row.skipped{background:var(--red-soft);color:var(--red);}
+  .split-row.skipped code{text-decoration:line-through;text-decoration-thickness:2px;}
+  .split-tag{
+    font-family:var(--sans);font-size:12px;font-weight:800;letter-spacing:.5px;
+    padding:3px 8px;border-radius:4px;flex-shrink:0;color:#fff;margin-top:2px;
   }
-  @keyframes sweep{
-    0%{left:0;opacity:.9;}
-    100%{left:100%;opacity:0;}
-  }
+  .runs .split-tag{background:var(--green);}
+  .skipped .split-tag{background:var(--red);}
 
   .plain-eng{
-    font-family:var(--mono);
-    font-size:12px;
-    color:var(--ink-muted);
-    margin-top:10px;
-    padding-top:10px;
-    border-top:1px dashed var(--line);
+    font-family:var(--mono);font-size:14.5px;color:var(--ink-muted);
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);
   }
-  .plain-eng b{color:var(--ink);}
+  .plain-eng b{color:var(--ink);font-family:var(--sans);}
 
   .banner{
-    margin-top:14px;
-    border-radius:8px;
-    padding:10px 14px;
-    font-size:13px;
-    font-weight:600;
-    display:none;
+    margin-top:14px;border-radius:8px;padding:11px 14px;
+    font-size:16px;font-weight:700;display:none;
   }
   .banner.show{display:block;}
-  .banner.ok{background:var(--green-dim);color:var(--green);border:1px solid #1E6A50;}
+  .banner.ok{background:var(--green-soft);color:var(--green);border:1px solid #A7D8B8;}
   .banner.bad{background:var(--panel-raised);color:var(--ink-muted);border:1px solid var(--line);}
-  .banner.breach{background:var(--red-dim);color:var(--red);border:1px solid #7A2A34;}
+  .banner.breach{background:var(--red-soft);color:var(--red);border:1px solid #F1A9A2;}
 
-  .explainer{
-    margin-top:10px;
-    font-size:12.5px;
-    color:var(--ink-muted);
-    line-height:1.55;
-  }
+  .explainer{margin-top:10px;font-size:15.5px;color:var(--ink-muted);}
 
-  table.result{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:12px;
-    font-family:var(--mono);
-    font-size:12px;
-  }
+  table.result{width:100%;border-collapse:collapse;margin-top:12px;font-family:var(--mono);font-size:14px;}
   table.result th{
-    text-align:left;
-    color:var(--ink-faint);
-    text-transform:uppercase;
-    font-size:10px;
-    letter-spacing:.5px;
-    padding:6px 8px;
-    border-bottom:1px solid var(--line);
+    text-align:left;color:var(--ink-faint);text-transform:uppercase;
+    font-size:12px;letter-spacing:.5px;padding:7px 8px;border-bottom:2px solid var(--line);
   }
-  table.result td{
-    padding:7px 8px;
-    border-bottom:1px solid var(--line);
-    color:var(--ink);
-  }
-  table.result tr.leak td{
-    background:var(--red-dim);
-    color:var(--red);
-  }
-  .empty-note{color:var(--ink-faint);font-size:12.5px;font-style:italic;margin-top:6px;}
+  table.result td{padding:8px;border-bottom:1px solid var(--line);color:var(--ink);}
+  table.result tr.leak td{background:var(--red-soft);color:var(--red);font-weight:600;}
+  .empty-note{color:var(--ink-faint);font-size:15px;font-style:italic;margin-top:6px;}
 
   .panel-label{
-    font-family:var(--mono);
-    font-size:11px;
-    color:var(--ink-faint);
-    text-transform:uppercase;
-    letter-spacing:.6px;
-    margin:14px 0 6px;
+    font-size:13px;font-weight:700;color:var(--ink-faint);
+    text-transform:uppercase;letter-spacing:.6px;margin:16px 0 6px;
   }
   .panel-label:first-child{margin-top:0;}
-  .browser-chrome{
-    border:1px solid var(--line);
-    border-radius:9px;
-    overflow:hidden;
-  }
-  .browser-bar{
-    background:#1D2536;
-    padding:7px 10px;
-    display:flex;
-    gap:5px;
-  }
-  .browser-dot{width:8px;height:8px;border-radius:50%;background:#3A4258;}
-  iframe.xss-frame{
-    width:100%;
-    height:150px;
-    border:none;
-    display:block;
-    background:#fff;
-  }
-  .stored-wall-actions{display:flex;gap:8px;margin-top:8px;}
-  .stored-wall-actions button{flex:1;}
+  .browser-chrome{border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .browser-bar{background:#E4E9F1;padding:8px 10px;display:flex;gap:6px;align-items:center;}
+  .browser-dot{width:10px;height:10px;border-radius:50%;background:#B8C2D2;}
+  .browser-url{margin-left:10px;font-family:var(--mono);font-size:13.5px;color:var(--ink-muted);word-break:break-all;}
+  .browser-url b{color:var(--amber);}
+  iframe.xss-frame{width:100%;height:150px;border:none;display:block;background:#fff;}
 
-  .qz-q{
-    border-top:1px solid var(--line);
-    padding:18px 0;
+  /* buffer overflow */
+  .mem-group{margin-bottom:12px;}
+  .mem-label{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--ink);margin-bottom:5px;}
+  .mem-label span{font-family:var(--sans);font-weight:400;color:var(--ink-faint);font-size:14px;margin-left:6px;}
+  .mem-row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px;}
+  .cell{
+    border:2px solid var(--line);border-radius:6px;background:#fff;
+    text-align:center;padding:5px 0;font-family:var(--mono);
   }
-  .qz-q:first-of-type{border-top:none;padding-top:6px;}
-  .qz-num{
-    font-family:var(--mono);
-    color:var(--ink-faint);
-    font-size:11.5px;
-    text-transform:uppercase;
-    letter-spacing:.6px;
-    margin-bottom:6px;
+  .cell-ch{font-size:18px;font-weight:700;min-height:26px;}
+  .cell-hex{font-size:12px;color:var(--ink-faint);}
+  .cell.filled{background:var(--amber-soft);border-color:#E7B65A;color:var(--amber);}
+  .cell.spill{background:var(--red-soft);border-color:var(--red);color:var(--red);}
+  .cell.ret{background:#EEF2F8;}
+  .mem-val{font-family:var(--mono);font-size:14.5px;margin-top:5px;color:var(--ink-muted);}
+  .mem-val.hit{color:var(--red);font-weight:700;}
+  .lost-note{font-size:14px;color:var(--red);font-weight:700;margin-top:4px;}
+
+  /* race condition */
+  .req-box{font-family:var(--mono);font-size:16px;background:var(--panel-raised);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:12px;line-height:1.7;}
+  .role-user{color:var(--green);font-weight:800;}
+  .role-admin{color:var(--red);font-weight:800;background:var(--red-soft);padding:0 5px;border-radius:3px;}
+  .swap-btn{background:var(--red);margin-top:8px;font-size:17px;padding:14px;}
+  .hint{font-size:14px;color:var(--ink-faint);margin:6px 0 14px;text-align:center;}
+  kbd{font-family:var(--mono);border:1px solid var(--line);border-bottom-width:3px;border-radius:4px;padding:0 6px;background:#fff;color:var(--ink);}
+  input[type=range]{width:100%;accent-color:var(--teal);margin:4px 0 8px;}
+  .score{margin-top:14px;font-weight:800;font-size:17px;text-align:center;padding:10px;border-radius:8px;background:var(--panel-raised);border:1px solid var(--line);}
+  .rc-track{position:relative;height:100px;background:var(--panel-raised);border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:6px;}
+  .rc-line{position:absolute;left:3%;right:3%;top:52%;height:3px;background:var(--line);}
+  .rc-window{position:absolute;top:0;bottom:0;background:#FFF1BF;border-left:2px dashed #C98A00;border-right:2px dashed #C98A00;}
+  .rc-window.safe{background:var(--green-soft);border-color:var(--green);}
+  .rc-mark{position:absolute;top:52%;transform:translate(-50%,-50%);}
+  .rc-dot{width:18px;height:18px;border-radius:50%;border:3px solid var(--ink-muted);background:#fff;}
+  .rc-dot.on{background:var(--teal);border-color:var(--teal);}
+  .rc-dot.blocked{background:var(--ink-faint);border-color:var(--ink-faint);}
+  .rc-mlabel{position:absolute;left:50%;transform:translateX(-50%);font-size:12.5px;font-weight:800;color:var(--ink);white-space:nowrap;}
+  .rc-mlabel.above{bottom:24px;}
+  .rc-mlabel.below{top:24px;}
+  .rc-head{position:absolute;top:0;bottom:0;width:3px;background:var(--teal);display:none;}
+  .rc-swap-mark{position:absolute;top:0;bottom:0;width:3px;background:var(--red);display:none;}
+  .rc-swap-mark span{position:absolute;bottom:4px;left:7px;font-size:12.5px;font-weight:800;color:var(--red);white-space:nowrap;}
+  .rc-swap-mark.flip span{left:auto;right:7px;}
+  .dash{border:2px solid var(--line);border-radius:9px;overflow:hidden;}
+  .dash-top{padding:9px 14px;font-weight:800;font-size:15px;background:var(--panel-raised);}
+  .dash.admin{border-color:var(--red);}
+  .dash.admin .dash-top{background:var(--red-soft);color:var(--red);}
+  .dash.denied .dash-top{color:var(--ink-muted);}
+  .dash-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;}
+  .tile{border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:15px;}
+  .tile.locked{color:var(--ink-faint);background:var(--panel-raised);}
+  .tile.open-admin{border-color:var(--red);background:var(--red-soft);color:var(--red);font-weight:700;}
+
+  /* traversal */
+  .walk{display:flex;flex-direction:column;gap:5px;}
+  .walk-step{
+    display:flex;gap:10px;align-items:center;
+    font-family:var(--mono);font-size:15px;
+    padding:7px 10px;border-radius:7px;background:var(--panel-raised);border:1px solid var(--line);
   }
-  .qz-prompt{
-    font-size:14px;
-    color:var(--ink);
-    margin-bottom:10px;
-    line-height:1.5;
+  .walk-step .w-label{min-width:120px;font-weight:700;}
+  .walk-step .w-arrow{color:var(--ink-faint);}
+  .walk-step.up{background:var(--amber-soft);border-color:#E7B65A;color:var(--amber);}
+  .walk-step.outside{background:var(--red-soft);border-color:#F1A9A2;color:var(--red);}
+  pre.file-out{
+    font-family:var(--mono);font-size:14.5px;
+    background:#fff;border:1px solid var(--line);border-radius:8px;
+    padding:12px;margin:8px 0 0;white-space:pre-wrap;word-break:break-word;
   }
-  .qz-prompt code{
-    font-family:var(--mono);
-    background:var(--panel-raised);
-    color:var(--amber);
-    padding:1px 5px;
-    border-radius:4px;
-    font-size:13px;
-  }
+  pre.file-out.leak{background:var(--red-soft);border-color:#F1A9A2;color:var(--red);}
+
+  /* quiz */
+  .qz-q{border-top:1px solid var(--line);padding:18px 0;}
+  .qz-num{font-size:13px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+  .qz-prompt{font-size:17px;color:var(--ink);margin-bottom:10px;font-weight:600;}
+  .qz-prompt code{font-family:var(--mono);background:var(--amber-soft);color:var(--amber);padding:1px 5px;border-radius:4px;font-size:15px;}
   .qz-opts{display:flex;flex-direction:column;gap:7px;}
   .qz-opt{
-    display:flex;
-    align-items:flex-start;
-    gap:9px;
-    background:var(--panel-raised);
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:9px 12px;
-    cursor:pointer;
-    font-size:13px;
-    color:var(--ink-muted);
+    display:flex;align-items:flex-start;gap:10px;
+    background:var(--panel-raised);border:2px solid var(--line);border-radius:8px;
+    padding:10px 12px;cursor:pointer;font-size:16px;font-weight:400;color:var(--ink);margin:0;
   }
   .qz-opt:hover{border-color:var(--teal);}
-  .qz-opt input{margin-top:3px;accent-color:var(--teal);flex-shrink:0;}
-  .qz-opt.selected{border-color:var(--teal);color:var(--ink);}
-  .qz-opt.correct{border-color:#1E6A50;background:var(--green-dim);color:var(--green);}
-  .qz-opt.incorrect{border-color:#7A2A34;background:var(--red-dim);color:var(--red);}
+  .qz-opt input{margin-top:4px;width:18px;height:18px;accent-color:var(--teal);flex-shrink:0;}
+  .qz-opt.selected{border-color:var(--teal);background:var(--teal-soft);}
+  .qz-opt.correct{border-color:var(--green);background:var(--green-soft);color:var(--green);font-weight:600;}
+  .qz-opt.incorrect{border-color:var(--red);background:var(--red-soft);color:var(--red);}
   .qz-fb{
-    display:none;
-    margin-top:9px;
-    font-size:12.5px;
-    color:var(--ink-muted);
-    background:var(--panel-raised);
-    border-left:2px solid var(--teal-dim);
-    padding:8px 10px;
-    border-radius:0 6px 6px 0;
+    display:none;margin-top:9px;font-size:15.5px;color:var(--ink-muted);
+    background:var(--panel-raised);border-left:4px solid var(--teal);
+    padding:9px 12px;border-radius:0 6px 6px 0;
   }
   .qz-fb.show{display:block;}
 
   footer{
-    margin-top:30px;
-    padding-top:16px;
-    border-top:1px solid var(--line);
-    font-size:11.5px;
-    color:var(--ink-faint);
-    line-height:1.6;
+    margin-top:30px;padding-top:16px;border-top:2px solid var(--line);
+    font-size:14px;color:var(--ink-faint);
   }
 </style>
 </head>
@@ -385,24 +363,24 @@
 <div class="wrap">
 
   <header>
-    <div>
-      <div class="brand">[ Injection<span>::</span>LAB ]</div>
-      <div class="subtitle">A sandboxed simulator covering SQL injection and cross-site scripting. Every "database" and "page" here is fake and runs entirely in your browser — nothing is real, so break it as much as you want.</div>
-    </div>
+    <div class="brand">[ Vuln<span>::</span>LAB ]</div>
+    <div class="subtitle">Everything here is fake and runs only in your browser. Break it as much as you want.</div>
   </header>
 
   <div class="tabs">
-    <button class="tab-btn active" data-target="login-panel">SQLi: Login bypass</button>
-    <button class="tab-btn" data-target="search-panel">SQLi: Product search</button>
+    <button class="tab-btn active" data-target="login-panel">SQLi: Login</button>
+    <button class="tab-btn" data-target="search-panel">SQLi: Search</button>
     <button class="tab-btn" data-target="reflected-panel">XSS: Reflected</button>
     <button class="tab-btn" data-target="stored-panel">XSS: Stored</button>
+    <button class="tab-btn" data-target="bof-panel">Buffer Overflow</button>
+    <button class="tab-btn" data-target="race-panel">Race Condition</button>
+    <button class="tab-btn" data-target="trav-panel">Directory Traversal</button>
     <button class="tab-btn" data-target="quiz-panel">Quiz</button>
   </div>
 
-  <!-- LOGIN SCENARIO -->
+  <!-- LOGIN -->
   <section class="scenario active" id="login-panel">
-    <div class="scenario-intro">This is a fake login form wired to a fake user table. The goal: get logged in without knowing anyone's real password.</div>
-
+    <div class="scenario-intro"><b>Goal:</b> log in without knowing the password.</div>
     <div class="grid">
       <div class="card">
         <h3>Login form</h3>
@@ -412,20 +390,19 @@
         <input type="text" id="l-pass" placeholder="password123" autocomplete="off">
         <button class="run-btn" id="l-run">Log in</button>
         <button class="reset-link" id="l-reset">Clear</button>
-
         <div class="payload-label">Try a payload</div>
         <div class="chips" id="l-chips"></div>
       </div>
-
       <div class="card">
         <h3>Query x-ray</h3>
         <div class="legend">
-          <span><i class="dot" style="background:var(--ink-muted)"></i>fixed query text</span>
-          <span><i class="dot" style="background:var(--amber)"></i>your input</span>
-          <span><i class="dot" style="background:var(--ink-faint)"></i>ignored (comment)</span>
+          <span><i class="dot" style="background:var(--ink)"></i>app's query</span>
+          <span><i class="dot" style="background:#E7B65A"></i>your input</span>
+          <span><i class="dot" style="background:var(--red)"></i>crossed out = ignored</span>
         </div>
-        <div class="query-box" id="l-query"><div class="scan-line"></div><span class="hl-static">SELECT * FROM users WHERE username = '' AND password = ''</span></div>
-        <div class="plain-eng" id="l-plain">Run the query to see how the database reads it.</div>
+        <div class="query-box" id="l-query"></div>
+        <div class="split" id="l-split"></div>
+        <div class="plain-eng" id="l-plain">Click Log in to see what the database runs.</div>
         <div class="banner" id="l-banner"></div>
         <div class="explainer" id="l-explain"></div>
         <div id="l-result"></div>
@@ -433,10 +410,9 @@
     </div>
   </section>
 
-  <!-- SEARCH SCENARIO -->
+  <!-- SEARCH -->
   <section class="scenario" id="search-panel">
-    <div class="scenario-intro">This is a fake product search wired to a fake product table. The goal: make it show you things a search box should never show.</div>
-
+    <div class="scenario-intro"><b>Goal:</b> make a product search leak user accounts.</div>
     <div class="grid">
       <div class="card">
         <h3>Product search</h3>
@@ -444,20 +420,19 @@
         <input type="text" id="s-search" placeholder="laptop" autocomplete="off">
         <button class="run-btn" id="s-run">Search</button>
         <button class="reset-link" id="s-reset">Clear</button>
-
         <div class="payload-label">Try a payload</div>
         <div class="chips" id="s-chips"></div>
       </div>
-
       <div class="card">
         <h3>Query x-ray</h3>
         <div class="legend">
-          <span><i class="dot" style="background:var(--ink-muted)"></i>fixed query text</span>
-          <span><i class="dot" style="background:var(--amber)"></i>your input</span>
-          <span><i class="dot" style="background:var(--ink-faint)"></i>ignored (comment)</span>
+          <span><i class="dot" style="background:var(--ink)"></i>app's query</span>
+          <span><i class="dot" style="background:#E7B65A"></i>your input</span>
+          <span><i class="dot" style="background:var(--red)"></i>crossed out = ignored</span>
         </div>
-        <div class="query-box" id="s-query"><div class="scan-line"></div><span class="hl-static">SELECT id, name, description, price FROM products WHERE name LIKE '%%' OR description LIKE '%%'</span></div>
-        <div class="plain-eng" id="s-plain">Run the query to see how the database reads it.</div>
+        <div class="query-box" id="s-query"></div>
+        <div class="split" id="s-split"></div>
+        <div class="plain-eng" id="s-plain">Click Search to see what the database runs.</div>
         <div class="banner" id="s-banner"></div>
         <div class="explainer" id="s-explain"></div>
         <div id="s-result"></div>
@@ -465,10 +440,9 @@
     </div>
   </section>
 
-  <!-- REFLECTED XSS SCENARIO -->
+  <!-- REFLECTED XSS -->
   <section class="scenario" id="reflected-panel">
-    <div class="scenario-intro">This is a fake search page that echoes your search term straight back into the page. Reflected XSS only affects whoever submits (or clicks a link containing) this exact input — it doesn't get saved anywhere.</div>
-
+    <div class="scenario-intro"><b>Goal:</b> make the page run your code. Reflected = only hits the person who sends it (or clicks your link).</div>
     <div class="grid">
       <div class="card">
         <h3>Search</h3>
@@ -476,22 +450,20 @@
         <input type="text" id="r-search" placeholder="wireless mouse" autocomplete="off">
         <button class="run-btn" id="r-run">Search</button>
         <button class="reset-link" id="r-reset">Clear</button>
-
         <div class="payload-label">Try a payload</div>
         <div class="chips" id="r-chips"></div>
       </div>
-
       <div class="card">
         <h3>Page x-ray</h3>
         <div class="legend">
-          <span><i class="dot" style="background:var(--ink-muted)"></i>fixed page HTML</span>
-          <span><i class="dot" style="background:var(--amber)"></i>your input</span>
+          <span><i class="dot" style="background:var(--ink)"></i>page HTML</span>
+          <span><i class="dot" style="background:#E7B65A"></i>your input</span>
         </div>
-        <div class="panel-label">HTML sent back to your browser</div>
+        <div class="panel-label">HTML the server sends back</div>
         <div class="query-box" id="r-source"><div class="scan-line"></div><span class="hl-static">&lt;h3&gt;Search results for: &lt;/h3&gt;</span></div>
         <div class="banner" id="r-banner"></div>
         <div class="explainer" id="r-explain"></div>
-        <div class="panel-label">Rendered in the browser</div>
+        <div class="panel-label">What the browser shows</div>
         <div class="browser-chrome">
           <div class="browser-bar"><span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span></div>
           <iframe class="xss-frame" id="r-frame" sandbox="allow-scripts allow-modals" title="Reflected XSS preview"></iframe>
@@ -500,31 +472,28 @@
     </div>
   </section>
 
-  <!-- STORED XSS SCENARIO -->
+  <!-- STORED XSS -->
   <section class="scenario" id="stored-panel">
-    <div class="scenario-intro">This is a fake comment wall. Anything posted here gets saved and shown to <b style="color:var(--ink);">every visitor</b> who later opens the page — no crafted link or tricking anyone required.</div>
-
+    <div class="scenario-intro"><b>Goal:</b> plant code that runs for <b>every visitor</b>. Stored = saved on the site.</div>
     <div class="grid">
       <div class="card">
         <h3>Post a comment</h3>
         <label for="st-name">Your name</label>
         <input type="text" id="st-name" placeholder="You" autocomplete="off">
         <label for="st-msg">Comment</label>
-        <input type="text" id="st-msg" placeholder="This search feature is really handy!" autocomplete="off">
+        <input type="text" id="st-msg" placeholder="Great site!" autocomplete="off">
         <button class="run-btn" id="st-run">Post to wall</button>
         <button class="reset-link" id="st-reset">Clear wall</button>
-
         <div class="payload-label">Try a payload</div>
         <div class="chips" id="st-chips"></div>
       </div>
-
       <div class="card">
         <h3>Page x-ray</h3>
         <div class="legend">
-          <span><i class="dot" style="background:var(--ink-muted)"></i>fixed page HTML</span>
-          <span><i class="dot" style="background:var(--amber)"></i>your input</span>
+          <span><i class="dot" style="background:var(--ink)"></i>page HTML</span>
+          <span><i class="dot" style="background:#E7B65A"></i>your input</span>
         </div>
-        <div class="panel-label">What your comment becomes in the page's HTML</div>
+        <div class="panel-label">Your comment in the page's HTML</div>
         <div class="query-box" id="st-source"><div class="scan-line"></div><span class="hl-static">&lt;div class="comment"&gt;&lt;b&gt;&lt;/b&gt;: &lt;/div&gt;</span></div>
         <div class="banner" id="st-banner"></div>
         <div class="explainer" id="st-explain"></div>
@@ -533,39 +502,164 @@
           <div class="browser-bar"><span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span></div>
           <iframe class="xss-frame" id="st-frame" sandbox="allow-scripts allow-modals" title="Stored XSS preview" style="height:220px;"></iframe>
         </div>
-        <div class="stored-wall-actions">
-          <button class="reset-link" id="st-revisit" style="border:1px solid var(--line);border-radius:7px;">Simulate a new visitor opening this page</button>
-        </div>
+        <button class="run-btn alt" id="st-revisit">Open page as a new visitor</button>
       </div>
     </div>
   </section>
 
-  <!-- QUIZ SCENARIO -->
-  <section class="scenario" id="quiz-panel">
-    <div class="scenario-intro">10 questions on what you just did above — 5 on SQL injection, 5 on XSS. Answer all of them, then submit for a score you can screenshot.</div>
-
-    <div class="card" id="quiz-scorecard" style="margin-bottom:16px; display:none;">
-      <div style="font-family:var(--mono); font-size:12px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">[ Injection::LAB — Quiz result ]</div>
-      <div id="quiz-score-name" style="font-size:14px; color:var(--ink-muted); margin-bottom:4px;"></div>
-      <div id="quiz-score-big" style="font-size:34px; font-weight:700;"></div>
+  <!-- BUFFER OVERFLOW -->
+  <section class="scenario" id="bof-panel">
+    <div class="scenario-intro"><b>Goal:</b> become admin by typing more than the 8-letter box can hold.</div>
+    <div class="grid">
+      <div class="card">
+        <h3>Program input</h3>
+        <label for="bo-input">Enter your name (8 characters max)</label>
+        <input type="text" id="bo-input" placeholder="Bob" autocomplete="off" maxlength="40">
+        <button class="run-btn" id="bo-run">Run program</button>
+        <button class="reset-link" id="bo-reset">Clear</button>
+        <label class="fix-toggle"><input type="checkbox" id="bo-fix"> Turn on the fix (length check)</label>
+        <div class="payload-label">Try a payload</div>
+        <div class="chips" id="bo-chips"></div>
+      </div>
+      <div class="card">
+        <h3>Code x-ray</h3>
+        <div class="query-box" id="bo-code"></div>
+        <div class="panel-label">Memory (simplified)</div>
+        <div class="legend">
+          <span><i class="dot" style="background:#E7B65A"></i>fits in buffer</span>
+          <span><i class="dot" style="background:var(--red)"></i>spilled over</span>
+        </div>
+        <div class="mem-group">
+          <div class="mem-label">name[8]<span>the 8-byte box for your input</span></div>
+          <div class="mem-row" id="bo-buf"></div>
+        </div>
+        <div class="mem-group">
+          <div class="mem-label">is_admin<span>sits right next to it</span></div>
+          <div class="mem-row" id="bo-admin"></div>
+          <div class="mem-val" id="bo-admin-val"></div>
+        </div>
+        <div class="mem-group">
+          <div class="mem-label">return address<span>where the program jumps next</span></div>
+          <div class="mem-row" id="bo-ret"></div>
+          <div class="mem-val" id="bo-ret-val"></div>
+          <div class="lost-note" id="bo-lost"></div>
+        </div>
+        <div class="banner" id="bo-banner"></div>
+        <div class="explainer" id="bo-explain"></div>
+      </div>
     </div>
+  </section>
 
+  <!-- RACE CONDITION -->
+  <section class="scenario" id="race-panel">
+    <div class="scenario-intro"><b>Goal:</b> become admin by swapping your request at <b>just the right moment</b> — after the server checks it, before it saves it.</div>
+    <div class="grid">
+      <div class="card">
+        <h3>Your request</h3>
+        <div class="req-box">PUT /profile<br>name = evil<br>role = <span id="rc-role" class="role-user">user</span></div>
+        <button class="run-btn" id="rc-start">1. Send request</button>
+        <button class="run-btn swap-btn" id="rc-swap" disabled>2. &#x26A1; Swap role to admin</button>
+        <div class="hint">Or press <kbd>Space</kbd> to swap</div>
+        <label for="rc-gap">Server delay (window size): <b id="rc-gap-val"></b></label>
+        <input type="range" id="rc-gap" min="5" max="45" value="20">
+        <label class="fix-toggle"><input type="checkbox" id="rc-fix"> Turn on the fix (freeze the data)</label>
+        <div class="payload-label">Presets</div>
+        <div class="chips" id="rc-chips"></div>
+        <div class="score" id="rc-score">Admin hits: 0 / 0 tries</div>
+      </div>
+      <div class="card">
+        <h3>Code x-ray</h3>
+        <div class="query-box" id="rc-code"></div>
+        <div class="panel-label">Timeline — swap inside the yellow window</div>
+        <div class="rc-track" id="rc-track">
+          <div class="rc-line"></div>
+          <div class="rc-window" id="rc-window"></div>
+          <div class="rc-mark" id="rc-check"><div class="rc-dot" id="rc-check-dot"></div><div class="rc-mlabel above">CHECK</div></div>
+          <div class="rc-mark" id="rc-use"><div class="rc-dot" id="rc-use-dot"></div><div class="rc-mlabel below">SAVE</div></div>
+          <div class="rc-swap-mark" id="rc-swap-mark"><span>&#x26A1; swap</span></div>
+          <div class="rc-head" id="rc-head"></div>
+        </div>
+        <div class="banner" id="rc-banner"></div>
+        <div class="explainer" id="rc-explain"></div>
+        <div class="panel-label">Account after the request</div>
+        <div id="rc-dash"><div class="empty-note">Send a request to see the result.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIRECTORY TRAVERSAL -->
+  <section class="scenario" id="trav-panel">
+    <div class="scenario-intro"><b>Goal:</b> read a file <b>outside</b> the public files folder.</div>
+    <div class="grid">
+      <div class="card">
+        <h3>File viewer</h3>
+        <p style="margin:0 0 12px;color:var(--ink-muted);">Public files: <code>notes.txt</code>, <code>report.txt</code></p>
+        <label for="tv-input">?file=</label>
+        <input type="text" id="tv-input" placeholder="notes.txt" autocomplete="off">
+        <button class="run-btn" id="tv-run">Open file</button>
+        <button class="reset-link" id="tv-reset">Clear</button>
+        <label class="fix-toggle"><input type="checkbox" id="tv-fix"> Turn on the fix (stay-in-folder check)</label>
+        <div class="payload-label">Try a payload</div>
+        <div class="chips" id="tv-chips"></div>
+      </div>
+      <div class="card">
+        <div class="browser-chrome" style="margin-bottom:14px;">
+          <div class="browser-bar"><span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-url" id="tv-url">https://site.test/view?file=</span></div>
+        </div>
+        <h3>Code x-ray</h3>
+        <div class="query-box" id="tv-code"></div>
+        <div class="panel-label">How the server walks the path</div>
+        <div class="walk" id="tv-walk"><div class="empty-note">Open a file to see the path walk.</div></div>
+        <div class="banner" id="tv-banner"></div>
+        <div class="explainer" id="tv-explain"></div>
+        <div id="tv-out"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section class="scenario" id="quiz-panel">
+    <div class="scenario-intro"><b>10 questions</b> — 2 per lab. Answer all, then submit.</div>
+    <div class="card" id="quiz-scorecard" style="margin-bottom:16px; display:none;">
+      <div style="font-family:var(--mono); font-size:14px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">[ Vuln::LAB — Quiz result ]</div>
+      <div id="quiz-score-name" style="font-size:17px; color:var(--ink-muted); margin-bottom:4px;"></div>
+      <div id="quiz-score-big" style="font-size:42px; font-weight:800;"></div>
+    </div>
     <div class="card">
-      <label for="quiz-name">Name (for your screenshot)</label>
-      <input type="text" id="quiz-name" placeholder="Jordan Smith" autocomplete="off" style="max-width:320px;">
+      <label for="quiz-name">Your name (for the screenshot)</label>
+      <input type="text" id="quiz-name" placeholder="Jordan Smith" autocomplete="off" style="max-width:340px;">
       <div id="quiz-questions"></div>
-      <button class="run-btn" id="quiz-submit" style="max-width:220px;">Submit quiz</button>
+      <button class="run-btn" id="quiz-submit" style="max-width:240px;">Submit quiz</button>
       <button class="reset-link" id="quiz-retake" style="display:none;">Retake quiz</button>
     </div>
   </section>
 
   <footer>
-    Everything on this page runs client-side against made-up data — no server, no real database, no network requests. The XSS tabs render in a sandboxed iframe that can't touch this page or the outside world. Only ever try SQL injection or XSS against systems you own or have explicit written permission to test.
+    Fake data, no network, no real server. Simplified for teaching. Only test systems you own or have written permission to test.
   </footer>
-
 </div>
 
 <script>
+/* ---------- helpers ---------- */
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function span(cls, s){ return s ? '<span class="'+cls+'">'+escapeHtml(s)+'</span>' : ''; }
+function scan(el){ el.classList.remove('scanning'); void el.offsetWidth; el.classList.add('scanning'); }
+function setBanner(el, kind, text){ el.className='banner show '+kind; el.textContent=text; }
+function clearBanner(el){ el.className='banner'; el.textContent=''; }
+function makeChips(containerId, list, onPick){
+  const el=document.getElementById(containerId);
+  list.forEach(p=>{
+    const b=document.createElement('button');
+    b.className='chip';
+    b.innerHTML='<b>'+escapeHtml(p.label)+'</b><span class="desc">'+escapeHtml(p.desc)+'</span>';
+    b.addEventListener('click', ()=>onPick(p));
+    el.appendChild(b);
+  });
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
 /* ---------- fake database ---------- */
 const DB = {
   users: [
@@ -584,23 +678,22 @@ const DB = {
 const PRODUCT_COLS = ['id','name','description','price'];
 
 /* ---------- tiny SQL-ish engine ---------- */
-function escapeHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function stripComment(text){
+function commentIndex(text){
   let inStr=false;
   for(let i=0;i<text.length;i++){
     const ch=text[i];
     if(ch==="'") inStr=!inStr;
     if(!inStr){
-      if(ch==='#') return {clean:text.slice(0,i), rest:text.slice(i), commented:true};
-      if(ch==='-' && text[i+1]==='-') return {clean:text.slice(0,i), rest:text.slice(i), commented:true};
+      if(ch==='#') return i;
+      if(ch==='-' && text[i+1]==='-') return i;
     }
   }
-  return {clean:text, rest:'', commented:false};
+  return -1;
 }
-
+function stripComment(text){
+  const i=commentIndex(text);
+  return i<0 ? {clean:text, commented:false} : {clean:text.slice(0,i), commented:true};
+}
 function tokenize(text){
   const tokens=[]; let i=0; const n=text.length;
   while(i<n){
@@ -609,15 +702,13 @@ function tokenize(text){
     if(ch==="'"){
       let j=i+1, s='';
       while(j<n && text[j]!=="'"){ s+=text[j]; j++; }
-      tokens.push({type:'STRING', value:s});
-      i=j+1; continue;
+      tokens.push({type:'STRING', value:s}); i=j+1; continue;
     }
     if(ch==='='){ tokens.push({type:'OP', value:'='}); i++; continue; }
     if(/[0-9]/.test(ch)){
       let j=i, s='';
       while(j<n && /[0-9.]/.test(text[j])){ s+=text[j]; j++; }
-      tokens.push({type:'NUMBER', value:s});
-      i=j; continue;
+      tokens.push({type:'NUMBER', value:s}); i=j; continue;
     }
     if(/[A-Za-z_]/.test(ch)){
       let j=i, s='';
@@ -634,45 +725,27 @@ function tokenize(text){
   }
   return tokens;
 }
-
 function parseTokens(tokens){
   let pos=0;
-  const peek=()=>tokens[pos];
-  const next=()=>tokens[pos++];
-  function parseOr(){
-    let node=parseAnd();
-    while(peek() && peek().type==='OR'){ next(); node={type:'OR', left:node, right:parseAnd()}; }
-    return node;
-  }
-  function parseAnd(){
-    let node=parseCmp();
-    while(peek() && peek().type==='AND'){ next(); node={type:'AND', left:node, right:parseCmp()}; }
-    return node;
-  }
+  const peek=()=>tokens[pos], next=()=>tokens[pos++];
+  function parseOr(){ let n=parseAnd(); while(peek()&&peek().type==='OR'){ next(); n={type:'OR',left:n,right:parseAnd()}; } return n; }
+  function parseAnd(){ let n=parseCmp(); while(peek()&&peek().type==='AND'){ next(); n={type:'AND',left:n,right:parseCmp()}; } return n; }
   function parseCmp(){
-    const left=parseOperand();
-    const op=peek();
-    if(op && op.type==='OP'){ next(); const right=parseOperand(); return {type:'CMP', op:op.value, left, right}; }
+    const left=parseOperand(); const op=peek();
+    if(op && op.type==='OP'){ next(); return {type:'CMP',op:op.value,left,right:parseOperand()}; }
     return {type:'LIT', value:left};
   }
-  function parseOperand(){
-    const t=next();
-    if(!t) return {type:'STRING', value:''};
-    return t;
-  }
+  function parseOperand(){ const t=next(); return t || {type:'STRING', value:''}; }
   if(!tokens.length) return {type:'LIT', value:{type:'STRING', value:''}};
   return parseOr();
 }
-
-function resolveVal(operand, row){
-  if(operand.type==='IDENT'){
-    const key=operand.value.toLowerCase();
-    if(row && Object.prototype.hasOwnProperty.call(row,key)) return String(row[key]);
-    return undefined;
+function resolveVal(op, row){
+  if(op.type==='IDENT'){
+    const k=op.value.toLowerCase();
+    return (row && Object.prototype.hasOwnProperty.call(row,k)) ? String(row[k]) : undefined;
   }
-  return String(operand.value);
+  return String(op.value);
 }
-
 function evalNode(node, row){
   if(!node) return false;
   if(node.type==='OR') return evalNode(node.left,row) || evalNode(node.right,row);
@@ -688,554 +761,658 @@ function evalNode(node, row){
     }
     return l===r;
   }
-  if(node.type==='LIT'){
-    const v=node.value;
-    if(v.type==='STRING') return v.value.length>0;
-    return Boolean(v.value);
-  }
+  if(node.type==='LIT'){ const v=node.value; return v.type==='STRING' ? v.value.length>0 : Boolean(v.value); }
   return false;
 }
-
 function plainEnglish(tokens){
-  if(!tokens.length) return '(nothing left to evaluate)';
+  if(!tokens.length) return '(nothing left to check)';
   return tokens.map(t=>{
     if(t.type==='STRING') return '"'+t.value+'"';
     if(t.type==='OP') return t.value==='LIKE' ? 'contains' : '=';
-    if(t.type==='AND') return 'AND';
-    if(t.type==='OR') return 'OR';
     return t.value;
   }).join(' ');
 }
 
-/* ---------- highlighted query rendering ---------- */
-function renderQuery(boxEl, staticBefore, inputParts, staticBetween, commentedTail){
-  let html='<div class="scan-line"></div>';
-  html += '<span class="hl-static">'+escapeHtml(staticBefore)+'</span>';
-  inputParts.forEach((part,i)=>{
-    html += '<span class="hl-input">'+escapeHtml(part)+'</span>';
-    if(staticBetween[i]!==undefined) html += '<span class="hl-static">'+escapeHtml(staticBetween[i])+'</span>';
+/* Query rendering: crosses out everything after a -- or # comment */
+function renderQuery(boxEl, splitEl, segments){
+  const full = segments.map(s=>s.s).join('');
+  const ci = commentIndex(full);
+  let html='<div class="scan-line"></div>', pos=0;
+  segments.forEach(seg=>{
+    const start=pos, end=pos+seg.s.length; pos=end;
+    const cls = seg.input ? 'hl-input' : 'hl-static';
+    if(ci<0 || end<=ci) html += span(cls, seg.s);
+    else if(start>=ci) html += span('ignored', seg.s);
+    else { const k=ci-start; html += span(cls, seg.s.slice(0,k)) + span('ignored', seg.s.slice(k)); }
   });
-  if(commentedTail) html += '<span class="comment">'+escapeHtml(commentedTail)+'</span>';
   boxEl.innerHTML = html;
-  boxEl.classList.remove('scanning');
-  void boxEl.offsetWidth;
-  boxEl.classList.add('scanning');
-}
-
-/* ---------- LOGIN LOGIC ---------- */
-const lUser=document.getElementById('l-user');
-const lPass=document.getElementById('l-pass');
-const lQuery=document.getElementById('l-query');
-const lPlain=document.getElementById('l-plain');
-const lBanner=document.getElementById('l-banner');
-const lExplain=document.getElementById('l-explain');
-const lResult=document.getElementById('l-result');
-
-const loginPayloads=[
-  {label:"alice / password123", desc:"Correct login — baseline, nothing tricky", u:"alice", p:"password123"},
-  {label:"' OR '1'='1' --", desc:"Makes the WHERE clause always true, comments out the password check", u:"' OR '1'='1' --", p:""},
-  {label:"admin'--", desc:"Comments out the password check entirely", u:"admin'--", p:"anything"},
-  {label:"' OR 1=1 --", desc:"Same tautology trick, numeric style", u:"' OR 1=1 --", p:""}
-];
-const lChipsEl=document.getElementById('l-chips');
-loginPayloads.forEach(p=>{
-  const btn=document.createElement('button');
-  btn.className='chip';
-  btn.innerHTML='<b>'+escapeHtml(p.u)+'</b><span class="desc">'+escapeHtml(p.desc)+'</span>';
-  btn.addEventListener('click', ()=>{ lUser.value=p.u; lPass.value=p.p; runLogin(); });
-  lChipsEl.appendChild(btn);
-});
-
-function runLogin(){
-  const u=lUser.value, p=lPass.value;
-  const staticBefore='SELECT * FROM users WHERE username = \'';
-  const between1='\' AND password = \'';
-  const tail='\'';
-
-  const raw = 'username = \''+u+'\' AND password = \''+p+'\'';
-  const {clean, rest, commented} = stripComment(raw);
-  const tokens = tokenize(clean);
-  const ast = parseTokens(tokens);
-  const matches = DB.users.filter(row=>evalNode(ast,row));
-
-  renderQuery(lQuery, staticBefore, [u,p], [between1, tail+(commented?'':'')], commented ? '  -- everything from here on is ignored' : '');
-
-  lPlain.innerHTML = '<b>the database actually evaluates:</b> '+escapeHtml(plainEnglish(tokens))+(commented?'  <span style="color:var(--ink-faint)">(rest commented out)</span>':'');
-
-  lBanner.className='banner show';
-  lResult.innerHTML='';
-  lExplain.textContent='';
-
-  if(matches.length>0){
-    const isRealCombo = matches.length===1 && matches[0].username===u && matches[0].password===p;
-    if(isRealCombo){
-      lBanner.classList.add('ok');
-      lBanner.textContent='Logged in as '+matches[0].username+' — correct credentials.';
-      lExplain.textContent='This is the normal, intended path: the username and password you typed matched a real row.';
-    }else{
-      lBanner.classList.add('breach');
-      lBanner.textContent='Logged in as '+matches[0].username+' (role: '+matches[0].role+') — without a valid password.';
-      lExplain.textContent='Your input changed the logic of the WHERE clause instead of just filling in a value. The database returned a row anyway, and the app logged you in as whoever it found first.';
-    }
-    lResult.innerHTML = userTable(matches);
-  }else{
-    lBanner.classList.add('bad');
-    lBanner.textContent='Login failed — no matching row.';
-    lExplain.textContent='Every account row was checked against your condition and none of them made it true.';
+  scan(boxEl);
+  if(splitEl){
+    splitEl.innerHTML = ci<0 ? '' :
+      '<div class="split-row runs"><span class="split-tag">RUNS</span><code>'+escapeHtml(full.slice(0,ci))+'</code></div>'+
+      '<div class="split-row skipped"><span class="split-tag">IGNORED</span><code>'+escapeHtml(full.slice(ci))+'</code></div>';
   }
 }
 
-function userTable(rows){
-  let html='<table class="result"><tr><th>id</th><th>username</th><th>password</th><th>role</th></tr>';
-  rows.forEach(r=>{
-    html+='<tr><td>'+r.id+'</td><td>'+escapeHtml(r.username)+'</td><td>'+escapeHtml(r.password)+'</td><td>'+escapeHtml(r.role)+'</td></tr>';
-  });
-  html+='</table>';
-  return html;
-}
+/* ---------- LOGIN ---------- */
+const lUser=document.getElementById('l-user'), lPass=document.getElementById('l-pass');
+const lQuery=document.getElementById('l-query'), lSplit=document.getElementById('l-split');
+const lPlain=document.getElementById('l-plain'), lBanner=document.getElementById('l-banner');
+const lExplain=document.getElementById('l-explain'), lResult=document.getElementById('l-result');
 
+function loginSegments(u,p){
+  return [{s:"SELECT * FROM users WHERE username = '"},{s:u,input:true},{s:"' AND password = '"},{s:p,input:true},{s:"'"}];
+}
+function resetLoginView(){ renderQuery(lQuery, lSplit, loginSegments('','')); lQuery.classList.remove('scanning'); }
+resetLoginView();
+
+makeChips('l-chips', [
+  {label:"alice / password123", desc:"Normal login", u:"alice", p:"password123"},
+  {label:"admin'--", desc:"Cuts off the password check", u:"admin'--", p:"anything"},
+  {label:"' OR '1'='1' --", desc:"Always true, logs in as first user", u:"' OR '1'='1' --", p:""},
+  {label:"' OR 1=1 --", desc:"Same trick, numbers", u:"' OR 1=1 --", p:""}
+], p=>{ lUser.value=p.u; lPass.value=p.p; runLogin(); });
+
+function runLogin(){
+  const u=lUser.value, p=lPass.value;
+  const raw="username = '"+u+"' AND password = '"+p+"'";
+  const {clean, commented}=stripComment(raw);
+  const tokens=tokenize(clean);
+  const matches=DB.users.filter(r=>evalNode(parseTokens(tokens), r));
+
+  renderQuery(lQuery, lSplit, loginSegments(u,p));
+  lPlain.innerHTML='<b>Database checks:</b> '+escapeHtml(plainEnglish(tokens));
+  lResult.innerHTML='';
+
+  if(matches.length){
+    const real = matches.length===1 && matches[0].username===u && matches[0].password===p;
+    if(real){
+      setBanner(lBanner,'ok','Logged in as '+u+' — correct password.');
+      lExplain.textContent='Normal login. Your input stayed as plain data.';
+    }else{
+      setBanner(lBanner,'breach','Logged in as '+matches[0].username+' ('+matches[0].role+') — no password needed!');
+      lExplain.textContent = commented
+        ? 'Your quote ended the string early. The -- turned the password check into a comment, so it never ran.'
+        : 'Your input changed the query\u2019s logic instead of just filling in a value.';
+    }
+    lResult.innerHTML=userTable(matches);
+  }else{
+    setBanner(lBanner,'bad','Login failed — no matching user.');
+    lExplain.textContent='';
+  }
+}
+function userTable(rows){
+  let h='<table class="result"><tr><th>id</th><th>username</th><th>password</th><th>role</th></tr>';
+  rows.forEach(r=>{ h+='<tr><td>'+r.id+'</td><td>'+escapeHtml(r.username)+'</td><td>'+escapeHtml(r.password)+'</td><td>'+escapeHtml(r.role)+'</td></tr>'; });
+  return h+'</table>';
+}
 document.getElementById('l-run').addEventListener('click', runLogin);
 document.getElementById('l-reset').addEventListener('click', ()=>{
-  lUser.value=''; lPass.value='';
-  lQuery.innerHTML='<div class="scan-line"></div><span class="hl-static">SELECT * FROM users WHERE username = \'\' AND password = \'\'</span>';
-  lPlain.textContent='Run the query to see how the database reads it.';
-  lBanner.className='banner'; lResult.innerHTML=''; lExplain.textContent='';
+  lUser.value=''; lPass.value=''; resetLoginView();
+  lPlain.textContent='Click Log in to see what the database runs.';
+  clearBanner(lBanner); lResult.innerHTML=''; lExplain.textContent='';
 });
 [lUser,lPass].forEach(el=>el.addEventListener('keydown', e=>{ if(e.key==='Enter') runLogin(); }));
 
-/* ---------- SEARCH LOGIC ---------- */
-const sSearch=document.getElementById('s-search');
-const sQuery=document.getElementById('s-query');
-const sPlain=document.getElementById('s-plain');
-const sBanner=document.getElementById('s-banner');
-const sExplain=document.getElementById('s-explain');
-const sResult=document.getElementById('s-result');
+/* ---------- SEARCH ---------- */
+const sSearch=document.getElementById('s-search'), sQuery=document.getElementById('s-query'), sSplit=document.getElementById('s-split');
+const sPlain=document.getElementById('s-plain'), sBanner=document.getElementById('s-banner');
+const sExplain=document.getElementById('s-explain'), sResult=document.getElementById('s-result');
 
-const searchPayloads=[
-  {label:"laptop", desc:"Normal search — baseline", v:"laptop"},
-  {label:"' OR '1'='1", desc:"Dumps every product, ignoring the search box", v:"' OR '1'='1"},
-  {label:"' UNION SELECT username, password, role, 1 FROM users --", desc:"Pulls the entire user table into the results", v:"' UNION SELECT username, password, role, 1 FROM users --"},
-  {label:"' UNION SELECT username, password FROM users --", desc:"Wrong column count — shows the error attackers use to probe", v:"' UNION SELECT username, password FROM users --"}
-];
-const sChipsEl=document.getElementById('s-chips');
-searchPayloads.forEach(p=>{
-  const btn=document.createElement('button');
-  btn.className='chip';
-  btn.innerHTML='<b>'+escapeHtml(p.v)+'</b><span class="desc">'+escapeHtml(p.desc)+'</span>';
-  btn.addEventListener('click', ()=>{ sSearch.value=p.v; runSearch(); });
-  sChipsEl.appendChild(btn);
-});
+function searchSegments(v){
+  return [{s:"SELECT id, name, description, price FROM products WHERE name LIKE '%"},{s:v,input:true},{s:"%' OR description LIKE '%"},{s:v,input:true},{s:"%'"}];
+}
+function resetSearchView(){ renderQuery(sQuery, sSplit, searchSegments('')); sQuery.classList.remove('scanning'); }
+resetSearchView();
+
+makeChips('s-chips', [
+  {label:"laptop", desc:"Normal search", v:"laptop"},
+  {label:"' OR '1'='1", desc:"Shows every product", v:"' OR '1'='1"},
+  {label:"' UNION SELECT username, password, role, 1 FROM users --", desc:"Steals the user table", v:"' UNION SELECT username, password, role, 1 FROM users --"},
+  {label:"' UNION SELECT username, password FROM users --", desc:"Wrong column count — error", v:"' UNION SELECT username, password FROM users --"}
+], p=>{ sSearch.value=p.v; runSearch(); });
 
 function mapUnionRow(userRow, cols){
   const out={};
-  cols.forEach((rawCol,i)=>{
-    const col=rawCol.trim();
-    let val;
-    if(/^[0-9]+$/.test(col)) val=col;
-    else if(/^'.*'$/.test(col)) val=col.slice(1,-1);
-    else if(Object.prototype.hasOwnProperty.call(userRow, col.toLowerCase())) val=userRow[col.toLowerCase()];
-    else val=col;
+  cols.forEach((raw,i)=>{
+    const c=raw.trim(); let val;
+    if(/^[0-9]+$/.test(c)) val=c;
+    else if(/^'.*'$/.test(c)) val=c.slice(1,-1);
+    else if(Object.prototype.hasOwnProperty.call(userRow,c.toLowerCase())) val=userRow[c.toLowerCase()];
+    else val=c;
     out[PRODUCT_COLS[i]]=val;
   });
   return out;
 }
-
 function runSearch(){
   const v=sSearch.value;
-  const staticBefore="SELECT id, name, description, price FROM products WHERE name LIKE '%";
-  const mid1="%' OR description LIKE '%";
-  const mid2="%'";
+  const raw="name LIKE '%"+v+"%' OR description LIKE '%"+v+"%'";
+  const {clean}=stripComment(raw);
+  renderQuery(sQuery, sSplit, searchSegments(v));
+  sResult.innerHTML=''; sExplain.textContent='';
 
-  const raw = "name LIKE '%"+v+"%' OR description LIKE '%"+v+"%'";
-  const {clean, commented} = stripComment(raw);
-
-  renderQuery(sQuery, staticBefore, [v,v], [mid1, mid2], commented ? '  -- everything from here on is ignored' : '');
-
-  sBanner.className='banner show';
-  sResult.innerHTML='';
-  sExplain.textContent='';
-
-  const unionMatch = /UNION\s+SELECT\s+(.+?)\s+FROM\s+([A-Za-z_]+)/i.exec(clean);
-
-  if(unionMatch){
-    const colsPart = unionMatch[1];
-    const tableName = unionMatch[2].toLowerCase();
-    const cols = colsPart.split(',').map(c=>c.trim()).filter(Boolean);
-    sPlain.innerHTML = '<b>the database sees a second statement appended:</b> UNION SELECT '+escapeHtml(colsPart)+' FROM '+escapeHtml(tableName);
-
-    if(cols.length !== PRODUCT_COLS.length){
-      sBanner.classList.add('bad');
-      sBanner.textContent='Database error: the two SELECT statements return different numbers of columns ('+cols.length+' vs '+PRODUCT_COLS.length+').';
-      sExplain.textContent='UNION only works when both halves select the same number of columns. Real attackers hit this error on purpose, again and again, to count columns before they build a working payload — that\u2019s trial and error, same as you\u2019re doing right now.';
+  const um=/UNION\s+SELECT\s+(.+?)\s+FROM\s+([A-Za-z_]+)/i.exec(clean);
+  if(um){
+    const cols=um[1].split(',').map(c=>c.trim()).filter(Boolean);
+    const table=um[2].toLowerCase();
+    sPlain.innerHTML='<b>Database runs a 2nd query:</b> UNION SELECT '+escapeHtml(um[1])+' FROM '+escapeHtml(table);
+    if(cols.length!==PRODUCT_COLS.length){
+      setBanner(sBanner,'bad','Error: column counts don\u2019t match ('+cols.length+' vs '+PRODUCT_COLS.length+').');
+      sExplain.textContent='UNION needs the same number of columns on both sides. Attackers use this error to count columns.';
       return;
     }
-    if(tableName!=='users'){
-      sBanner.classList.add('bad');
-      sBanner.textContent="Database error: table '"+escapeHtml(tableName)+"' doesn't exist.";
-      sExplain.textContent='Only a "users" table exists in this fake database.';
+    if(table!=='users'){
+      setBanner(sBanner,'bad',"Error: table '"+table+"' doesn't exist.");
+      sExplain.textContent='Only a "users" table exists here.';
       return;
     }
-
-    const baseClause = clean.slice(0, unionMatch.index);
-    const baseTokens = tokenize(baseClause);
-    const baseAst = parseTokens(baseTokens);
-    const baseMatches = DB.products.filter(row=>evalNode(baseAst,row));
-    const unionRows = DB.users.map(u=>mapUnionRow(u, cols));
-
-    sBanner.classList.add('breach');
-    sBanner.textContent='Extra rows appended from the users table — a search box just leaked account data.';
-    sExplain.textContent='The UNION statement runs as a second, independent query and its results get glued onto the product list. The column headers still say "name" and "price" but the highlighted rows below are really username and password values.';
-    sResult.innerHTML = productTable(baseMatches, unionRows);
+    const base=DB.products.filter(r=>evalNode(parseTokens(tokenize(clean.slice(0,um.index))), r));
+    setBanner(sBanner,'breach','User accounts leaked through a search box!');
+    sExplain.textContent='Red rows are usernames and passwords, glued onto the product list.';
+    sResult.innerHTML=productTable(base, DB.users.map(u=>mapUnionRow(u,cols)));
     return;
   }
 
-  const tokens = tokenize(clean);
-  const ast = parseTokens(tokens);
-  const matches = DB.products.filter(row=>evalNode(ast,row));
-  sPlain.innerHTML = '<b>the database actually evaluates:</b> '+escapeHtml(plainEnglish(tokens))+(commented?'  <span style="color:var(--ink-faint)">(rest commented out)</span>':'');
-
-  const isNormalSearch = !/['"]/.test(v);
-  if(matches.length>0){
-    if(isNormalSearch){
-      sBanner.classList.add('ok');
-      sBanner.textContent=matches.length+' product(s) matched your search — normal behavior.';
-      sExplain.textContent='No stray quotes, so your text just landed inside the wildcard search, like it should.';
+  const tokens=tokenize(clean);
+  const matches=DB.products.filter(r=>evalNode(parseTokens(tokens), r));
+  sPlain.innerHTML='<b>Database checks:</b> '+escapeHtml(plainEnglish(tokens));
+  if(matches.length){
+    if(!/['"]/.test(v)){
+      setBanner(sBanner,'ok',matches.length+' product(s) found — normal.');
     }else{
-      sBanner.classList.add('breach');
-      sBanner.textContent='Returned '+matches.length+' of '+DB.products.length+' products — your input changed the filter logic.';
-      sExplain.textContent='A quote character broke out of the intended string, and the OR condition made the whole WHERE clause true, so the filter stopped filtering.';
+      setBanner(sBanner,'breach','Returned all '+matches.length+' products — filter broken.');
+      sExplain.textContent='Your quote escaped the string, and OR \'1\'=\'1\' made every row match.';
     }
-    sResult.innerHTML = productTable(matches, []);
+    sResult.innerHTML=productTable(matches,[]);
   }else{
-    sBanner.classList.add('bad');
-    sBanner.textContent='No products matched.';
-    sExplain.textContent='';
-    sResult.innerHTML='<div class="empty-note">No rows returned.</div>';
+    setBanner(sBanner,'bad','No products found.');
   }
 }
-
-function productTable(baseRows, leakRows){
-  if(baseRows.length===0 && leakRows.length===0) return '<div class="empty-note">No rows returned.</div>';
-  let html='<table class="result"><tr><th>id</th><th>name</th><th>description</th><th>price</th></tr>';
-  baseRows.forEach(r=>{
-    html+='<tr><td>'+r.id+'</td><td>'+escapeHtml(r.name)+'</td><td>'+escapeHtml(r.description)+'</td><td>'+escapeHtml(r.price)+'</td></tr>';
-  });
-  leakRows.forEach(r=>{
-    html+='<tr class="leak"><td>'+escapeHtml(r.id)+'</td><td>'+escapeHtml(r.name)+'</td><td>'+escapeHtml(r.description)+'</td><td>'+escapeHtml(r.price)+'</td></tr>';
-  });
-  html+='</table>';
-  return html;
+function productTable(base, leak){
+  if(!base.length && !leak.length) return '<div class="empty-note">No rows returned.</div>';
+  let h='<table class="result"><tr><th>id</th><th>name</th><th>description</th><th>price</th></tr>';
+  base.forEach(r=>{ h+='<tr><td>'+r.id+'</td><td>'+escapeHtml(r.name)+'</td><td>'+escapeHtml(r.description)+'</td><td>'+escapeHtml(r.price)+'</td></tr>'; });
+  leak.forEach(r=>{ h+='<tr class="leak"><td>'+escapeHtml(r.id)+'</td><td>'+escapeHtml(r.name)+'</td><td>'+escapeHtml(r.description)+'</td><td>'+escapeHtml(r.price)+'</td></tr>'; });
+  return h+'</table>';
 }
-
 document.getElementById('s-run').addEventListener('click', runSearch);
 document.getElementById('s-reset').addEventListener('click', ()=>{
-  sSearch.value='';
-  sQuery.innerHTML='<div class="scan-line"></div><span class="hl-static">SELECT id, name, description, price FROM products WHERE name LIKE \'%%\' OR description LIKE \'%%\'</span>';
-  sPlain.textContent='Run the query to see how the database reads it.';
-  sBanner.className='banner'; sResult.innerHTML=''; sExplain.textContent='';
+  sSearch.value=''; resetSearchView();
+  sPlain.textContent='Click Search to see what the database runs.';
+  clearBanner(sBanner); sResult.innerHTML=''; sExplain.textContent='';
 });
 sSearch.addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
 
-/* ---------- shared XSS helpers ---------- */
+/* ---------- XSS shared ---------- */
 function renderSourceBox(boxEl, before, injected, after){
-  let html='<div class="scan-line"></div>';
-  html += '<span class="hl-static">'+escapeHtml(before)+'</span>';
-  html += '<span class="hl-input">'+escapeHtml(injected)+'</span>';
-  if(after) html += '<span class="hl-static">'+escapeHtml(after)+'</span>';
-  boxEl.innerHTML = html;
-  boxEl.classList.remove('scanning');
-  void boxEl.offsetWidth;
-  boxEl.classList.add('scanning');
+  boxEl.innerHTML='<div class="scan-line"></div>'+span('hl-static',before)+span('hl-input',injected)+span('hl-static',after||'');
+  scan(boxEl);
 }
-function looksLikeMarkup(v){ return /[<>]/.test(v); }
-function looksLikeScriptish(v){ return /<script|on\w+\s*=|javascript:/i.test(v); }
+const looksLikeMarkup = v => /[<>]/.test(v);
+const looksLikeScriptish = v => /<script|on\w+\s*=|javascript:/i.test(v);
 
 /* ---------- REFLECTED XSS ---------- */
-const rSearch=document.getElementById('r-search');
-const rSource=document.getElementById('r-source');
-const rBanner=document.getElementById('r-banner');
-const rExplain=document.getElementById('r-explain');
-const rFrame=document.getElementById('r-frame');
+const rSearch=document.getElementById('r-search'), rSource=document.getElementById('r-source');
+const rBanner=document.getElementById('r-banner'), rExplain=document.getElementById('r-explain'), rFrame=document.getElementById('r-frame');
 
-const reflectedPayloads=[
-  {label:"wireless mouse", desc:"Normal search — baseline", v:"wireless mouse"},
-  {label:"<b>hacked</b>", desc:"Raw HTML tags render instead of showing as text", v:"<b>hacked</b>"},
-  {label:"<img src=x onerror=\"alert('Reflected XSS')\">", desc:"A broken image's onerror handler runs your code", v:"<img src=x onerror=\"alert('Reflected XSS')\">"},
-  {label:"<script>alert('Reflected XSS')<\/script>", desc:"A script tag runs directly", v:"<script>alert('Reflected XSS')<\/script>"}
-];
-const rChipsEl=document.getElementById('r-chips');
-reflectedPayloads.forEach(p=>{
-  const btn=document.createElement('button');
-  btn.className='chip';
-  btn.innerHTML='<b>'+escapeHtml(p.label)+'</b><span class="desc">'+escapeHtml(p.desc)+'</span>';
-  btn.addEventListener('click', ()=>{ rSearch.value=p.v; runReflected(); });
-  rChipsEl.appendChild(btn);
-});
-
-function buildReflectedDoc(v){
-  return '<!DOCTYPE html><html><body style="font-family:sans-serif;margin:0;padding:14px;background:#fff;color:#111;font-size:13px;">'
-    + '<h3 style="margin:0 0 8px;font-size:15px;">Search results for: ' + v + '</h3>'
-    + '<p style="color:#666;margin:0;">No products matched your search.</p>'
-    + '</body></html>';
-}
+makeChips('r-chips', [
+  {label:"wireless mouse", desc:"Normal search", v:"wireless mouse"},
+  {label:"<b>hacked</b>", desc:"HTML renders instead of text", v:"<b>hacked</b>"},
+  {label:"<img src=x onerror=\"alert('Reflected XSS')\">", desc:"Broken image runs code", v:"<img src=x onerror=\"alert('Reflected XSS')\">"},
+  {label:"<script>alert('Reflected XSS')<\/script>", desc:"Script tag runs directly", v:"<script>alert('Reflected XSS')<\/script>"}
+], p=>{ rSearch.value=p.v; runReflected(); });
 
 function runReflected(){
-  const v = rSearch.value;
-  renderSourceBox(rSource, '<h3>Search results for: ', v, '</h3>');
-  rFrame.srcdoc = buildReflectedDoc(v);
-
-  rBanner.className='banner show';
-  const hasTag = looksLikeMarkup(v);
-  const scriptish = looksLikeScriptish(v);
-
-  if(!hasTag){
-    rBanner.classList.add('ok');
-    rBanner.textContent='Your text showed up as plain text — normal behavior.';
-    rExplain.textContent='No angle brackets, so there was nothing for the browser to interpret as a tag.';
-  }else if(scriptish){
-    rBanner.classList.add('breach');
-    rBanner.textContent='Your code ran inside the page.';
-    rExplain.textContent='The page inserted your input directly into its HTML instead of treating it as plain text. The browser parsed it as real markup — including any script it contained — and ran it.';
+  const v=rSearch.value;
+  renderSourceBox(rSource,'<h3>Search results for: ',v,'</h3>');
+  rFrame.srcdoc='<!DOCTYPE html><html><body style="font-family:sans-serif;margin:0;padding:14px;background:#fff;color:#111;font-size:15px;">'
+    +'<h3 style="margin:0 0 8px;font-size:17px;">Search results for: '+v+'</h3>'
+    +'<p style="color:#555;margin:0;">No products matched your search.</p></body></html>';
+  if(!looksLikeMarkup(v)){
+    setBanner(rBanner,'ok','Shown as plain text — normal.');
+    rExplain.textContent='';
+  }else if(looksLikeScriptish(v)){
+    setBanner(rBanner,'breach','Your code ran in the page!');
+    rExplain.textContent='The page pasted your input into its HTML without escaping it, so the browser ran it.';
   }else{
-    rBanner.classList.add('breach');
-    rBanner.textContent='Your HTML got inserted directly into the page.';
-    rExplain.textContent='Even a "harmless" tag like <b> proves the page never escaped your input. Anything you can inject as a tag, an attacker can inject as a script.';
+    setBanner(rBanner,'breach','Your HTML got into the page.');
+    rExplain.textContent='If a <b> tag gets in, a <script> tag can too.';
   }
 }
-
 document.getElementById('r-run').addEventListener('click', runReflected);
 document.getElementById('r-reset').addEventListener('click', ()=>{
   rSearch.value='';
   rSource.innerHTML='<div class="scan-line"></div><span class="hl-static">&lt;h3&gt;Search results for: &lt;/h3&gt;</span>';
-  rBanner.className='banner'; rExplain.textContent=''; rFrame.srcdoc='';
+  clearBanner(rBanner); rExplain.textContent=''; rFrame.srcdoc='';
 });
 rSearch.addEventListener('keydown', e=>{ if(e.key==='Enter') runReflected(); });
 
 /* ---------- STORED XSS ---------- */
-const stName=document.getElementById('st-name');
-const stMsg=document.getElementById('st-msg');
-const stSource=document.getElementById('st-source');
-const stBanner=document.getElementById('st-banner');
-const stExplain=document.getElementById('st-explain');
-const stFrame=document.getElementById('st-frame');
+const stName=document.getElementById('st-name'), stMsg=document.getElementById('st-msg'), stSource=document.getElementById('st-source');
+const stBanner=document.getElementById('st-banner'), stExplain=document.getElementById('st-explain'), stFrame=document.getElementById('st-frame');
+const WALL_DEFAULT=[{name:'Maya', msg:'This search feature is really handy!'},{name:'Devon', msg:'Is the site slow today?'}];
+let WALL=WALL_DEFAULT.slice();
 
-let WALL = [
-  {name:'Maya', msg:'This search feature is really handy!'},
-  {name:'Devon', msg:'Anyone else notice the site is kinda slow today?'}
-];
-
-const storedPayloads=[
-  {label:"This search feature is really handy!", desc:"Normal comment — baseline", n:"You", m:"This search feature is really handy!"},
-  {label:"<b>I love this site!</b>", desc:"Raw HTML tags render instead of showing as text", n:"You", m:"<b>I love this site!</b>"},
-  {label:"<img src=x onerror=\"alert('Stored XSS')\">", desc:"Fires the moment ANY visitor opens the wall", n:"You", m:"<img src=x onerror=\"alert('Stored XSS')\">"},
-  {label:"<script>document.body.style.background='#7a1f1f'; alert('Stored XSS hits every visitor')<\/script>", desc:"Changes the whole page for every future visitor, not just you", n:"You", m:"<script>document.body.style.background='#7a1f1f'; alert('Stored XSS hits every visitor')<\/script>"}
-];
-const stChipsEl=document.getElementById('st-chips');
-storedPayloads.forEach(p=>{
-  const btn=document.createElement('button');
-  btn.className='chip';
-  btn.innerHTML='<b>'+escapeHtml(p.label)+'</b><span class="desc">'+escapeHtml(p.desc)+'</span>';
-  btn.addEventListener('click', ()=>{ stName.value=p.n; stMsg.value=p.m; runStored(); });
-  stChipsEl.appendChild(btn);
-});
+makeChips('st-chips', [
+  {label:"Great site!", desc:"Normal comment", n:"You", m:"Great site!"},
+  {label:"<b>I love this site!</b>", desc:"HTML renders instead of text", n:"You", m:"<b>I love this site!</b>"},
+  {label:"<img src=x onerror=\"alert('Stored XSS')\">", desc:"Fires for every visitor", n:"You", m:"<img src=x onerror=\"alert('Stored XSS')\">"},
+  {label:"<script>document.body.style.background='#7a1f1f'; alert('Stored XSS hits every visitor')<\/script>", desc:"Changes the page for everyone", n:"You", m:"<script>document.body.style.background='#7a1f1f'; alert('Stored XSS hits every visitor')<\/script>"}
+], p=>{ stName.value=p.n; stMsg.value=p.m; runStored(); });
 
 function buildWallDoc(){
-  let body = '<!DOCTYPE html><html><body style="font-family:sans-serif;margin:0;padding:14px;background:#fff;color:#111;font-size:13px;">'
-    + '<h3 style="margin:0 0 10px;font-size:15px;">Guestbook</h3>';
-  WALL.forEach(c=>{
-    body += '<div style="border-bottom:1px solid #eee;padding:8px 0;"><b>' + c.name + '</b>: ' + c.msg + '</div>';
-  });
-  body += '</body></html>';
-  return body;
+  let b='<!DOCTYPE html><html><body style="font-family:sans-serif;margin:0;padding:14px;background:#fff;color:#111;font-size:15px;"><h3 style="margin:0 0 10px;font-size:17px;">Guestbook</h3>';
+  WALL.forEach(c=>{ b+='<div style="border-bottom:1px solid #ddd;padding:8px 0;"><b>'+c.name+'</b>: '+c.msg+'</div>'; });
+  return b+'</body></html>';
 }
-
 function runStored(){
-  const n = stName.value || 'You';
-  const m = stMsg.value;
-  if(!m){ return; }
+  const n=stName.value||'You', m=stMsg.value;
+  if(!m) return;
   WALL.push({name:n, msg:m});
-
-  renderSourceBox(stSource, '<div class="comment"><b>'+n+'</b>: ', m, '</div>');
-  stFrame.srcdoc = buildWallDoc();
-
-  stBanner.className='banner show';
-  const hasTag = looksLikeMarkup(m);
-  const scriptish = looksLikeScriptish(m);
-
-  if(!hasTag){
-    stBanner.classList.add('ok');
-    stBanner.textContent='Posted as plain text — normal behavior.';
-    stExplain.textContent='No angle brackets, so it was saved and displayed as harmless text.';
-  }else if(scriptish){
-    stBanner.classList.add('breach');
-    stBanner.textContent='Saved to the wall — and it will run again for every visitor who opens this page.';
-    stExplain.textContent='Unlike the reflected tab, this payload is now sitting in storage. Every single person who loads the guestbook from now on gets it executed in their browser too, with no special link needed.';
+  renderSourceBox(stSource,'<div class="comment"><b>'+n+'</b>: ',m,'</div>');
+  stFrame.srcdoc=buildWallDoc();
+  if(!looksLikeMarkup(m)){
+    setBanner(stBanner,'ok','Posted as plain text — normal.');
+    stExplain.textContent='';
+  }else if(looksLikeScriptish(m)){
+    setBanner(stBanner,'breach','Saved! It will run for every visitor.');
+    stExplain.textContent='Click "Open page as a new visitor" — it runs again with no link needed.';
   }else{
-    stBanner.classList.add('breach');
-    stBanner.textContent='Saved to the wall, unescaped.';
-    stExplain.textContent='The comment box never converted your tags into plain text before saving it. It will render as real HTML for everyone who visits from here on.';
+    setBanner(stBanner,'breach','Saved unescaped — everyone sees your HTML.');
+    stExplain.textContent='';
   }
   stMsg.value='';
 }
-
 document.getElementById('st-run').addEventListener('click', runStored);
 document.getElementById('st-revisit').addEventListener('click', ()=>{
-  stFrame.srcdoc = buildWallDoc();
-  stBanner.className='banner show ok';
-  stBanner.textContent='Reloaded the wall as a brand-new visitor — any payload already posted just ran again, with nothing re-submitted.';
-  stExplain.textContent='This is the key difference from reflected XSS: nobody had to click a crafted link. Simply opening the page was enough.';
+  stFrame.srcdoc=buildWallDoc();
+  setBanner(stBanner,'ok','New visitor opened the page. Any saved payload just ran again.');
+  stExplain.textContent='No click or link needed — just visiting is enough.';
 });
 document.getElementById('st-reset').addEventListener('click', ()=>{
-  WALL = [
-    {name:'Maya', msg:'This search feature is really handy!'},
-    {name:'Devon', msg:'Anyone else notice the site is kinda slow today?'}
-  ];
-  stName.value=''; stMsg.value='';
+  WALL=WALL_DEFAULT.slice(); stName.value=''; stMsg.value='';
   stSource.innerHTML='<div class="scan-line"></div><span class="hl-static">&lt;div class="comment"&gt;&lt;b&gt;&lt;/b&gt;: &lt;/div&gt;</span>';
-  stBanner.className='banner'; stExplain.textContent=''; stFrame.srcdoc='';
+  clearBanner(stBanner); stExplain.textContent=''; stFrame.srcdoc='';
 });
 stMsg.addEventListener('keydown', e=>{ if(e.key==='Enter') runStored(); });
 
+/* ---------- BUFFER OVERFLOW ---------- */
+const BUF=8, ADM=4, RET=4, TOTAL=BUF+ADM+RET;
+const RET_DEFAULT=[0x08,0x04,0x85,0xb2];
+const boInput=document.getElementById('bo-input'), boFix=document.getElementById('bo-fix');
+const boCode=document.getElementById('bo-code'), boBanner=document.getElementById('bo-banner'), boExplain=document.getElementById('bo-explain');
+
+function renderBoCode(input){
+  const shown = input===undefined ? 'input' : '"'+input+'"';
+  let h='<div class="scan-line"></div>'+span('hl-static','char name[8];\nint  is_admin = 0;\n');
+  if(boFix.checked){
+    h+=span('hl-static','strncpy(name, ')+span('hl-input',shown)+span('hl-static',', 8);')+span('hl-code','  // copies 8 bytes max');
+  }else{
+    h+=span('hl-static','strcpy(name, ')+span('hl-input',shown)+span('hl-static',');')+span('hl-code','       // no length check!');
+  }
+  h+=span('hl-static','\n\nif (is_admin) grant_admin();');
+  boCode.innerHTML=h;
+}
+function cellHtml(byte, state){
+  const ch = (byte>=32 && byte<127) ? String.fromCharCode(byte) : '\u00a0';
+  return '<div class="cell '+state+'"><div class="cell-ch">'+escapeHtml(ch)+'</div><div class="cell-hex">'+byte.toString(16).padStart(2,'0')+'</div></div>';
+}
+function hexOf(bytes){ return '0x'+bytes.map(b=>b.toString(16).padStart(2,'0')).join(''); }
+
+function renderMemory(text){
+  const bytes=Array.from(text).map(c=>c.charCodeAt(0)&0xff);
+  const copyLen = boFix.checked ? Math.min(bytes.length,BUF) : bytes.length;
+  const mem=new Array(TOTAL).fill(0);
+  RET_DEFAULT.forEach((b,i)=>mem[BUF+ADM+i]=b);
+  const state=new Array(TOTAL).fill('');
+  for(let i=BUF+ADM;i<TOTAL;i++) state[i]='ret';
+  for(let i=0;i<Math.min(copyLen,TOTAL);i++){ mem[i]=bytes[i]; state[i] = i<BUF ? 'filled' : 'spill'; }
+
+  document.getElementById('bo-buf').innerHTML = mem.slice(0,BUF).map((b,i)=>cellHtml(b,state[i])).join('');
+  document.getElementById('bo-admin').innerHTML = mem.slice(BUF,BUF+ADM).map((b,i)=>cellHtml(b,state[BUF+i])).join('');
+  document.getElementById('bo-ret').innerHTML = mem.slice(BUF+ADM).map((b,i)=>cellHtml(b,state[BUF+ADM+i])).join('');
+
+  const admin=mem.slice(BUF,BUF+ADM), ret=mem.slice(BUF+ADM);
+  const isAdmin=admin.some(b=>b!==0);
+  const retHit=copyLen>BUF+ADM;
+  const av=document.getElementById('bo-admin-val'), rv=document.getElementById('bo-ret-val');
+  av.textContent='is_admin = '+hexOf(admin)+'  \u2192  '+(isAdmin?'TRUE (not zero!)':'false');
+  av.className='mem-val'+(isAdmin?' hit':'');
+  rv.textContent='return address = '+hexOf(ret)+(retHit?'  \u2192  overwritten!':'  \u2192  normal');
+  rv.className='mem-val'+(retHit?' hit':'');
+  document.getElementById('bo-lost').textContent = copyLen>TOTAL ? '+'+(copyLen-TOTAL)+' more bytes spilled past this point' : '';
+  return {len:bytes.length, copyLen, isAdmin, retHit};
+}
+function runBof(){
+  const v=boInput.value;
+  renderBoCode(v); scan(boCode);
+  const r=renderMemory(v);
+  if(boFix.checked && r.len>BUF){
+    setBanner(boBanner,'ok','Input cut to 8 bytes. Neighbors safe.');
+    boExplain.textContent='The length check stopped the extra bytes from spilling over.';
+  }else if(r.retHit){
+    setBanner(boBanner,'breach','Program crashed — return address overwritten!');
+    boExplain.textContent='An attacker could put a real address here and make the program jump to their own code.';
+  }else if(r.isAdmin){
+    setBanner(boBanner,'breach','Access granted: you are now admin!');
+    boExplain.textContent='Extra letters spilled out of name[8] and changed is_admin from 0 to not-zero.';
+  }else{
+    setBanner(boBanner,'ok','Hello, '+(v||'(blank)')+'! Normal user.');
+    boExplain.textContent='Your input fit inside the 8-byte box.';
+  }
+}
+makeChips('bo-chips', [
+  {label:"Bob", desc:"Normal — fits easily", v:"Bob"},
+  {label:"AAAAAAAA", desc:"Exactly 8 — just fits", v:"AAAAAAAA"},
+  {label:"AAAAAAAAAB", desc:"10 letters — spills into is_admin", v:"AAAAAAAAAB"},
+  {label:"AAAAAAAAAAAAAAAAAAAA", desc:"20 letters — smashes the return address", v:"AAAAAAAAAAAAAAAAAAAA"}
+], p=>{ boInput.value=p.v; runBof(); });
+document.getElementById('bo-run').addEventListener('click', runBof);
+boInput.addEventListener('input', ()=>{ renderMemory(boInput.value); renderBoCode(boInput.value); clearBanner(boBanner); boExplain.textContent=''; });
+boInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runBof(); });
+boFix.addEventListener('change', ()=>{ renderBoCode(boInput.value||undefined); renderMemory(boInput.value); clearBanner(boBanner); boExplain.textContent=''; });
+document.getElementById('bo-reset').addEventListener('click', ()=>{
+  boInput.value=''; renderBoCode(); renderMemory(''); clearBanner(boBanner); boExplain.textContent='';
+});
+renderBoCode(); renderMemory('');
+
+/* ---------- RACE CONDITION (timing / TOCTOU) ---------- */
+const rcEl=id=>document.getElementById(id);
+const rcStartBtn=rcEl('rc-start'), rcSwapBtn=rcEl('rc-swap'), rcGapEl=rcEl('rc-gap'), rcFix=rcEl('rc-fix');
+const rcRole=rcEl('rc-role'), rcHead=rcEl('rc-head'), rcSwapMark=rcEl('rc-swap-mark');
+const rcBanner=rcEl('rc-banner'), rcExplain=rcEl('rc-explain'), rcDash=rcEl('rc-dash'), rcCode=rcEl('rc-code');
+const RC_DUR=3200, RC_START=3, RC_END=97, RC_CHECK=25;
+let rcRun=null, rcHits=0, rcTries=0;
+
+const rcGap = () => parseInt(rcGapEl.value,10);
+const rcUsePos = () => RC_CHECK + rcGap();
+const rcPosAt = (r,now) => RC_START + Math.min(1,(now-r.t0)/RC_DUR)*(RC_END-RC_START);
+
+function rcLayout(){
+  const w=rcEl('rc-window');
+  w.style.left=RC_CHECK+'%'; w.style.width=rcGap()+'%';
+  w.classList.toggle('safe', rcFix.checked);
+  rcEl('rc-check').style.left=RC_CHECK+'%';
+  rcEl('rc-use').style.left=rcUsePos()+'%';
+  const ms=Math.round(rcGap()/(RC_END-RC_START)*RC_DUR);
+  rcEl('rc-gap-val').textContent=ms+' ms'+(ms<300?' (hard)':ms>1000?' (easy)':'');
+}
+function renderRcCode(stage){
+  const fix=rcFix.checked;
+  const lines = fix ? [
+    {t:'data = copy(request)            # freeze it', s:'freeze'},
+    {t:'if data.role != "user": deny()  # CHECK', s:'check'},
+    {t:'do_slow_stuff()                 # the gap', s:'gap'},
+    {t:'save(data)                      # SAVE the frozen copy', s:'save'}
+  ] : [
+    {t:'if request.role != "user": deny()  # CHECK', s:'check'},
+    {t:'do_slow_stuff()                    # the gap', s:'gap'},
+    {t:'save(request)                      # SAVE whatever it says NOW', s:'save'}
+  ];
+  rcCode.innerHTML='<div class="scan-line"></div>'+lines.map(l=>span(l.s===stage?'hl-input':'hl-static', l.t)).join('\n');
+}
+function rcDashHtml(kind){
+  if(kind==='admin') return '<div class="dash admin"><div class="dash-top">&#x26A0; ADMIN PANEL — evil [ESCALATED]</div><div class="dash-tiles">'
+    +'<div class="tile open-admin">&#x1F513; User Management</div><div class="tile open-admin">&#x1F513; Audit Logs</div>'
+    +'<div class="tile open-admin">&#x1F513; System Config</div><div class="tile open-admin">&#x1F513; All User Data</div></div></div>';
+  if(kind==='denied') return '<div class="dash denied"><div class="dash-top">&#x26D4; Request denied — still a regular user</div><div class="dash-tiles">'
+    +'<div class="tile">My Profile</div><div class="tile">My Settings</div>'
+    +'<div class="tile locked">&#x1F512; User Management</div><div class="tile locked">&#x1F512; System Config</div></div></div>';
+  return '<div class="dash"><div class="dash-top">&#x1F464; USER PANEL — evil</div><div class="dash-tiles">'
+    +'<div class="tile">My Profile</div><div class="tile">My Settings</div>'
+    +'<div class="tile locked">&#x1F512; User Management</div><div class="tile locked">&#x1F512; System Config</div></div></div>';
+}
+function rcSetRole(admin){ rcRole.textContent=admin?'admin':'user'; rcRole.className=admin?'role-admin':'role-user'; }
+
+function rcStartRun(){
+  if(rcRun) return;
+  rcRun={t0:performance.now(), fix:rcFix.checked, swapped:false, checked:false, saved:false, denied:false, savedRole:null, stage:null};
+  rcSetRole(false);
+  rcStartBtn.disabled=true; rcSwapBtn.disabled=false; rcGapEl.disabled=true; rcFix.disabled=true;
+  rcEl('rc-check-dot').className='rc-dot'; rcEl('rc-use-dot').className='rc-dot';
+  rcSwapMark.style.display='none'; rcHead.style.display='block'; rcHead.style.left=RC_START+'%';
+  clearBanner(rcBanner); rcExplain.textContent='';
+  rcDash.innerHTML='<div class="empty-note">Request in progress…</div>';
+  rcRun.stage=rcRun.fix?'freeze':null; renderRcCode(rcRun.stage);
+  requestAnimationFrame(rcTick);
+}
+function rcTick(now){
+  const r=rcRun; if(!r) return;
+  const pos=rcPosAt(r,now);
+  rcHead.style.left=pos+'%';
+  let stage=r.stage;
+  if(!r.checked && pos>=RC_CHECK){
+    r.checked=true; stage='check';
+    const seen = r.fix ? 'user' : (r.swapped ? 'admin' : 'user');
+    if(seen!=='user'){ r.denied=true; rcEl('rc-check-dot').className='rc-dot blocked'; }
+    else rcEl('rc-check-dot').className='rc-dot on';
+  }else if(r.checked && !r.saved && pos>RC_CHECK+1){ stage='gap'; }
+  if(!r.saved && pos>=rcUsePos()){
+    r.saved=true; stage='save';
+    if(!r.denied){ r.savedRole = r.fix ? 'user' : (r.swapped ? 'admin' : 'user'); rcEl('rc-use-dot').className='rc-dot on'; }
+    else rcEl('rc-use-dot').className='rc-dot blocked';
+  }
+  if(stage!==r.stage){ r.stage=stage; renderRcCode(stage); }
+  if(pos>=RC_END){ rcFinish(); return; }
+  requestAnimationFrame(rcTick);
+}
+function rcSwap(){
+  const r=rcRun; if(!r || r.swapped) return;
+  r.swapped=true;
+  const pos=rcPosAt(r,performance.now());
+  rcSetRole(true);
+  rcSwapMark.style.left=pos+'%'; rcSwapMark.style.display='block';
+  rcSwapMark.classList.toggle('flip', pos>80);
+  rcSwapBtn.disabled=true;
+}
+function rcFinish(){
+  const r=rcRun; rcRun=null;
+  rcStartBtn.disabled=false; rcSwapBtn.disabled=true; rcGapEl.disabled=false; rcFix.disabled=false;
+  renderRcCode(null);
+  let kind;
+  if(!r.swapped) kind='none';
+  else if(r.fix) kind='fixed';
+  else if(r.denied) kind='early';
+  else if(r.savedRole==='admin') kind='hit';
+  else kind='late';
+  if(r.swapped){ rcTries++; if(kind==='hit') rcHits++; }
+  rcEl('rc-score').textContent='Admin hits: '+rcHits+' / '+rcTries+' tries';
+
+  if(kind==='none'){
+    setBanner(rcBanner,'ok','Normal request — you’re still a regular user.');
+    rcExplain.textContent='Now send it again and hit Swap inside the yellow window.';
+    rcDash.innerHTML=rcDashHtml('user');
+  }else if(kind==='early'){
+    setBanner(rcBanner,'bad','Too early — CHECK saw role=admin and blocked it.');
+    rcExplain.textContent='Wait until the playhead passes CHECK.';
+    rcDash.innerHTML=rcDashHtml('denied');
+  }else if(kind==='hit'){
+    setBanner(rcBanner,'breach','You’re admin! You swapped after CHECK but before SAVE.');
+    rcExplain.textContent='The server checked the data, then used it later without checking again.';
+    rcDash.innerHTML=rcDashHtml('admin');
+  }else if(kind==='late'){
+    setBanner(rcBanner,'bad','Too late — the request was already saved.');
+    rcExplain.textContent='Swap before the playhead reaches SAVE.';
+    rcDash.innerHTML=rcDashHtml('user');
+  }else{
+    setBanner(rcBanner,'ok','Swap ignored — the server checked and saved its own frozen copy.');
+    rcExplain.textContent='No gap to sneak into, no matter when you click.';
+    rcDash.innerHTML=rcDashHtml('user');
+  }
+}
+makeChips('rc-chips', [
+  {label:'Wide window', desc:'Easy to hit', gap:40, fix:false},
+  {label:'Narrow window', desc:'Hard — real attackers retry thousands of times', gap:7, fix:false},
+  {label:'Fix turned on', desc:'Try to win — you can’t', gap:30, fix:true}
+], p=>{ if(rcRun) return; rcGapEl.value=p.gap; rcFix.checked=p.fix; rcLayout(); renderRcCode(null); });
+rcStartBtn.addEventListener('click', rcStartRun);
+rcSwapBtn.addEventListener('click', rcSwap);
+rcGapEl.addEventListener('input', rcLayout);
+rcFix.addEventListener('change', ()=>{ rcLayout(); renderRcCode(null); });
+document.addEventListener('keydown', e=>{
+  if(e.key!==' ' || !rcRun) return;
+  if(!rcEl('race-panel').classList.contains('active')) return;
+  e.preventDefault(); rcSwap();
+});
+rcLayout(); renderRcCode(null);
+
+/* ---------- DIRECTORY TRAVERSAL ---------- */
+const BASE='/var/www/files';
+const FS={
+  '/var/www/files/notes.txt':'Staff meeting moved to 3pm Friday.',
+  '/var/www/files/report.txt':'Q3 sales: up 4%.',
+  '/etc/passwd':'root:x:0:0:root:/root:/bin/bash\nadmin:x:1000:1000:Site Admin:/home/admin:/bin/bash\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin',
+  '/var/www/app/config.php':"<?php\n$db_user = 'app';\n$db_pass = 'Sup3rS3cret!';\n?>"
+};
+const tvInput=document.getElementById('tv-input'), tvFix=document.getElementById('tv-fix');
+const tvCode=document.getElementById('tv-code'), tvWalk=document.getElementById('tv-walk'), tvUrl=document.getElementById('tv-url');
+const tvBanner=document.getElementById('tv-banner'), tvExplain=document.getElementById('tv-explain'), tvOut=document.getElementById('tv-out');
+
+function renderTvCode(v){
+  const shown = v===undefined ? 'file' : '"'+v+'"';
+  let h='<div class="scan-line"></div>'+span('hl-static','path = "/var/www/files/" + ')+span('hl-input',shown);
+  if(tvFix.checked){
+    h+=span('hl-static','\npath = realpath(path)')+span('hl-code','          # resolve all ../')
+      +span('hl-static','\nif not path.startswith("/var/www/files/"):\n    deny()');
+  }
+  h+=span('hl-static','\nreturn open(path).read()');
+  tvCode.innerHTML=h;
+}
+renderTvCode();
+tvFix.addEventListener('change', ()=>{ renderTvCode(tvInput.value||undefined); });
+
+function walkPath(input){
+  let decoded=input;
+  try{ decoded=decodeURIComponent(input); }catch(e){}
+  const parts=BASE.split('/').filter(Boolean);
+  const steps=[{label:'Start', path:'/'+parts.join('/')}];
+  decoded.split('/').forEach(seg=>{
+    if(seg==='' || seg==='.') return;
+    if(seg==='..'){ parts.pop(); steps.push({label:'../ (go up)', path:'/'+parts.join('/'), up:true}); }
+    else { parts.push(seg); steps.push({label:seg, path:'/'+parts.join('/')}); }
+  });
+  return {decoded, final:'/'+parts.join('/'), steps};
+}
+const inside = p => p.startsWith(BASE+'/');
+
+function runTrav(){
+  const v=tvInput.value.trim();
+  if(!v) return;
+  tvUrl.innerHTML='https://site.test/view?file=<b>'+escapeHtml(v)+'</b>';
+  renderTvCode(v); scan(tvCode);
+  const w=walkPath(v);
+  let h='';
+  if(w.decoded!==v) h+='<div class="walk-step up"><span class="w-label">URL-decoded</span><span class="w-arrow">\u2192</span><span>'+escapeHtml(w.decoded)+'</span></div>';
+  w.steps.forEach((s,i)=>{
+    const out = i>0 && !inside(s.path) && s.path!==BASE;
+    h+='<div class="walk-step'+(out?' outside':(s.up?' up':''))+'"><span class="w-label">'+escapeHtml(s.label)+'</span><span class="w-arrow">\u2192</span><span>'+escapeHtml(s.path||'/')+'</span></div>';
+  });
+  tvWalk.innerHTML=h;
+  tvOut.innerHTML=''; tvExplain.textContent='';
+
+  const final=w.final, escaped=!inside(final), exists=Object.prototype.hasOwnProperty.call(FS,final);
+  if(tvFix.checked && escaped){
+    setBanner(tvBanner,'ok','Blocked — path left the files folder.');
+    tvExplain.textContent='The server resolved the ../ first, then checked where the path really points.';
+    return;
+  }
+  if(!exists){
+    setBanner(tvBanner,'bad','404 — file not found: '+final);
+    return;
+  }
+  if(escaped){
+    setBanner(tvBanner,'breach','Read a private file: '+final);
+    tvExplain.textContent='Each ../ climbed one folder up, right out of the public folder.';
+    tvOut.innerHTML='<pre class="file-out leak">'+escapeHtml(FS[final])+'</pre>';
+  }else{
+    setBanner(tvBanner,'ok','Opened '+final+' — normal.');
+    tvOut.innerHTML='<pre class="file-out">'+escapeHtml(FS[final])+'</pre>';
+  }
+}
+makeChips('tv-chips', [
+  {label:"notes.txt", desc:"Normal file", v:"notes.txt"},
+  {label:"../../../etc/passwd", desc:"Climb up to the system's user list", v:"../../../etc/passwd"},
+  {label:"../app/config.php", desc:"Steal the database password", v:"../app/config.php"},
+  {label:"..%2f..%2f..%2fetc%2fpasswd", desc:"Same trick, URL-encoded to hide it", v:"..%2f..%2f..%2fetc%2fpasswd"}
+], p=>{ tvInput.value=p.v; runTrav(); });
+document.getElementById('tv-run').addEventListener('click', runTrav);
+tvInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runTrav(); });
+document.getElementById('tv-reset').addEventListener('click', ()=>{
+  tvInput.value=''; tvUrl.textContent='https://site.test/view?file='; renderTvCode();
+  tvWalk.innerHTML='<div class="empty-note">Open a file to see the path walk.</div>';
+  clearBanner(tvBanner); tvExplain.textContent=''; tvOut.innerHTML='';
+});
+
 /* ---------- QUIZ ---------- */
 const QUIZ = [
-  {
-    section: "SQL injection",
-    q: "In the login form, would <code>admin'--</code> as the username log you in with any password?",
-    options: [
-      "Yes — the -- comments out everything after it, including the password check",
-      "No — it's missing a closing quotation mark, so the query would just error out",
-      "No — the database blocks the -- character on purpose",
-      "Yes — but only because \"admin\" happens to be a real username, the quote does nothing"
-    ],
-    correct: 0,
-    feedback: "The <b>'</b> closes the username string early, and <b>--</b> turns everything after it into a comment. The query becomes \"find a user named admin\" with no password check left to fail."
-  },
-  {
-    q: "Why does <code>' OR '1'='1' --</code> log you in without knowing a real password?",
-    options: [
-      "The database treats blank passwords as always valid",
-      "'1'='1' is always true, so the WHERE clause matches every row, and -- removes the password check",
-      "OR automatically deletes the AND condition, regardless of what comes after it",
-      "The app detects the quote character and assumes you're a tester"
-    ],
-    correct: 1,
-    feedback: "'1'='1' is always true. Once the WHERE clause is true for a row, that row is returned as a match — and the -- comment removes the AND password check that would otherwise still apply."
-  },
-  {
-    q: "In the search box, why does <code>' UNION SELECT username, password, role, 1 FROM users --</code> leak the user table?",
-    options: [
-      "The search box searches every table by default once it sees a quote",
-      "UNION deletes the products table and replaces it with the users table",
-      "UNION combines the results of a second, attacker-written SELECT statement onto the original results",
-      "It doesn't actually work — UNION requires admin privileges"
-    ],
-    correct: 2,
-    feedback: "UNION joins two independent SELECT statements into one result set. The app just displays whatever rows come back — it has no way to know the second batch came from a table it never meant to expose."
-  },
-  {
-    q: "Why does <code>' UNION SELECT username, password FROM users --</code> fail with a column-count error instead of returning data?",
-    options: [
-      "\"users\" isn't a real table name",
-      "-- isn't a valid comment character in this database",
-      "UNION can only select one column at a time",
-      "UNION requires both SELECT statements to return the same number of columns"
-    ],
-    correct: 3,
-    feedback: "The product search selects 4 columns (id, name, description, price). A UNION SELECT with only 2 columns can't line up with that, so the database rejects it — which is exactly how attackers count columns by trial and error."
-  },
-  {
-    q: "What's the actual root problem being demonstrated in this whole simulator?",
-    options: [
-      "User input is being combined directly into a SQL query as executable code instead of being treated as plain data",
-      "The database software itself has a bug in its search function",
-      "Login forms should never ask for a password",
-      "The site is running an outdated version of SQL"
-    ],
-    correct: 0,
-    feedback: "Every SQLi payload here works the same way: text you typed became part of the command the database executes, instead of staying a harmless value being searched for. That gap is fixed with parameterized queries, not by finding and banning individual payloads."
-  },
-  {
-    section: "Cross-site scripting (XSS)",
-    q: "What's the real difference between reflected and stored XSS?",
-    options: [
-      "Reflected only affects someone who submits or clicks a link containing the payload; stored gets saved and runs for every future visitor",
-      "Reflected is always more dangerous because it steals passwords automatically",
-      "Stored XSS only works on image tags",
-      "There's no real difference — they're the same attack with different names"
-    ],
-    correct: 0,
-    feedback: "Reflected XSS lives in a single request — it only fires for whoever makes that exact request (usually by clicking a crafted link). Stored XSS is saved on the server and fires for every visitor who simply opens the page afterward, no crafted link needed."
-  },
-  {
-    q: "Why does <code>&lt;img src=x onerror=\"alert('XSS')\"&gt;</code> cause a popup even though it's not a &lt;script&gt; tag?",
-    options: [
-      "The browser secretly converts img tags into script tags",
-      "onerror is a JavaScript event-handler attribute, and the browser runs it when the broken image fails to load",
-      "The alt text is treated as executable code",
-      "src=x is a special reserved value that always triggers scripts"
-    ],
-    correct: 1,
-    feedback: "HTML elements have built-in event-handler attributes (onerror, onclick, onload, and more) that hold JavaScript. A broken image (src=x isn't a real file) fires onerror, and whatever code is inside runs — no &lt;script&gt; tag required."
-  },
-  {
-    q: "In the reflected search demo, why does typing <code>&lt;b&gt;hello&lt;/b&gt;</code> make \"hello\" show up bold instead of as literal text?",
-    options: [
-      "The browser autocorrects search boxes",
-      "Bold tags are a special exception that always renders",
-      "The page inserts your input directly into its HTML instead of treating it as plain text, so the browser parses it as a real tag",
-      "It doesn't actually work — that's a trick question"
-    ],
-    correct: 2,
-    feedback: "The page never escaped your input before dropping it into the HTML, so the browser can't tell your text apart from real markup written by the page itself. If a &lt;b&gt; tag can sneak through, so can a &lt;script&gt; tag."
-  },
-  {
-    q: "What's the actual fix for XSS — not just blocking specific payloads like &lt;script&gt;?",
-    options: [
-      "Banning the word \"script\" from user input",
-      "Escaping/encoding user input so it's always displayed as text and never parsed as HTML",
-      "Making every input box read-only",
-      "Only allowing image uploads instead of text"
-    ],
-    correct: 1,
-    feedback: "Blocklisting specific words or tags is a losing game — there are dozens of ways to trigger JavaScript besides &lt;script&gt;. Escaping output (turning &lt; into &amp;lt;, for example) means user input can never be parsed as a tag or attribute in the first place, no matter what it contains."
-  },
-  {
-    q: "Why is stored XSS on a comment wall generally considered more dangerous than reflected XSS on a search box?",
-    options: [
-      "It isn't — reflected is always worse",
-      "Stored XSS only works on mobile devices",
-      "Every visitor who simply views the page gets attacked automatically — no crafted link or tricking anyone into clicking is needed",
-      "Reflected XSS requires a password and stored doesn't"
-    ],
-    correct: 2,
-    feedback: "Reflected XSS needs a victim to click a specific crafted link. Stored XSS just sits there — anyone who visits the page normally, with no suspicious link at all, triggers it automatically."
-  }
+  { section:"SQL injection",
+    q:"Why does <code>admin'--</code> log you in with any password?",
+    options:["The -- comments out the password check","The database skips passwords for admin","The missing quote causes an error that logs you in","It doesn't work"],
+    correct:0,
+    feedback:"The <b>'</b> ends the username string. The <b>--</b> turns the rest (the password check) into a comment." },
+  { q:"What's the real fix for SQL injection?",
+    options:["Ban the words OR and UNION","Hide error messages","Parameterized queries (input is always data, never code)","Use longer passwords"],
+    correct:2,
+    feedback:"Parameterized queries keep input as a value. Blocking words is easy to get around." },
+  { section:"Cross-site scripting (XSS)",
+    q:"Reflected vs. stored XSS — what's the difference?",
+    options:["No real difference","Reflected hits whoever sends/clicks it; stored is saved and hits every visitor","Stored only works with image tags","Reflected is always worse"],
+    correct:1,
+    feedback:"Stored XSS lives on the site, so everyone who opens the page gets hit." },
+  { q:"What's the real fix for XSS?",
+    options:["Ban the word \"script\"","Escape output so input shows as text, not HTML","Make inputs read-only","Only allow images"],
+    correct:1,
+    feedback:"Escaping turns &lt; into &amp;lt;, so the browser never treats input as a tag." },
+  { section:"Buffer overflow",
+    q:"Typing 10 letters into <code>name[8]</code> made you admin. Why?",
+    options:["The program trusts long names","Extra bytes spilled into the next variable (is_admin)","Admins have longer names","The letter B means admin"],
+    correct:1,
+    feedback:"With no length check, the extra bytes overwrote is_admin next door in memory." },
+  { q:"What stops a buffer overflow?",
+    options:["Check input length before copying it","Use a bigger monitor","Make the user type slower","Add more RAM"],
+    correct:0,
+    feedback:"Bounds checks (or safe copy functions) keep input inside its box." },
+  { section:"Race condition",
+    q:"Your swap only worked between CHECK and SAVE. Why?",
+    options:["The server runs slower in the middle","The server checked the data, then used it later without checking again","Admins can always swap requests","SAVE deletes the CHECK"],
+    correct:1,
+    feedback:"This is <b>time-of-check to time-of-use (TOCTOU)</b>. Anything changed in the gap is never re-checked." },
+  { q:"What fixes this race condition?",
+    options:["Make the server faster","Check and save the same frozen copy (or lock it) so nothing can change in between","Hide the Swap button","Show a warning message"],
+    correct:1,
+    feedback:"A faster server only shrinks the window. Freezing or locking the data closes it." },
+  { section:"Directory traversal",
+    q:"What does each <code>../</code> do in a file path?",
+    options:["Opens a hidden file","Goes up one folder","Deletes a folder","Nothing"],
+    correct:1,
+    feedback:"Enough ../ climbs out of the public folder into the rest of the server." },
+  { q:"What's the best fix for directory traversal?",
+    options:["Remove \"../\" from the input once","Resolve the full path, then confirm it's still inside the allowed folder","Rename /etc/passwd","Use HTTPS"],
+    correct:1,
+    feedback:"Stripping ../ is easy to bypass (encoding, ....//). Check where the path really ends up." }
 ];
 
-const quizQuestionsEl = document.getElementById('quiz-questions');
-QUIZ.forEach((item, qi)=>{
+const quizQuestionsEl=document.getElementById('quiz-questions');
+let quizGraded=false;
+QUIZ.forEach((item,qi)=>{
   if(item.section){
-    const header = document.createElement('div');
-    header.className = 'panel-label';
-    header.style.marginTop = qi===0 ? '4px' : '22px';
-    header.textContent = item.section;
-    quizQuestionsEl.appendChild(header);
+    const h=document.createElement('div');
+    h.className='panel-label'; h.style.marginTop=qi===0?'18px':'26px';
+    h.textContent=item.section;
+    quizQuestionsEl.appendChild(h);
   }
-  const block = document.createElement('div');
-  block.className = 'qz-q';
-  block.innerHTML =
-    '<div class="qz-num">Question '+(qi+1)+' of '+QUIZ.length+'</div>'+
-    '<div class="qz-prompt">'+item.q+'</div>'+
-    '<div class="qz-opts" id="qz-opts-'+qi+'"></div>'+
-    '<div class="qz-fb" id="qz-fb-'+qi+'">'+item.feedback+'</div>';
+  const block=document.createElement('div');
+  block.className='qz-q';
+  block.innerHTML='<div class="qz-num">Question '+(qi+1)+' of '+QUIZ.length+'</div>'
+    +'<div class="qz-prompt">'+item.q+'</div>'
+    +'<div class="qz-opts" id="qz-opts-'+qi+'"></div>'
+    +'<div class="qz-fb" id="qz-fb-'+qi+'">'+item.feedback+'</div>';
   quizQuestionsEl.appendChild(block);
-  const optsEl = block.querySelector('#qz-opts-'+qi);
-  item.options.forEach((opt, oi)=>{
-    const row = document.createElement('label');
-    row.className = 'qz-opt';
-    row.dataset.qi = qi;
-    row.dataset.oi = oi;
-    row.innerHTML = '<input type="radio" name="qz-'+qi+'" value="'+oi+'"> <span>'+opt+'</span>';
+  const optsEl=block.querySelector('#qz-opts-'+qi);
+  item.options.forEach((opt,oi)=>{
+    const row=document.createElement('label');
+    row.className='qz-opt'; row.dataset.oi=oi;
+    row.innerHTML='<input type="radio" name="qz-'+qi+'" value="'+oi+'"> <span>'+escapeHtml(opt)+'</span>';
     row.addEventListener('click', ()=>{
       if(quizGraded) return;
       optsEl.querySelectorAll('.qz-opt').forEach(r=>r.classList.remove('selected'));
@@ -1245,55 +1422,41 @@ QUIZ.forEach((item, qi)=>{
   });
 });
 
-let quizGraded = false;
-
 document.getElementById('quiz-submit').addEventListener('click', ()=>{
   if(quizGraded) return;
-  let unanswered = [];
+  const missing=[];
+  QUIZ.forEach((_,qi)=>{ if(!document.querySelector('input[name="qz-'+qi+'"]:checked')) missing.push(qi+1); });
+  if(missing.length){ alert('Answer question'+(missing.length>1?'s':'')+' '+missing.join(', ')+' first.'); return; }
+  let score=0;
   QUIZ.forEach((item,qi)=>{
-    const picked = document.querySelector('input[name="qz-'+qi+'"]:checked');
-    if(!picked) unanswered.push(qi+1);
-  });
-  if(unanswered.length){
-    alert('Answer question'+(unanswered.length>1?'s':'')+' '+unanswered.join(', ')+' before submitting.');
-    return;
-  }
-
-  let score = 0;
-  QUIZ.forEach((item,qi)=>{
-    const picked = parseInt(document.querySelector('input[name="qz-'+qi+'"]:checked').value,10);
-    const optsEl = document.getElementById('qz-opts-'+qi);
-    optsEl.querySelectorAll('.qz-opt').forEach(row=>{
-      const oi = parseInt(row.dataset.oi,10);
+    const picked=parseInt(document.querySelector('input[name="qz-'+qi+'"]:checked').value,10);
+    document.getElementById('qz-opts-'+qi).querySelectorAll('.qz-opt').forEach(row=>{
+      const oi=parseInt(row.dataset.oi,10);
       row.classList.remove('selected');
       if(oi===item.correct) row.classList.add('correct');
       else if(oi===picked) row.classList.add('incorrect');
-      row.querySelector('input').disabled = true;
+      row.querySelector('input').disabled=true;
     });
     document.getElementById('qz-fb-'+qi).classList.add('show');
     if(picked===item.correct) score++;
   });
-
-  quizGraded = true;
-  const name = document.getElementById('quiz-name').value.trim();
-  const card = document.getElementById('quiz-scorecard');
+  quizGraded=true;
+  const name=document.getElementById('quiz-name').value.trim();
+  const card=document.getElementById('quiz-scorecard');
   card.style.display='block';
-  document.getElementById('quiz-score-name').textContent = (name||'Student') + '  \u2022  ' + new Date().toLocaleDateString();
-  const bigEl = document.getElementById('quiz-score-big');
-  bigEl.textContent = score+' / '+QUIZ.length;
-  bigEl.style.color = score===QUIZ.length ? 'var(--green)' : (score>=Math.ceil(QUIZ.length*0.6) ? 'var(--amber)' : 'var(--red)');
+  document.getElementById('quiz-score-name').textContent=(name||'Student')+'  \u2022  '+new Date().toLocaleDateString();
+  const big=document.getElementById('quiz-score-big');
+  big.textContent=score+' / '+QUIZ.length;
+  big.style.color = score===QUIZ.length ? 'var(--green)' : (score>=Math.ceil(QUIZ.length*0.6) ? 'var(--amber)' : 'var(--red)');
   card.scrollIntoView({behavior:'smooth', block:'start'});
-
   document.getElementById('quiz-submit').style.display='none';
   document.getElementById('quiz-retake').style.display='block';
 });
-
 document.getElementById('quiz-retake').addEventListener('click', ()=>{
-  quizGraded = false;
+  quizGraded=false;
   document.querySelectorAll('.qz-opt').forEach(row=>{
     row.classList.remove('selected','correct','incorrect');
-    row.querySelector('input').disabled = false;
-    row.querySelector('input').checked = false;
+    const inp=row.querySelector('input'); inp.disabled=false; inp.checked=false;
   });
   document.querySelectorAll('.qz-fb').forEach(fb=>fb.classList.remove('show'));
   document.getElementById('quiz-scorecard').style.display='none';
